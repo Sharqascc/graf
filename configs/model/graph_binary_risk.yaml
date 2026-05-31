@@ -1,0 +1,28 @@
+task: binary_risk_classification
+label_name: risk_label
+positive_definition: high_risk_ssm_event_present
+node_feature_set:
+  - x
+  - y
+  - vx
+  - vy
+  - ax
+  - ay
+  - speed
+  - acceleration
+  - heading
+  - class_one_hot
+edge_feature_set:
+  - dx
+  - dy
+  - distance
+  - dvx
+  - dvy
+  - relative_speed
+  - bearing
+  - heading_delta
+  - same_class
+split_strategy: by_site
+batch_size: 32
+learning_rate: 0.001
+epochs: 30
