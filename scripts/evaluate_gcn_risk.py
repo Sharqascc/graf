@@ -1,51 +1,82 @@
 from __future__ import annotations
 
+import argparse
+import math
+from pathlib import Path
+
 from graf.data.graph_dataset import GraphSampleDataset
 from graf.evaluation.binary_metrics import binary_classification_metrics
-from graf.graph.builders import build_graph_for_frame
 from graf.models.gcn_risk import build_model
+from graf.utils.io import ensure_dir, write_json, write_jsonl
 
 
-def build_demo_dataset() -> GraphSampleDataset:
-    samples = [
-        {
-            "graph": build_graph_for_frame([
-                {"track_id": 1, "frame_id": 1, "actor_class": "car", "x": 0.0, "y": 0.0, "vx": 2.0, "vy": 0.0},
-                {"track_id": 2, "frame_id": 1, "actor_class": "two_wheeler", "x": 2.0, "y": 1.0, "vx": 1.0, "vy": 0.2},
-            ], radius=5.0, actor_classes=["car", "two_wheeler"]),
-            "label": 1,
-        },
-        {
-            "graph": build_graph_for_frame([
-                {"track_id": 3, "frame_id": 2, "actor_class": "car", "x": 0.0, "y": 0.0, "vx": 2.0, "vy": 0.0},
-                {"track_id": 4, "frame_id": 2, "actor_class": "pedestrian", "x": 9.0, "y": 1.0, "vx": 0.2, "vy": 0.0},
-            ], radius=5.0, actor_classes=["car", "pedestrian"]),
-            "label": 0,
-        },
-    ]
-    return GraphSampleDataset(samples)
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Evaluate a saved GCN risk checkpoint.")
+    parser.add_argument("--graphs", type=str, required=True, help="Path to graph samples JSONL.")
+    parser.add_argument("--checkpoint", type=str, required=True, help="Path to model checkpoint.")
+    parser.add_argument("--outdir", type=str, default="outputs/eval/gcn_risk", help="Output directory.")
+    return parser.parse_args()
 
 
 def main() -> None:
-    dataset = build_demo_dataset()
-    sample = dataset[0]
-    in_channels = sample.x.size(-1) if hasattr(sample, "x") else len(sample["x"][0])
-    model = build_model(in_channels=in_channels, hidden_channels=16)
+    args = parse_args()
 
     try:
         import torch
-        from torch_geometric.loader import DataLoader
-    except Exception:
-        print("Torch/PyG not installed; cannot run evaluation.")
-        return
+    except Exception as exc:
+        raise RuntimeError("Torch is required for evaluation.") from exc
 
-    loader = DataLoader(dataset, batch_size=2, shuffle=False)
-    batch = next(iter(loader))
+    dataset = GraphSampleDataset.from_jsonl(args.graphs)
+    if len(dataset) == 0:
+        raise RuntimeError("Dataset is empty.")
+
+    checkpoint = torch.load(args.checkpoint, map_location="cpu")
+    config = checkpoint.get("config", {})
+    hidden_channels = int(config.get("hidden_channels", 64))
+
+    sample = dataset[0]
+    in_channels = sample.x.size(-1)
+    model = build_model(in_channels=in_channels, hidden_channels=hidden_channels)
+    if not hasattr(model, "load_state_dict"):
+        raise RuntimeError("Loaded fallback non-torch model. Torch/PyG install is incomplete.")
+
+    model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
-    with torch.no_grad():
-        logits = model(batch).cpu().tolist()
-    y_true = batch.y.view(-1).cpu().tolist()
+
+    rows = []
+    logits = []
+    y_true = []
+
+    for idx in range(len(dataset)):
+        item = dataset[idx]
+        with torch.no_grad():
+            out = model(item)
+        logit = float(out.detach().cpu().view(-1)[0].item())
+        prob = 1.0 / (1.0 + math.exp(-logit))
+
+        sample_meta = dataset.samples[idx]
+        label = int(sample_meta.get("label", 0))
+
+        rows.append({
+            "sample_id": sample_meta.get("sample_id", str(idx)),
+            "site_id": sample_meta.get("site_id", ""),
+            "video_id": sample_meta.get("video_id", ""),
+            "window_id": sample_meta.get("window_id", ""),
+            "label": label,
+            "logit": logit,
+            "prob": prob,
+            "pred_label": int(prob >= 0.5),
+        })
+        logits.append(logit)
+        y_true.append(label)
+
     metrics = binary_classification_metrics(y_true, logits)
+
+    out_dir = ensure_dir(args.outdir)
+    write_json(out_dir / "metrics.json", metrics)
+    write_jsonl(out_dir / "predictions.jsonl", rows)
+
+    print(f"saved_eval_dir={out_dir}")
     print({k: round(v, 4) for k, v in metrics.items()})
 
 
