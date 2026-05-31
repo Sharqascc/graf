@@ -1,0 +1,6 @@
+model_name: yolov8
+weights: null
+conf_threshold: 0.25
+iou_threshold: 0.5
+imgsz: 1280
+classes: null

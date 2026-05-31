@@ -1,0 +1,6 @@
+graph_type: interaction_graph
+node_type: actor
+edge_type: proximity_conflict_kinematic
+time_window_frames: 30
+distance_threshold_m: 10.0
+directed: true

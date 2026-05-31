@@ -1,0 +1,14 @@
+dataset_name: india_unsignalized
+country: India
+road_type: urban_unsignalized_intersection
+actor_classes:
+  - pedestrian
+  - bicycle
+  - two_wheeler
+  - auto_rickshaw
+  - car
+  - van
+  - bus
+  - truck
+fps: null
+notes: "Mixed traffic, vulnerable road users, lane-indiscipline-aware."

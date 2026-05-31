@@ -1,0 +1,3 @@
+metric: PET
+threshold_seconds: 1.5
+conflict_zone_source: roi_overlap

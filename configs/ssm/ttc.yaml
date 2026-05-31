@@ -1,0 +1,3 @@
+metric: TTC
+threshold_seconds: 3.0
+min_speed_mps: 0.1

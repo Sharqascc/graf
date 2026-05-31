@@ -1,0 +1,6 @@
+site_id: site_01_ahmedabad_unsignalized
+city: Ahmedabad
+state: Gujarat
+country: India
+intersection_type: unsignalized
+camera_view: roadside_or_elevated
