@@ -16,87 +16,100 @@ def _f(d: dict[str, Any], key: str, default: float = 0.0) -> float:
         return float(default)
 
 
-def _node_id(node: dict[str, Any], fallback: int) -> str:
-    return str(node.get("id", node.get("node_id", fallback)))
+def _feature_list(node: dict[str, Any]) -> list[float]:
+    feats = node.get("features")
+    if isinstance(feats, list) and feats:
+        out: list[float] = []
+        for v in feats:
+            try:
+                out.append(float(v))
+            except (TypeError, ValueError):
+                out.append(0.0)
+        return out
+
+    class_one_hot = node.get("class_one_hot", [])
+    safe_one_hot: list[float] = []
+    if isinstance(class_one_hot, list):
+        for v in class_one_hot:
+            try:
+                safe_one_hot.append(float(v))
+            except (TypeError, ValueError):
+                safe_one_hot.append(0.0)
+
+    return [
+        _f(node, "x"),
+        _f(node, "y"),
+        _f(node, "vx"),
+        _f(node, "vy"),
+        _f(node, "speed"),
+        _f(node, "acceleration", _f(node, "ax")),
+        _f(node, "heading"),
+        *safe_one_hot,
+    ]
 
 
-def _node_matrix(nodes: list[dict[str, Any]]) -> tuple[torch.Tensor, dict[str, int]]:
-    rows: list[list[float]] = []
-    id_map: dict[str, int] = {}
-
-    for idx, node in enumerate(nodes):
-        id_map[_node_id(node, idx)] = idx
-        rows.append([
-            _f(node, "x"),
-            _f(node, "y"),
-            _f(node, "vx"),
-            _f(node, "vy"),
-            _f(node, "speed"),
-            _f(node, "ax"),
-            _f(node, "ay"),
-            _f(node, "heading"),
-            _f(node, "size"),
-            _f(node, "risk_score"),
-        ])
-
+def _node_matrix(nodes: list[dict[str, Any]]) -> torch.Tensor:
+    rows = [_feature_list(node) for node in nodes]
     if not rows:
-        rows = [[0.0] * 10]
-
-    return torch.tensor(rows, dtype=torch.float), id_map
-
-
-def _edge_endpoints(edge: dict[str, Any]) -> tuple[Any, Any]:
-    src = edge.get("source", edge.get("src", edge.get("u")))
-    dst = edge.get("target", edge.get("dst", edge.get("v")))
-    return src, dst
+        rows = [[0.0]]
+    width = max(len(r) for r in rows)
+    rows = [r + [0.0] * (width - len(r)) for r in rows]
+    return torch.tensor(rows, dtype=torch.float)
 
 
-def _edge_index(edges: list[dict[str, Any]], id_map: dict[str, int], num_nodes: int) -> torch.Tensor:
+def _edge_endpoints(edge: dict[str, Any]) -> tuple[int | None, int | None]:
+    if "src_node" in edge and "dst_node" in edge:
+        try:
+            return int(edge["src_node"]), int(edge["dst_node"])
+        except (TypeError, ValueError):
+            return None, None
+
+    for s_key, d_key in [("source", "target"), ("src", "dst"), ("u", "v")]:
+        if s_key in edge and d_key in edge:
+            try:
+                return int(edge[s_key]), int(edge[d_key])
+            except (TypeError, ValueError):
+                return None, None
+
+    return None, None
+
+
+def _edge_index(edges: list[dict[str, Any]], num_nodes: int) -> tuple[torch.Tensor, list[dict[str, Any]]]:
     pairs: list[list[int]] = []
+    kept_edges: list[dict[str, Any]] = []
 
     for edge in edges:
-        raw_src, raw_dst = _edge_endpoints(edge)
-
-        if raw_src is None or raw_dst is None:
+        src, dst = _edge_endpoints(edge)
+        if src is None or dst is None:
             continue
-
-        src_key = str(raw_src)
-        dst_key = str(raw_dst)
-
-        if src_key in id_map and dst_key in id_map:
-            src = id_map[src_key]
-            dst = id_map[dst_key]
-        else:
-            try:
-                src = int(raw_src)
-                dst = int(raw_dst)
-            except (TypeError, ValueError):
-                continue
-
         if 0 <= src < num_nodes and 0 <= dst < num_nodes:
             pairs.append([src, dst])
+            kept_edges.append(edge)
 
     if not pairs:
-        return torch.empty((2, 0), dtype=torch.long)
+        return torch.empty((2, 0), dtype=torch.long), []
 
-    return torch.tensor(pairs, dtype=torch.long).t().contiguous()
+    return torch.tensor(pairs, dtype=torch.long).t().contiguous(), kept_edges
 
 
-def _edge_attr(edges: list[dict[str, Any]], edge_count: int) -> torch.Tensor:
+def _edge_attr(edges: list[dict[str, Any]]) -> torch.Tensor:
     rows: list[list[float]] = []
-
     for edge in edges:
         rows.append([
+            _f(edge, "dx"),
+            _f(edge, "dy"),
             _f(edge, "distance"),
-            _f(edge, "ttc"),
-            _f(edge, "pet"),
-            _f(edge, "risk_score"),
+            _f(edge, "dvx"),
+            _f(edge, "dvy"),
+            _f(edge, "relative_speed"),
+            _f(edge, "bearing"),
+            _f(edge, "heading_delta"),
+            1.0 if bool(edge.get("same_class", False)) else 0.0,
         ])
 
     if not rows:
-        return torch.empty((0, 4), dtype=torch.float)
+        return torch.empty((0, 9), dtype=torch.float)
 
-    rows = rows[:edge_count]
     return torch.tensor(rows, dtype=torch.float)
 
 
@@ -104,9 +117,9 @@ def to_pyg_dict(graph: dict[str, Any]) -> dict[str, Any]:
     nodes = graph.get("nodes", [])
     edges = graph.get("edges", [])
 
-    x, id_map = _node_matrix(nodes)
-    edge_index = _edge_index(edges, id_map=id_map, num_nodes=x.size(0))
-    edge_attr = _edge_attr(edges, edge_count=edge_index.size(1))
+    x = _node_matrix(nodes)
+    edge_index, kept_edges = _edge_index(edges, num_nodes=x.size(0))
+    edge_attr = _edge_attr(kept_edges)
 
     payload = {
         "x": x,
@@ -115,11 +128,11 @@ def to_pyg_dict(graph: dict[str, Any]) -> dict[str, Any]:
         "y": torch.tensor([_f(graph, "label")], dtype=torch.float),
     }
 
-    if "site_id" in graph:
-        payload["site_id"] = graph["site_id"]
-    if "sample_id" in graph:
-        payload["sample_id"] = graph["sample_id"]
+    for key in ["site_id", "sample_id", "video_id", "window_id", "frame_id"]:
+        if key in graph:
+            payload[key] = graph[key]
 
+    payload["num_nodes"] = x.size(0)
     return payload
 
 

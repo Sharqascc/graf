@@ -6,6 +6,7 @@ from datetime import datetime, UTC
 from pathlib import Path
 
 from graf.data.graph_dataset import GraphSampleDataset
+from graf.graph.pyg_export import to_pyg_data
 from graf.evaluation.binary_metrics import binary_classification_metrics
 from graf.models.gcn_risk import build_model
 from graf.utils.io import ensure_dir, get_git_commit, snapshot_environment, write_json, write_jsonl
@@ -110,7 +111,8 @@ def main() -> None:
     except Exception as exc:
         raise RuntimeError("Torch and torch_geometric must be installed to train the GCN risk model.") from exc
 
-    dataset = GraphSampleDataset.from_jsonl(args.graphs)
+    raw_dataset = GraphSampleDataset.from_jsonl(args.graphs)
+    dataset = [to_pyg_data(sample) for sample in raw_dataset.samples]
     if len(dataset) < 2:
         raise RuntimeError("Need at least 2 graph samples to train/evaluate.")
 
