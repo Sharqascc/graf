@@ -28,14 +28,14 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _sample_meta(dataset: GraphSampleDataset, index: int) -> dict:
-    sample = dataset.samples[index]
+def _sample_meta(dataset, index: int) -> dict:
+    sample = dataset[index]
     return {
-        "sample_id": sample.get("sample_id", str(index)),
-        "site_id": sample.get("site_id", ""),
-        "video_id": sample.get("video_id", ""),
-        "window_id": sample.get("window_id", ""),
-        "label": int(sample.get("label", 0)),
+        "sample_id": getattr(sample, "sample_id", str(index)),
+        "site_id": getattr(sample, "site_id", ""),
+        "video_id": getattr(sample, "video_id", ""),
+        "window_id": getattr(sample, "window_id", ""),
+        "label": int(getattr(sample, "y", 0).item() if hasattr(getattr(sample, "y", 0), "item") else getattr(sample, "y", 0)),
     }
 
 
@@ -75,8 +75,8 @@ def grouped_split_indices(samples: list[dict], group_key: str, val_frac: float, 
         return train_idx, val_idx
 
 
-def build_subset(dataset: GraphSampleDataset, indices: list[int]) -> GraphSampleDataset:
-    return GraphSampleDataset([dataset.samples[i] for i in indices])
+def build_subset(dataset, indices):
+    return [dataset[i] for i in indices]
 
 
 def evaluate(model, loader, device):
@@ -112,11 +112,12 @@ def main() -> None:
         raise RuntimeError("Torch and torch_geometric must be installed to train the GCN risk model.") from exc
 
     raw_dataset = GraphSampleDataset.from_jsonl(args.graphs)
-    dataset = [to_pyg_data(sample) for sample in raw_dataset.samples]
+    raw_samples = raw_dataset.samples
+    dataset = [to_pyg_data(sample) for sample in raw_samples]
     if len(dataset) < 2:
         raise RuntimeError("Need at least 2 graph samples to train/evaluate.")
 
-    train_idx, val_idx = grouped_split_indices(dataset.samples, args.group_key, args.val_frac, args.seed)
+    train_idx, val_idx = grouped_split_indices(raw_samples, args.group_key, args.val_frac, args.seed)
     train_ds = build_subset(dataset, train_idx)
     val_ds = build_subset(dataset, val_idx)
 
