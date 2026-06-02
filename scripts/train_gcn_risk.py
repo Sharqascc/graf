@@ -198,11 +198,6 @@ def main() -> None:
             best_f1 = current_f1
             torch.save(checkpoint, run_dir / "best.pt")
 
-    write_json(run_dir / "metrics.json", {
-        "best_val_f1": best_f1,
-        "history": history,
-    })
-
     predictions = []
     model.eval()
     with torch.no_grad():
@@ -213,16 +208,51 @@ def main() -> None:
             if hasattr(logits, "numel") and logits.numel() == 1:
                 logit = float(logits.detach().cpu().view(-1)[0].item())
             else:
-                logit = float(logits.detach().cpu().view(-1)[0].item())
+                logit = float(logits.detach().cpu().view(-1)[0])
             prob = 1.0 / (1.0 + math.exp(-logit))
-            meta = _sample_meta(dataset, dataset_index)
             predictions.append({
-                **meta,
+                "sample_id": item.sample_id,
+                "site_id": getattr(item, "site_id", None),
+                "video_id": getattr(item, "video_id", None),
+                "window_id": getattr(item, "window_id", None),
+                "label": int(item.y.detach().cpu().view(-1)[0].item()),
                 "split": "val",
                 "logit": logit,
                 "prob": prob,
                 "pred_label": int(prob >= 0.5),
             })
+
+    true_labels = [int(p["label"]) for p in predictions]
+    pred_labels = [int(p["pred_label"]) for p in predictions]
+    val_pos = sum(true_labels)
+    val_neg = len(true_labels) - val_pos
+    pred_pos = sum(pred_labels)
+    pred_neg = len(pred_labels) - pred_pos
+
+    tp = sum(1 for y, yhat in zip(true_labels, pred_labels) if y == 1 and yhat == 1)
+    tn = sum(1 for y, yhat in zip(true_labels, pred_labels) if y == 0 and yhat == 0)
+    fp = sum(1 for y, yhat in zip(true_labels, pred_labels) if y == 0 and yhat == 1)
+    fn = sum(1 for y, yhat in zip(true_labels, pred_labels) if y == 1 and yhat == 0)
+
+    warnings = []
+    if len(true_labels) < 10:
+        warnings.append("validation split has fewer than 10 samples; metrics may be unstable")
+    if val_pos == 0 or val_neg == 0:
+        warnings.append("validation split is single-class; binary metrics are not reliable")
+    if pred_pos == 0 and len(pred_labels) > 0:
+        warnings.append("model predicted zero positive samples at threshold 0.5")
+
+    write_json(run_dir / "metrics.json", {
+        "best_val_f1": best_f1,
+        "history": history,
+        "val_sample_count": len(true_labels),
+        "val_positive_count": val_pos,
+        "val_negative_count": val_neg,
+        "val_pred_positive_count": pred_pos,
+        "val_pred_negative_count": pred_neg,
+        "val_confusion": {"tp": tp, "tn": tn, "fp": fp, "fn": fn},
+        "warnings": warnings,
+    })
 
     write_jsonl(run_dir / "predictions.jsonl", predictions)
     print(f"saved_run_dir={run_dir}")
