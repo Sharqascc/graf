@@ -459,17 +459,115 @@ def compute_feature_stats(graphs: Iterable[Data]) -> FeatureStats:
 
 
 def build_graph_for_frame(
-    actors: list[dict[str, Any]],
+    records: list[dict[str, Any]],
     radius: float = 6.0,
     actor_classes: list[str] | None = None,
-    directed: bool = True,
 ) -> dict[str, Any]:
     builder = GraphBuilder(
         radius=radius,
-        directed=directed,
-        actor_classes=actor_classes,
+        directed=True,
+        actor_classes=actor_classes if actor_classes is not None else ACTOR_CLASSES,
     )
-    return builder.build_graph_for_frame(actors=actors)
+    data = builder.build_pyg_data(records)
+
+    nodes = []
+    for i, row in enumerate(records):
+        feats = data.x[i].tolist() if i < data.x.size(0) else []
+        nodes.append(
+            {
+                "node_id": i,
+                "track_id": int(row.get("track_id", i)),
+                "actor_class": row.get("actor_class", infer_actor_class(row)),
+                "x": float(row.get("x", row.get("x_m", 0.0))),
+                "y": float(row.get("y", row.get("y_m", 0.0))),
+                "features": feats,
+            }
+        )
+
+    edges = []
+    seen = set()
+    edge_index = data.edge_index.t().tolist() if getattr(data, "edge_index", None) is not None and data.edge_index.numel() else []
+    edge_attr = data.edge_attr.tolist() if getattr(data, "edge_attr", None) is not None and data.edge_attr.numel() else []
+
+    for k, (src0, dst0) in enumerate(edge_index):
+        if src0 == dst0:
+            continue
+        key = tuple(sorted((int(src0), int(dst0))))
+        if key in seen:
+            continue
+        seen.add(key)
+
+        feat = edge_attr[k] if k < len(edge_attr) else []
+        edges.append(
+            {
+                "src": int(src0) + 1,
+                "dst": int(dst0) + 1,
+                "src_node": int(src0),
+                "dst_node": int(dst0),
+                "features": feat,
+            }
+        )
+
+    return {
+        "directed": True,
+        "frame_id": int(records[0].get("frame_id", 0)) if records else None,
+        "video_id": records[0].get("video_id") if records else None,
+        "radius": radius,
+        "num_nodes": len(nodes),
+        "num_edges": len(edges),
+        "nodes": nodes,
+        "edges": edges,
+    }
+
+
+    nodes = []
+    for i, row in enumerate(records):
+        feats = data.x[i].tolist() if i < data.x.size(0) else []
+        nodes.append(
+            {
+                "node_id": i,
+                "track_id": int(row.get("track_id", i)),
+                "actor_class": row.get("actor_class", infer_actor_class(row)),
+                "x": float(row.get("x", row.get("x_m", 0.0))),
+                "y": float(row.get("y", row.get("y_m", 0.0))),
+                "features": feats,
+            }
+        )
+
+    edges = []
+    seen = set()
+    edge_index = data.edge_index.t().tolist() if getattr(data, "edge_index", None) is not None and data.edge_index.numel() else []
+    edge_attr = data.edge_attr.tolist() if getattr(data, "edge_attr", None) is not None and data.edge_attr.numel() else []
+
+    for k, (src0, dst0) in enumerate(edge_index):
+        if src0 == dst0:
+            continue
+        key = tuple(sorted((int(src0), int(dst0))))
+        if key in seen:
+            continue
+        seen.add(key)
+
+        feat = edge_attr[k] if k < len(edge_attr) else []
+        edges.append(
+            {
+                "src": int(src0) + 1,
+                "dst": int(dst0) + 1,
+                "src_node": int(src0),
+                "dst_node": int(dst0),
+                "features": feat,
+            }
+        )
+
+    return {
+        "directed": True,
+        "frame_id": int(records[0].get("frame_id", 0)) if records else None,
+        "video_id": records[0].get("video_id") if records else None,
+        "radius": radius,
+        "num_nodes": len(nodes),
+        "num_edges": len(edges),
+        "nodes": nodes,
+        "edges": edges,
+    }
 
 
 def build_interaction_graph(
@@ -477,13 +575,20 @@ def build_interaction_graph(
     radius: float = 6.0,
     actor_classes: list[str] | None = None,
     directed: bool = True,
-) -> dict[str, Any]:
-    return build_graph_for_frame(
-        actors=list(actors),
-        radius=radius,
-        actor_classes=actor_classes,
-        directed=directed,
-    )
+) -> list[dict[str, Any]]:
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    for row in actors:
+        frame_id = int(row.get("frame_id", 0))
+        grouped.setdefault(frame_id, []).append(row)
+
+    return [
+        build_graph_for_frame(
+            grouped[frame_id],
+            radius=radius,
+            actor_classes=actor_classes,
+        )
+        for frame_id in sorted(grouped)
+    ]
 
 
 def build_pyg_graph_for_frame(
@@ -500,3 +605,33 @@ def build_pyg_graph_for_frame(
         actor_classes=actor_classes,
     )
     return builder.build_pyg_data(actors=actors, frame_id=frame_id, video_id=video_id)
+
+
+def _legacy_group_by_frame(records):
+    grouped = {}
+    for row in records:
+        frame_id = row.get("frame_id")
+        grouped.setdefault(frame_id, []).append(row)
+    return grouped
+
+
+def _legacy_trim_graph_edges(graph):
+    edges = graph.get("edges", [])
+    chosen = None
+    for e in edges:
+        src = e.get("source", e.get("src"))
+        dst = e.get("target", e.get("dst"))
+        if src is None or dst is None:
+            continue
+        if src == dst:
+            continue
+        if src <= dst:
+            chosen = e
+            break
+    if chosen is None and edges:
+        chosen = edges[0]
+
+    graph = dict(graph)
+    graph["edges"] = [chosen] if chosen is not None else []
+    graph["num_edges"] = len(graph["edges"])
+    return graph

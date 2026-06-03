@@ -354,7 +354,7 @@ def _empty_like(data: Data) -> Data:
 
     out = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, num_nodes=0)
 
-    if hasattr(data, "pos"):
+    if hasattr(data, "pos") and data.pos is not None:
         out.pos = torch.empty(
             (0, data.pos.size(1)),
             dtype=data.pos.dtype,
@@ -378,3 +378,71 @@ def _empty_like(data: Data) -> Data:
         out.video_id = data.video_id
 
     return out
+
+
+def graph_to_tensors(graph: dict) -> dict:
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+
+    x = [list(node.get("features", []))[:12] for node in nodes]
+    edge_index = []
+    edge_attr = []
+
+    for edge in edges:
+        src0 = edge.get("src_node")
+        dst0 = edge.get("dst_node")
+
+        if src0 is None or dst0 is None:
+            src = edge.get("src")
+            dst = edge.get("dst")
+            if src is None or dst is None:
+                continue
+            src0 = int(src) - 1
+            dst0 = int(dst) - 1
+
+        edge_index.append([int(src0), int(dst0)])
+        edge_attr.append(list(edge.get("features", [])))
+
+    return {
+        "x": x,
+        "edge_index": edge_index,
+        "edge_attr": edge_attr,
+    }
+
+def _compat_to_list(value):
+    try:
+        import torch
+        if isinstance(value, torch.Tensor):
+            return value.tolist()
+    except Exception:
+        pass
+    return value
+
+def graph_to_tensors(graph: dict) -> dict:
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+
+    x = [list(node.get("features", []))[:12] for node in nodes]
+    edge_index = []
+    edge_attr = []
+
+    for edge in edges:
+        src0 = edge.get("src_node")
+        dst0 = edge.get("dst_node")
+
+        if src0 is None or dst0 is None:
+            src = edge.get("src")
+            dst = edge.get("dst")
+            if src is None or dst is None:
+                continue
+            src0 = int(src) - 1
+            dst0 = int(dst) - 1
+
+        edge_index.append([int(src0), int(dst0)])
+        edge_attr.append(list(edge.get("features", [])))
+
+    return {
+        "x": x,
+        "edge_index": edge_index,
+        "edge_attr": edge_attr,
+    }

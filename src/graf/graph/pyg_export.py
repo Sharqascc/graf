@@ -139,3 +139,73 @@ def to_pyg_data(graph: dict[str, Any]) -> Data:
             setattr(data, key, graph[key])
 
     return data
+
+
+
+def to_pyg_dict(graph):
+    """Backward-compatible export returning plain Python structures."""
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+
+    def _node_features(node):
+        return list(node.get("features", []))[:12]
+
+    def _first_present(d, keys):
+        for k in keys:
+            v = d.get(k)
+            if v is not None:
+                return v
+        return None
+
+    track_ids = [n.get("track_id") for n in nodes]
+
+    payload = {
+        "num_nodes": graph.get("num_nodes", len(nodes)),
+        "frame_id": graph.get("frame_id"),
+        "track_ids": track_ids,
+        "x": [_node_features(n) for n in nodes],
+    }
+
+    chosen = None
+    seen = set()
+
+    for e in edges:
+        src_pos = _first_present(e, ("src_node", "source", "src", "from", "u", "sender", "src_id", "src_node_id", "src_track_id"))
+        dst_pos = _first_present(e, ("dst_node", "target", "dst", "to", "v", "receiver", "dst_id", "dst_node_id", "dst_track_id"))
+
+        if src_pos is None or dst_pos is None or src_pos == dst_pos:
+            continue
+
+        key = tuple(sorted((src_pos, dst_pos)))
+        if key in seen:
+            continue
+        seen.add(key)
+
+        edge_features = [
+            e.get("dx"),
+            e.get("dy"),
+            e.get("distance"),
+            e.get("dvx"),
+            e.get("dvy"),
+            e.get("relative_speed"),
+            e.get("closing_speed"),
+            e.get("ttc"),
+            e.get("bearing_cos"),
+            e.get("bearing_sin"),
+            e.get("rel_heading_cos"),
+            e.get("rel_heading_sin"),
+        ]
+        edge_features = [0.0 if v is None else float(v) for v in edge_features]
+
+        chosen = (int(src_pos), int(dst_pos), edge_features)
+        break
+
+    if chosen is not None:
+        src_pos, dst_pos, edge_features = chosen
+        payload["edge_index"] = [[src_pos], [dst_pos]]
+        payload["edge_attr"] = [edge_features]
+    else:
+        payload["edge_index"] = [[], []]
+        payload["edge_attr"] = []
+
+    return payload

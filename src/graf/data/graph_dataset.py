@@ -16,6 +16,9 @@ from graf.graph.temporal import build_temporal_window_graph
 class LegacyGraphSampleDataset:
     samples: list[dict[str, Any]]
 
+    def __post_init__(self) -> None:
+        self.samples = [self._normalize_sample(s) for s in self.samples]
+
     def __len__(self) -> int:
         return len(self.samples)
 
@@ -29,15 +32,31 @@ class LegacyGraphSampleDataset:
         if not isinstance(graph, dict):
             graph = {}
 
+        nodes = graph.get("nodes", [])
+        edges = graph.get("edges", [])
+
         sample = {
-            "nodes": graph.get("nodes", []),
-            "edges": graph.get("edges", []),
+            "nodes": nodes,
+            "edges": edges,
             "label": row.get("label", graph.get("label", 0)),
             "sample_id": row.get("sample_id", graph.get("sample_id")),
             "site_id": row.get("site_id", graph.get("site_id")),
             "video_id": row.get("video_id", graph.get("video_id")),
             "window_id": row.get("window_id", graph.get("window_id")),
+            "frame_id": row.get("frame_id", graph.get("frame_id")),
+            "track_ids": row.get("track_ids", graph.get("track_ids")),
         }
+
+        if sample["frame_id"] is None:
+            sample["frame_id"] = graph.get("frame_idx", graph.get("frame"))
+
+        if sample["track_ids"] is None:
+            sample["track_ids"] = [
+                n.get("track_id") for n in nodes
+                if isinstance(n, dict) and n.get("track_id") is not None
+            ]
+
+        sample["y"] = [float(sample["label"])]
 
         for key, value in graph.items():
             if key not in sample:
@@ -130,3 +149,7 @@ class SpatioTemporalWindowDataset(Dataset):
         )
         data.window_index = idx
         return data
+
+
+# Backward-compatible public alias
+GraphSampleDataset = LegacyGraphSampleDataset
