@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=68,<82", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -21,3 +21,5 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["graf*"]
+namespaces = false
