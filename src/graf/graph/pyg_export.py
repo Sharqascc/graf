@@ -1,140 +1,141 @@
 from __future__ import annotations
 
+import warnings
+from pathlib import Path
 from typing import Any
 
 import torch
 from torch_geometric.data import Data
 
-
-def _f(d: dict[str, Any], key: str, default: float = 0.0) -> float:
-    value = d.get(key, default)
-    if value is None:
-        return float(default)
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return float(default)
+from .builders import GraphBuilder
 
 
-def _feature_list(node: dict[str, Any]) -> list[float]:
-    feats = node.get("features")
-    if isinstance(feats, list) and feats:
-        out: list[float] = []
-        for v in feats:
-            try:
-                out.append(float(v))
-            except (TypeError, ValueError):
-                out.append(0.0)
-        return out
+def package_tensor_graph(
+    x: torch.Tensor,
+    edge_index: torch.Tensor,
+    edge_attr: torch.Tensor,
+    pos: torch.Tensor | None = None,
+    y: torch.Tensor | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> Data:
+    """
+    Package already-built tensors into a canonical PyG Data object.
+    """
+    if x.dim() != 2:
+        raise ValueError(f"x must be 2D [num_nodes, num_features], got {tuple(x.shape)}")
+    if edge_index.dim() != 2 or edge_index.shape[0] != 2:
+        raise ValueError(f"edge_index must be [2, num_edges], got {tuple(edge_index.shape)}")
+    if edge_attr.dim() != 2:
+        raise ValueError(f"edge_attr must be 2D [num_edges, num_features], got {tuple(edge_attr.shape)}")
+    if edge_attr.shape[0] != edge_index.shape[1]:
+        raise ValueError(
+            f"edge_attr rows ({edge_attr.shape[0]}) must equal num_edges ({edge_index.shape[1]})"
+        )
 
-    class_one_hot = node.get("class_one_hot", [])
-    safe_one_hot: list[float] = []
-    if isinstance(class_one_hot, list):
-        for v in class_one_hot:
-            try:
-                safe_one_hot.append(float(v))
-            except (TypeError, ValueError):
-                safe_one_hot.append(0.0)
+    if pos is None:
+        if x.shape[1] < 2:
+            raise ValueError("pos is None and x has fewer than 2 columns; cannot infer positions")
+        pos = x[:, :2]
 
-    return [
-        _f(node, "x"),
-        _f(node, "y"),
-        _f(node, "vx"),
-        _f(node, "vy"),
-        _f(node, "speed"),
-        _f(node, "acceleration", _f(node, "ax")),
-        _f(node, "heading"),
-        *safe_one_hot,
-    ]
+    if pos.dim() != 2 or pos.shape[1] != 2:
+        raise ValueError(f"pos must be [num_nodes, 2], got {tuple(pos.shape)}")
+    if pos.shape[0] != x.shape[0]:
+        raise ValueError("pos and x must have the same number of nodes")
 
+    data = Data(
+        x=x,
+        edge_index=edge_index,
+        edge_attr=edge_attr,
+        pos=pos,
+        num_nodes=int(x.shape[0]),
+    )
 
-def _node_matrix(nodes: list[dict[str, Any]]) -> torch.Tensor:
-    rows = [_feature_list(node) for node in nodes]
-    if not rows:
-        rows = [[0.0]]
-    width = max(len(r) for r in rows)
-    rows = [r + [0.0] * (width - len(r)) for r in rows]
-    return torch.tensor(rows, dtype=torch.float)
+    if y is not None:
+        data.y = y
 
+    if metadata:
+        for key, value in metadata.items():
+            setattr(data, key, value)
 
-def _edge_endpoints(edge: dict[str, Any]) -> tuple[int | None, int | None]:
-    if "src_node" in edge and "dst_node" in edge:
-        try:
-            return int(edge["src_node"]), int(edge["dst_node"])
-        except (TypeError, ValueError):
-            return None, None
-
-    for s_key, d_key in [("source", "target"), ("src", "dst"), ("u", "v")]:
-        if s_key in edge and d_key in edge:
-            try:
-                return int(edge[s_key]), int(edge[d_key])
-            except (TypeError, ValueError):
-                return None, None
-
-    return None, None
+    return data
 
 
-def _edge_index(edges: list[dict[str, Any]], num_nodes: int) -> tuple[torch.Tensor, list[dict[str, Any]]]:
-    pairs: list[list[int]] = []
-    kept_edges: list[dict[str, Any]] = []
+def save_graph_sample(
+    data: Data,
+    output_dir: str | Path,
+    prefix: str = "sample",
+) -> Path:
+    """
+    Save a single PyG Data graph to disk as a .pt file.
+    """
+    out_dir = Path(output_dir).expanduser().resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    for edge in edges:
-        src, dst = _edge_endpoints(edge)
-        if src is None or dst is None:
-            continue
-        if 0 <= src < num_nodes and 0 <= dst < num_nodes:
-            pairs.append([src, dst])
-            kept_edges.append(edge)
+    video_id = getattr(data, "video_id", "unknown")
+    frame_id = getattr(data, "frame_id", "0")
 
-    if not pairs:
-        return torch.empty((2, 0), dtype=torch.long), []
+    if isinstance(frame_id, int):
+        filename = f"{prefix}_{video_id}_f{frame_id:06d}.pt"
+    else:
+        filename = f"{prefix}_{video_id}_f{frame_id}.pt"
 
-    return torch.tensor(pairs, dtype=torch.long).t().contiguous(), kept_edges
-
-
-def _edge_attr(edges: list[dict[str, Any]]) -> torch.Tensor:
-    rows: list[list[float]] = []
-    for edge in edges:
-        rows.append([
-            _f(edge, "dx"),
-            _f(edge, "dy"),
-            _f(edge, "distance"),
-            _f(edge, "dvx"),
-            _f(edge, "dvy"),
-            _f(edge, "relative_speed"),
-            _f(edge, "bearing"),
-            _f(edge, "heading_delta"),
-            1.0 if bool(edge.get("same_class", False)) else 0.0,
-        ])
-
-    if not rows:
-        return torch.empty((0, 9), dtype=torch.float)
-
-    return torch.tensor(rows, dtype=torch.float)
+    path = out_dir / filename
+    torch.save(data.to("cpu"), path)
+    return path
 
 
-def to_pyg_dict(graph: dict[str, Any]) -> dict[str, Any]:
-    nodes = graph.get("nodes", [])
-    edges = graph.get("edges", [])
+def load_graph_sample(path: str | Path) -> Data:
+    """
+    Load a single serialized PyG Data graph from disk.
+    """
+    path = Path(path).expanduser().resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"No graph sample found at: {path}")
 
-    x = _node_matrix(nodes)
-    edge_index, kept_edges = _edge_index(edges, num_nodes=x.size(0))
-    edge_attr = _edge_attr(kept_edges)
-
-    payload = {
-        "x": x,
-        "edge_index": edge_index,
-        "edge_attr": edge_attr,
-        "y": torch.tensor([_f(graph, "label")], dtype=torch.float),
-    }
-
-    for key in ["site_id", "sample_id", "video_id", "window_id", "frame_id"]:
-        if key in graph:
-            payload[key] = graph[key]
-
-    payload["num_nodes"] = x.size(0)
-    return payload
+    data = torch.load(path, map_location="cpu", weights_only=False)
+    if not isinstance(data, Data):
+        raise TypeError(f"Expected a PyG Data object in {path}, got {type(data)!r}")
+    return data
 
 
 def to_pyg_data(graph: dict[str, Any]) -> Data:
-    return Data(**to_pyg_dict(graph))
+    """
+    Deprecated legacy adapter from dict-graph to canonical PyG Data.
+    """
+    warnings.warn(
+        "graf.graph.pyg_export.to_pyg_data() is deprecated; use GraphBuilder.build_pyg_data() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    actors = []
+    for node in graph.get("nodes", []):
+        actors.append(
+            {
+                "track_id": node.get("track_id"),
+                "x_m": node.get("x", node.get("x_m", 0.0)),
+                "y_m": node.get("y", node.get("y_m", 0.0)),
+                "vx": node.get("vx", 0.0),
+                "vy": node.get("vy", 0.0),
+                "ax": node.get("ax", 0.0),
+                "ay": node.get("ay", 0.0),
+                "heading_rad": node.get("heading", 0.0),
+                "actor_class": node.get("actor_class", "other"),
+                "frame_id": graph.get("frame_id"),
+            }
+        )
+
+    data = GraphBuilder().build_pyg_data(
+        actors=actors,
+        frame_id=graph.get("frame_id"),
+        video_id=graph.get("video_id"),
+    )
+
+    if "label" in graph:
+        data.y = torch.tensor([float(graph["label"])], dtype=torch.float32)
+
+    for key in ("site_id", "sample_id", "window_id"):
+        if key in graph:
+            setattr(data, key, graph[key])
+
+    return data
