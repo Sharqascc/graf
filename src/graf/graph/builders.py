@@ -13,30 +13,16 @@ try:
 except Exception:  # pragma: no cover
     cKDTree = None
 
-
-ACTOR_CLASSES = [
-    "car",
-    "pedestrian",
-    "two_wheeler",
-    "auto_rickshaw",
-    "bus",
-    "truck",
-    "bicycle",
-    "other",
-]
-
-CLASS_TO_INDEX = {name: i for i, name in enumerate(ACTOR_CLASSES)}
-
-SIZE_PRIORS = {
-    "pedestrian": 0.10,
-    "bicycle": 0.20,
-    "two_wheeler": 0.25,
-    "auto_rickshaw": 0.40,
-    "car": 0.60,
-    "truck": 0.90,
-    "bus": 1.00,
-    "other": 0.30,
-}
+from .edges import (
+    ACTOR_CLASSES,
+    SIZE_PRIORS,
+    build_edge_feature,
+    edge_feature_dim,
+    edge_feature_to_list,
+    infer_actor_class,
+    reverse_edge_feature,
+    safe_float,
+)
 
 DEFAULT_INTERACTION_RADII = {
     ("car", "car"): 6.0,
@@ -78,22 +64,6 @@ class FeatureStats:
     edge_std: np.ndarray | None = None
 
 
-def safe_float(value: Any, default: float = 0.0) -> float:
-    if value is None:
-        return default
-    try:
-        out = float(value)
-    except (TypeError, ValueError):
-        return default
-    if math.isnan(out) or math.isinf(out):
-        return default
-    return out
-
-
-def wrap_angle_rad(theta: float) -> float:
-    return math.atan2(math.sin(theta), math.cos(theta))
-
-
 def one_hot_actor_class(name: str, actor_classes: list[str] | None = None) -> list[float]:
     cls_list = actor_classes if actor_classes is not None else ACTOR_CLASSES
     cls_to_idx = {n: i for i, n in enumerate(cls_list)}
@@ -101,18 +71,6 @@ def one_hot_actor_class(name: str, actor_classes: list[str] | None = None) -> li
     vec = [0.0] * len(cls_list)
     vec[idx] = 1.0
     return vec
-
-
-def infer_actor_class(actor: dict[str, Any]) -> str:
-    raw = (
-        actor.get("actor_class")
-        or actor.get("class_name")
-        or actor.get("class")
-        or actor.get("label")
-        or "other"
-    )
-    raw = str(raw).strip().lower()
-    return raw if raw in CLASS_TO_INDEX else "other"
 
 
 def get_pair_radius(
@@ -129,44 +87,6 @@ def get_pair_radius(
     return default_radius
 
 
-def compute_ttc_simple(
-    x1: float,
-    y1: float,
-    vx1: float,
-    vy1: float,
-    x2: float,
-    y2: float,
-    vx2: float,
-    vy2: float,
-    collision_radius: float = 1.5,
-    max_ttc: float = 10.0,
-) -> float:
-    rx = x2 - x1
-    ry = y2 - y1
-    rvx = vx2 - vx1
-    rvy = vy2 - vy1
-
-    a = rvx * rvx + rvy * rvy
-    if a < 1e-8:
-        return max_ttc
-
-    b = 2.0 * (rx * rvx + ry * rvy)
-    c = rx * rx + ry * ry - collision_radius * collision_radius
-
-    disc = b * b - 4.0 * a * c
-    if disc < 0:
-        return max_ttc
-
-    sqrt_disc = math.sqrt(disc)
-    t1 = (-b - sqrt_disc) / (2.0 * a)
-    t2 = (-b + sqrt_disc) / (2.0 * a)
-
-    candidates = [t for t in (t1, t2) if 0.0 <= t <= max_ttc]
-    if not candidates:
-        return max_ttc
-    return min(candidates)
-
-
 class GraphBuilder:
     """
     Research-oriented single-frame traffic interaction graph builder.
@@ -181,7 +101,7 @@ class GraphBuilder:
         closing_speed,
         bearing_sin, bearing_cos,
         rel_heading_sin, rel_heading_cos,
-        ttc_clipped,
+        ttc,
         same_class,
         size_src, size_dst
       ]
@@ -229,7 +149,7 @@ class GraphBuilder:
             return Data(
                 x=torch.empty((0, 11 + len(self.actor_classes)), dtype=torch.float32),
                 edge_index=torch.empty((2, 0), dtype=torch.long),
-                edge_attr=torch.empty((0, 15), dtype=torch.float32),
+                edge_attr=torch.empty((0, edge_feature_dim()), dtype=torch.float32),
                 pos=torch.empty((0, 2), dtype=torch.float32),
                 num_nodes=0,
             )
@@ -238,10 +158,11 @@ class GraphBuilder:
         coords: list[list[float]] = []
         vx_list: list[float] = []
         vy_list: list[float] = []
-        heading_list: list[float] = []
+        speed_list: list[float] = []
         class_list: list[str] = []
         track_ids: list[int] = []
         frame_ids: list[int] = []
+        actor_records: list[dict[str, Any]] = []
 
         for actor in actors:
             cls = infer_actor_class(actor)
@@ -256,8 +177,7 @@ class GraphBuilder:
             speed = math.hypot(vx, vy)
             accel_mag = math.hypot(ax, ay)
 
-            heading = actor.get("heading_rad", actor.get("heading", 0.0))
-            heading = safe_float(heading)
+            heading = safe_float(actor.get("heading_rad", actor.get("heading", 0.0)))
             sin_heading = math.sin(heading)
             cos_heading = math.cos(heading)
 
@@ -282,18 +202,28 @@ class GraphBuilder:
             coords.append([x, y])
             vx_list.append(vx)
             vy_list.append(vy)
-            heading_list.append(heading)
+            speed_list.append(speed)
             class_list.append(cls)
             track_ids.append(int(safe_float(actor.get("track_id", len(track_ids)))))
             frame_ids.append(int(safe_float(actor.get("frame_id", frame_id or 0))))
 
+            actor_records.append(
+                {
+                    **actor,
+                    "x_m": x,
+                    "y_m": y,
+                    "vx": vx,
+                    "vy": vy,
+                    "ax": ax,
+                    "ay": ay,
+                    "heading_rad": heading,
+                    "actor_class": cls,
+                }
+            )
+
         x_np = np.asarray(node_rows, dtype=np.float32)
         pos_np = np.asarray(coords, dtype=np.float32)
-        vx_np = np.asarray(vx_list, dtype=np.float32)
-        vy_np = np.asarray(vy_list, dtype=np.float32)
-        heading_np = np.asarray(heading_list, dtype=np.float32)
-        speed_np = np.sqrt(vx_np * vx_np + vy_np * vy_np).astype(np.float32)
-        size_np = np.asarray([SIZE_PRIORS.get(c, SIZE_PRIORS["other"]) for c in class_list], dtype=np.float32)
+        speed_np = np.asarray(speed_list, dtype=np.float32)
 
         edge_pairs = self._find_candidate_pairs(pos_np)
 
@@ -312,89 +242,32 @@ class GraphBuilder:
             if self.use_velocity_adaptive_radius:
                 pair_radius += self.velocity_radius_scale * max(float(speed_np[i]), float(speed_np[j]))
 
-            dx = float(pos_np[j, 0] - pos_np[i, 0])
-            dy = float(pos_np[j, 1] - pos_np[i, 1])
-            dist = math.hypot(dx, dy)
-
-            if dist <= 1e-8 or dist > pair_radius:
-                continue
-
-            dvx = float(vx_np[j] - vx_np[i])
-            dvy = float(vy_np[j] - vy_np[i])
-            rel_speed = math.hypot(dvx, dvy)
-
-            ux = dx / dist
-            uy = dy / dist
-            closing_speed = -(dvx * ux + dvy * uy)
-
-            if self.min_closing_speed is not None and closing_speed < self.min_closing_speed:
-                continue
-
-            bearing = math.atan2(dy, dx)
-            rel_heading = wrap_angle_rad(float(heading_np[j] - heading_np[i]))
-
-            ttc = compute_ttc_simple(
-                pos_np[i, 0], pos_np[i, 1], vx_np[i], vy_np[i],
-                pos_np[j, 0], pos_np[j, 1], vx_np[j], vy_np[j],
+            edge_feat_ij = build_edge_feature(
+                actor_records[i],
+                actor_records[j],
                 collision_radius=self.collision_radius,
                 max_ttc=self.max_ttc if self.max_ttc is not None else 10.0,
             )
 
-            if self.max_ttc is not None and ttc > self.max_ttc:
+            dist = float(edge_feat_ij["distance"])
+            if dist <= 1e-8 or dist > pair_radius:
                 continue
 
-            same_class = 1.0 if class_list[i] == class_list[j] else 0.0
+            if self.min_closing_speed is not None and float(edge_feat_ij["closing_speed"]) < self.min_closing_speed:
+                continue
 
-            edge_feat_ij = [
-                dx,
-                dy,
-                dist,
-                dvx,
-                dvy,
-                rel_speed,
-                closing_speed,
-                math.sin(bearing),
-                math.cos(bearing),
-                math.sin(rel_heading),
-                math.cos(rel_heading),
-                ttc,
-                same_class,
-                float(size_np[i]),
-                float(size_np[j]),
-            ]
+            if self.max_ttc is not None and float(edge_feat_ij["ttc"]) > self.max_ttc:
+                continue
+
             src_nodes.append(i)
             dst_nodes.append(j)
-            edge_rows.append(edge_feat_ij)
+            edge_rows.append(edge_feature_to_list(edge_feat_ij))
 
             if self.directed:
-                dx_r = -dx
-                dy_r = -dy
-                dvx_r = -dvx
-                dvy_r = -dvy
-                bearing_r = math.atan2(dy_r, dx_r)
-                rel_heading_r = wrap_angle_rad(float(heading_np[i] - heading_np[j]))
-                closing_speed_r = -((dvx_r) * (dx_r / dist) + (dvy_r) * (dy_r / dist))
-
-                edge_feat_ji = [
-                    dx_r,
-                    dy_r,
-                    dist,
-                    dvx_r,
-                    dvy_r,
-                    rel_speed,
-                    closing_speed_r,
-                    math.sin(bearing_r),
-                    math.cos(bearing_r),
-                    math.sin(rel_heading_r),
-                    math.cos(rel_heading_r),
-                    ttc,
-                    same_class,
-                    float(size_np[j]),
-                    float(size_np[i]),
-                ]
+                edge_feat_ji = reverse_edge_feature(edge_feat_ij)
                 src_nodes.append(j)
                 dst_nodes.append(i)
-                edge_rows.append(edge_feat_ji)
+                edge_rows.append(edge_feature_to_list(edge_feat_ji))
 
         edge_index = (
             torch.tensor([src_nodes, dst_nodes], dtype=torch.long)
@@ -402,7 +275,11 @@ class GraphBuilder:
             else torch.empty((2, 0), dtype=torch.long)
         )
 
-        edge_np = np.asarray(edge_rows, dtype=np.float32) if edge_rows else np.empty((0, 15), dtype=np.float32)
+        edge_np = (
+            np.asarray(edge_rows, dtype=np.float32)
+            if edge_rows
+            else np.empty((0, edge_feature_dim()), dtype=np.float32)
+        )
 
         if self.normalize and self.stats is not None:
             x_np = self._normalize_array(x_np, self.stats.node_mean, self.stats.node_std)
