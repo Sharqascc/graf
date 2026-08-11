@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, Optional, Tuple
-
 
 BBox = Tuple[float, float, float, float]
 Point2D = Tuple[float, float]
@@ -24,7 +23,9 @@ class VideoRecord:
         if self.fps <= 0:
             raise ValueError(f"fps must be > 0, got {self.fps}")
         if self.width <= 0 or self.height <= 0:
-            raise ValueError(f"width/height must be > 0, got {(self.width, self.height)}")
+            raise ValueError(
+                f"width/height must be > 0, got {(self.width, self.height)}"
+            )
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -117,7 +118,7 @@ class SSMEventRecord:
     def validate(self) -> None:
         if self.start_frame > self.end_frame:
             raise ValueError(
-                f"start_frame must be <= end_frame, got {(self.start_frame, self.end_frame)}"
+                f"start_frame must be <= end_frame, got {(self.start_frame, self.end_frame)}"  # noqa: E501
             )
 
     def to_dict(self) -> Dict[str, Any]:

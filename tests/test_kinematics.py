@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from graf.trajectories.kinematics import add_time_seconds, compute_kinematics, smooth_positions
+from graf.trajectories.kinematics import (add_time_seconds, compute_kinematics,
+                                          smooth_positions)
 
 
 def test_add_time_seconds():
@@ -11,12 +12,14 @@ def test_add_time_seconds():
 
 
 def test_compute_kinematics_speed():
-    df = pd.DataFrame({
-        "track_id": ["a", "a", "a"],
-        "frame_idx": [0, 1, 2],
-        "x_m": [0.0, 1.0, 2.0],
-        "y_m": [0.0, 0.0, 0.0],
-    })
+    df = pd.DataFrame(
+        {
+            "track_id": ["a", "a", "a"],
+            "frame_idx": [0, 1, 2],
+            "x_m": [0.0, 1.0, 2.0],
+            "y_m": [0.0, 0.0, 0.0],
+        }
+    )
     out = compute_kinematics(df, fps=1.0)
     assert np.isnan(out.loc[0, "speed_mps"])
     assert out.loc[1, "speed_mps"] == 1.0
@@ -27,10 +30,12 @@ def test_compute_kinematics_speed():
 
 
 def test_smooth_positions():
-    df = pd.DataFrame({
-        "track_id": ["a", "a", "a"],
-        "x_m": [0.0, 10.0, 20.0],
-        "y_m": [0.0, 0.0, 0.0],
-    })
+    df = pd.DataFrame(
+        {
+            "track_id": ["a", "a", "a"],
+            "x_m": [0.0, 10.0, 20.0],
+            "y_m": [0.0, 0.0, 0.0],
+        }
+    )
     out = smooth_positions(df, window=3)
     assert np.isclose(out.loc[1, "x_m"], 10.0)

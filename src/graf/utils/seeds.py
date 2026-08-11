@@ -13,6 +13,7 @@ def set_global_seed(seed: int, deterministic: bool = True) -> None:
 
     try:
         import torch
+
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed(seed)

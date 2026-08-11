@@ -55,7 +55,9 @@ def compute_pet_from_conflict_zone(
     in_zone2 = dist2 <= zone_radius
 
     if not np.any(in_zone1) or not np.any(in_zone2):
-        return PETResult(float("inf"), tuple(center.tolist()), None, "one_or_both_never_enter_zone")
+        return PETResult(
+            float("inf"), tuple(center.tolist()), None, "one_or_both_never_enter_zone"
+        )
 
     enter1_idx = int(np.argmax(in_zone1))
     enter2_idx = int(np.argmax(in_zone2))
@@ -89,7 +91,9 @@ def compute_pet_from_conflict_zone(
 
 
 class PETCalculator:
-    def __init__(self, proximity_threshold_m: float = 2.0, critical_threshold_s: float = 5.0):
+    def __init__(
+        self, proximity_threshold_m: float = 2.0, critical_threshold_s: float = 5.0
+    ):
         self.proximity_threshold_m = float(proximity_threshold_m)
         self.critical_threshold_s = float(critical_threshold_s)
 
@@ -103,7 +107,9 @@ class PETCalculator:
         missing_a = required.difference(df_a.columns)
         missing_b = required.difference(df_b.columns)
         if missing_a or missing_b:
-            raise ValueError(f"Missing columns for PET: A={sorted(missing_a)}, B={sorted(missing_b)}")
+            raise ValueError(
+                f"Missing columns for PET: A={sorted(missing_a)}, B={sorted(missing_b)}"
+            )
 
         if len(df_a) < 2 or len(df_b) < 2:
             return None
@@ -126,7 +132,9 @@ class PETCalculator:
         if min_dist > self.proximity_threshold_m:
             return None
 
-        conflict_center = ((traj_a[min_idx[0]] + traj_b[min_idx[1]]) / 2.0).astype(float)
+        conflict_center = ((traj_a[min_idx[0]] + traj_b[min_idx[1]]) / 2.0).astype(
+            float
+        )
         pet_result = compute_pet_from_conflict_zone(
             traj1=traj_a,
             traj2=traj_b,
@@ -149,7 +157,11 @@ class PETCalculator:
             end_frame=int(max(df_a["frame_idx"].max(), df_b["frame_idx"].max())),
             min_value=float(pet_result.pet_seconds),
             threshold=self.critical_threshold_s,
-            severity="critical" if pet_result.pet_seconds <= self.critical_threshold_s else "non_critical",
+            severity=(
+                "critical"
+                if pet_result.pet_seconds <= self.critical_threshold_s
+                else "non_critical"
+            ),
             metadata={
                 "conflict_x": float(conflict_center[0]),
                 "conflict_y": float(conflict_center[1]),

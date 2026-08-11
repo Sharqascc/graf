@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 
 
-def add_time_seconds(df: pd.DataFrame, fps: float, frame_col: str = "frame_idx") -> pd.DataFrame:
+def add_time_seconds(
+    df: pd.DataFrame, fps: float, frame_col: str = "frame_idx"
+) -> pd.DataFrame:
     if fps <= 0:
         raise ValueError(f"fps must be > 0, got {fps}")
     out = df.copy()
@@ -23,13 +25,11 @@ def smooth_positions(
         raise ValueError("window must be >= 1")
 
     out = df.copy()
-    out[x_col] = (
-        out.groupby(track_id_col, sort=False)[x_col]
-        .transform(lambda s: s.rolling(window, center=True, min_periods=1).mean())
+    out[x_col] = out.groupby(track_id_col, sort=False)[x_col].transform(
+        lambda s: s.rolling(window, center=True, min_periods=1).mean()
     )
-    out[y_col] = (
-        out.groupby(track_id_col, sort=False)[y_col]
-        .transform(lambda s: s.rolling(window, center=True, min_periods=1).mean())
+    out[y_col] = out.groupby(track_id_col, sort=False)[y_col].transform(
+        lambda s: s.rolling(window, center=True, min_periods=1).mean()
     )
     return out
 

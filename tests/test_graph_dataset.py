@@ -7,17 +7,37 @@ from graf.graph.builders import build_graph_for_frame
 
 def make_graph(frame_id: int, x2: float):
     records = [
-        {"track_id": 1, "frame_id": frame_id, "actor_class": "car", "x": 0.0, "y": 0.0, "vx": 2.0, "vy": 0.0},
-        {"track_id": 2, "frame_id": frame_id, "actor_class": "two_wheeler", "x": x2, "y": 1.0, "vx": 1.0, "vy": 0.2},
+        {
+            "track_id": 1,
+            "frame_id": frame_id,
+            "actor_class": "car",
+            "x": 0.0,
+            "y": 0.0,
+            "vx": 2.0,
+            "vy": 0.0,
+        },
+        {
+            "track_id": 2,
+            "frame_id": frame_id,
+            "actor_class": "two_wheeler",
+            "x": x2,
+            "y": 1.0,
+            "vx": 1.0,
+            "vy": 0.2,
+        },
     ]
-    return build_graph_for_frame(records, radius=5.0, actor_classes=["car", "two_wheeler"])
+    return build_graph_for_frame(
+        records, radius=5.0, actor_classes=["car", "two_wheeler"]
+    )
 
 
 def test_graph_sample_dataset_len_and_item():
-    dataset = GraphSampleDataset([
-        {"graph": make_graph(1, 2.0), "label": 1},
-        {"graph": make_graph(2, 4.0), "label": 0},
-    ])
+    dataset = GraphSampleDataset(
+        [
+            {"graph": make_graph(1, 2.0), "label": 1},
+            {"graph": make_graph(2, 4.0), "label": 0},
+        ]
+    )
     assert len(dataset) == 2
     item = dataset[0]
     if isinstance(item, dict):

@@ -4,7 +4,7 @@ import json
 import platform
 import subprocess
 import sys
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -60,18 +60,20 @@ def snapshot_environment(repo_dir: str | Path, out_dir: str | Path) -> None:
 
     try:
         import torch
+
         env["torch"] = torch.__version__
-        env["cuda_available"] = torch.cuda.is_available()
-        env["cuda_version"] = getattr(torch.version, "cuda", None)
+        env["cuda_available"] = torch.cuda.is_available()  # type: ignore[assignment]
+        env["cuda_version"] = getattr(torch.version, "cuda", None)  # type: ignore[assignment]  # noqa: E501
         if torch.cuda.is_available():
             env["device_name"] = torch.cuda.get_device_name(0)
     except Exception:
-        env["torch"] = None
+        env["torch"] = None  # type: ignore[assignment]
 
     try:
         import torch_geometric
+
         env["torch_geometric"] = torch_geometric.__version__
     except Exception:
-        env["torch_geometric"] = None
+        env["torch_geometric"] = None  # type: ignore[assignment]
 
     write_json(out_dir / "environment.json", env)

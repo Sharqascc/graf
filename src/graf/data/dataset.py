@@ -26,7 +26,9 @@ class PtGraphDataset(Dataset):
         super().__init__(str(self.root_path), transform, pre_transform, pre_filter)
 
         if not self.root_path.exists():
-            raise FileNotFoundError(f"Dataset directory does not exist: {self.root_path}")
+            raise FileNotFoundError(
+                f"Dataset directory does not exist: {self.root_path}"
+            )
 
         pattern = "**/*.pt" if self.recursive else "*.pt"
         self._files = sorted(self.root_path.glob(pattern))

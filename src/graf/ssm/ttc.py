@@ -53,9 +53,9 @@ def compute_ttc_constant_velocity(
 
     a = rel_speed_sq
     b = 2.0 * float(np.dot(rel_pos, rel_vel))
-    c = float(np.dot(rel_pos, rel_pos) - min_distance ** 2)
+    c = float(np.dot(rel_pos, rel_pos) - min_distance**2)
 
-    discriminant = b ** 2 - 4.0 * a * c
+    discriminant = b**2 - 4.0 * a * c
     if discriminant < 0:
         t_near = closing_rate / rel_speed_sq
         closest_sep = np.linalg.norm(rel_pos + t_near * rel_vel)

@@ -2,29 +2,53 @@ from __future__ import annotations
 
 import argparse
 import math
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 from graf.data.graph_dataset import GraphSampleDataset
-from graf.graph.pyg_export import to_pyg_data
 from graf.evaluation.binary_metrics import binary_classification_metrics
+from graf.graph.pyg_export import to_pyg_data
 from graf.models.gcn_risk import build_model
-from graf.utils.io import ensure_dir, get_git_commit, snapshot_environment, write_json, write_jsonl
+from graf.utils.io import (ensure_dir, get_git_commit, snapshot_environment,
+                           write_json, write_jsonl)
 from graf.utils.seeds import set_global_seed
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train GCN risk model on graph JSONL samples.")
-    parser.add_argument("--graphs", type=str, required=True, help="Path to graph samples JSONL.")
-    parser.add_argument("--outdir", type=str, default="outputs/models/gcn_risk", help="Base output directory.")
-    parser.add_argument("--group-key", type=str, default="site_id", help="Grouping key for leakage-safe splitting.")
-    parser.add_argument("--val-frac", type=float, default=0.2, help="Validation fraction at group level.")
+    parser = argparse.ArgumentParser(
+        description="Train GCN risk model on graph JSONL samples."
+    )
+    parser.add_argument(
+        "--graphs", type=str, required=True, help="Path to graph samples JSONL."
+    )
+    parser.add_argument(
+        "--outdir",
+        type=str,
+        default="outputs/models/gcn_risk",
+        help="Base output directory.",
+    )
+    parser.add_argument(
+        "--group-key",
+        type=str,
+        default="site_id",
+        help="Grouping key for leakage-safe splitting.",
+    )
+    parser.add_argument(
+        "--val-frac",
+        type=float,
+        default=0.2,
+        help="Validation fraction at group level.",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--epochs", type=int, default=30, help="Training epochs.")
     parser.add_argument("--batch-size", type=int, default=32, help="Mini-batch size.")
-    parser.add_argument("--hidden-channels", type=int, default=64, help="Hidden channels for GCN.")
+    parser.add_argument(
+        "--hidden-channels", type=int, default=64, help="Hidden channels for GCN."
+    )
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
-    parser.add_argument("--weight-decay", type=float, default=1e-4, help="Adam weight decay.")
+    parser.add_argument(
+        "--weight-decay", type=float, default=1e-4, help="Adam weight decay."
+    )
     return parser.parse_args()
 
 
@@ -35,11 +59,17 @@ def _sample_meta(dataset, index: int) -> dict:
         "site_id": getattr(sample, "site_id", ""),
         "video_id": getattr(sample, "video_id", ""),
         "window_id": getattr(sample, "window_id", ""),
-        "label": int(getattr(sample, "y", 0).item() if hasattr(getattr(sample, "y", 0), "item") else getattr(sample, "y", 0)),
+        "label": int(
+            getattr(sample, "y", 0).item()
+            if hasattr(getattr(sample, "y", 0), "item")
+            else getattr(sample, "y", 0)
+        ),
     }
 
 
-def grouped_split_indices(samples: list[dict], group_key: str, val_frac: float, seed: int) -> tuple[list[int], list[int]]:
+def grouped_split_indices(
+    samples: list[dict], group_key: str, val_frac: float, seed: int
+) -> tuple[list[int], list[int]]:
     groups = []
     for i, sample in enumerate(samples):
         group = sample.get(group_key)
@@ -56,11 +86,13 @@ def grouped_split_indices(samples: list[dict], group_key: str, val_frac: float, 
 
     try:
         from sklearn.model_selection import GroupShuffleSplit
+
         splitter = GroupShuffleSplit(n_splits=1, test_size=val_frac, random_state=seed)
         train_idx, val_idx = next(splitter.split(samples, groups=groups))
         return train_idx.tolist(), val_idx.tolist()
     except Exception:
         import random
+
         rng = random.Random(seed)
         shuffled = unique_groups[:]
         rng.shuffle(shuffled)
@@ -109,7 +141,9 @@ def main() -> None:
         import torch
         from torch_geometric.loader import DataLoader
     except Exception as exc:
-        raise RuntimeError("Torch and torch_geometric must be installed to train the GCN risk model.") from exc
+        raise RuntimeError(
+            "Torch and torch_geometric must be installed to train the GCN risk model."
+        ) from exc
 
     raw_dataset = GraphSampleDataset.from_jsonl(args.graphs)
     raw_samples = raw_dataset.samples
@@ -117,7 +151,9 @@ def main() -> None:
     if len(dataset) < 2:
         raise RuntimeError("Need at least 2 graph samples to train/evaluate.")
 
-    train_idx, val_idx = grouped_split_indices(raw_samples, args.group_key, args.val_frac, args.seed)
+    train_idx, val_idx = grouped_split_indices(
+        raw_samples, args.group_key, args.val_frac, args.seed
+    )
     train_ds = build_subset(dataset, train_idx)
     val_ds = build_subset(dataset, val_idx)
 
@@ -126,7 +162,9 @@ def main() -> None:
 
     model = build_model(in_channels=in_channels, hidden_channels=args.hidden_channels)
     if not hasattr(model, "parameters"):
-        raise RuntimeError("Loaded fallback non-torch model. Torch/PyG install is incomplete.")
+        raise RuntimeError(
+            "Loaded fallback non-torch model. Torch/PyG install is incomplete."
+        )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -134,7 +172,9 @@ def main() -> None:
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    optimizer = torch.optim.Adam(
+        model.parameters(), lr=args.lr, weight_decay=args.weight_decay
+    )
     criterion = torch.nn.BCEWithLogitsLoss()
 
     commit = get_git_commit(Path(__file__).resolve().parents[1])
@@ -210,17 +250,19 @@ def main() -> None:
             else:
                 logit = float(logits.detach().cpu().view(-1)[0])
             prob = 1.0 / (1.0 + math.exp(-logit))
-            predictions.append({
-                "sample_id": item.sample_id,
-                "site_id": getattr(item, "site_id", None),
-                "video_id": getattr(item, "video_id", None),
-                "window_id": getattr(item, "window_id", None),
-                "label": int(item.y.detach().cpu().view(-1)[0].item()),
-                "split": "val",
-                "logit": logit,
-                "prob": prob,
-                "pred_label": int(prob >= 0.5),
-            })
+            predictions.append(
+                {
+                    "sample_id": item.sample_id,
+                    "site_id": getattr(item, "site_id", None),
+                    "video_id": getattr(item, "video_id", None),
+                    "window_id": getattr(item, "window_id", None),
+                    "label": int(item.y.detach().cpu().view(-1)[0].item()),
+                    "split": "val",
+                    "logit": logit,
+                    "prob": prob,
+                    "pred_label": int(prob >= 0.5),
+                }
+            )
 
     true_labels = [int(p["label"]) for p in predictions]
     pred_labels = [int(p["pred_label"]) for p in predictions]
@@ -236,23 +278,30 @@ def main() -> None:
 
     warnings = []
     if len(true_labels) < 10:
-        warnings.append("validation split has fewer than 10 samples; metrics may be unstable")
+        warnings.append(
+            "validation split has fewer than 10 samples; metrics may be unstable"
+        )
     if val_pos == 0 or val_neg == 0:
-        warnings.append("validation split is single-class; binary metrics are not reliable")
+        warnings.append(
+            "validation split is single-class; binary metrics are not reliable"
+        )
     if pred_pos == 0 and len(pred_labels) > 0:
         warnings.append("model predicted zero positive samples at threshold 0.5")
 
-    write_json(run_dir / "metrics.json", {
-        "best_val_f1": best_f1,
-        "history": history,
-        "val_sample_count": len(true_labels),
-        "val_positive_count": val_pos,
-        "val_negative_count": val_neg,
-        "val_pred_positive_count": pred_pos,
-        "val_pred_negative_count": pred_neg,
-        "val_confusion": {"tp": tp, "tn": tn, "fp": fp, "fn": fn},
-        "warnings": warnings,
-    })
+    write_json(
+        run_dir / "metrics.json",
+        {
+            "best_val_f1": best_f1,
+            "history": history,
+            "val_sample_count": len(true_labels),
+            "val_positive_count": val_pos,
+            "val_negative_count": val_neg,
+            "val_pred_positive_count": pred_pos,
+            "val_pred_negative_count": pred_neg,
+            "val_confusion": {"tp": tp, "tn": tn, "fp": fp, "fn": fn},
+            "warnings": warnings,
+        },
+    )
 
     write_jsonl(run_dir / "predictions.jsonl", predictions)
     print(f"saved_run_dir={run_dir}")

@@ -4,11 +4,37 @@ from graf.graph.pyg_export import to_pyg_dict
 
 def sample_graph():
     records = [
-        {"track_id": 10, "frame_id": 7, "actor_class": "car", "x": 0.0, "y": 0.0, "vx": 2.0, "vy": 0.0},
-        {"track_id": 25, "frame_id": 7, "actor_class": "two_wheeler", "x": 3.0, "y": 4.0, "vx": 1.0, "vy": 0.5},
-        {"track_id": 99, "frame_id": 7, "actor_class": "pedestrian", "x": 20.0, "y": 0.0, "vx": 0.2, "vy": 0.0},
+        {
+            "track_id": 10,
+            "frame_id": 7,
+            "actor_class": "car",
+            "x": 0.0,
+            "y": 0.0,
+            "vx": 2.0,
+            "vy": 0.0,
+        },
+        {
+            "track_id": 25,
+            "frame_id": 7,
+            "actor_class": "two_wheeler",
+            "x": 3.0,
+            "y": 4.0,
+            "vx": 1.0,
+            "vy": 0.5,
+        },
+        {
+            "track_id": 99,
+            "frame_id": 7,
+            "actor_class": "pedestrian",
+            "x": 20.0,
+            "y": 0.0,
+            "vx": 0.2,
+            "vy": 0.0,
+        },
     ]
-    return build_graph_for_frame(records, radius=6.0, actor_classes=["car", "two_wheeler", "pedestrian"])
+    return build_graph_for_frame(
+        records, radius=6.0, actor_classes=["car", "two_wheeler", "pedestrian"]
+    )
 
 
 def test_to_pyg_dict_shapes_and_metadata():

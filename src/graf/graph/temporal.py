@@ -47,7 +47,9 @@ def build_temporal_window_graph(
 
     video_ids = {str(getattr(g, "video_id", "unknown")) for g in frame_list}
     if len(video_ids) > 1:
-        raise ValueError("All frames in a temporal window must come from the same video_id")
+        raise ValueError(
+            "All frames in a temporal window must come from the same video_id"
+        )
 
     x_parts: list[torch.Tensor] = []
     pos_parts: list[torch.Tensor] = []
@@ -83,10 +85,14 @@ def build_temporal_window_graph(
         pos_parts.append(g.pos)
         track_ids_parts.append(g.track_ids)
         actor_class_index_parts.append(
-            getattr(g, "actor_class_index", torch.full((num_nodes,), -1, dtype=torch.long))
+            getattr(
+                g, "actor_class_index", torch.full((num_nodes,), -1, dtype=torch.long)
+            )
         )
         node_frame_index_parts.append(torch.full((num_nodes,), t, dtype=torch.long))
-        node_frame_id_parts.append(torch.full((num_nodes,), int(getattr(g, "frame_id", t)), dtype=torch.long))
+        node_frame_id_parts.append(
+            torch.full((num_nodes,), int(getattr(g, "frame_id", t)), dtype=torch.long)
+        )
 
         spatial_edge_indices.append(_shift_edge_index(g.edge_index, offset))
         spatial_edge_attrs.append(g.edge_attr)
@@ -123,11 +129,13 @@ def build_temporal_window_graph(
                 temporal_src.append(j)
                 temporal_dst.append(i)
 
-    node_feat_dim = int(x.shape[1])
+    node_feat_dim = int(x.shape[1])  # noqa: F841
     spatial_edge_feat_dim = 0
     if spatial_edge_attrs:
-        spatial_edge_feat_dim = int(spatial_edge_attrs[0].shape[1]) if spatial_edge_attrs[0].numel() else int(
-            max((ea.shape[1] for ea in spatial_edge_attrs), default=0)
+        spatial_edge_feat_dim = (
+            int(spatial_edge_attrs[0].shape[1])
+            if spatial_edge_attrs[0].numel()
+            else int(max((ea.shape[1] for ea in spatial_edge_attrs), default=0))
         )
 
     spatial_edge_index = (
@@ -173,11 +181,16 @@ def build_temporal_window_graph(
     data.node_frame_id = node_frame_id
     data.window_size = len(frame_list)
     data.video_id = str(getattr(frame_list[0], "video_id", "unknown"))
-    data.frame_ids = torch.tensor([int(getattr(g, "frame_id", i)) for i, g in enumerate(frame_list)], dtype=torch.long)
+    data.frame_ids = torch.tensor(
+        [int(getattr(g, "frame_id", i)) for i, g in enumerate(frame_list)],
+        dtype=torch.long,
+    )
     data.num_spatial_edges = int(spatial_edge_index.shape[1])
     data.num_temporal_edges = int(temporal_edge_index.shape[1])
 
-    labels = [getattr(g, "y", None) for g in frame_list if getattr(g, "y", None) is not None]
+    labels = [
+        getattr(g, "y", None) for g in frame_list if getattr(g, "y", None) is not None
+    ]
     if labels:
         try:
             data.y = labels[-1]

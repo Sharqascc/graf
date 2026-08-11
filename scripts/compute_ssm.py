@@ -6,9 +6,18 @@ from pathlib import Path
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Compute toy surrogate safety measures for GRAF.")
-    parser.add_argument("--traj-path", type=str, default="outputs/trajectories/trajectories.json", help="Input trajectories JSON")
-    parser.add_argument("--outdir", type=str, default="outputs/ssm_events", help="Output directory")
+    parser = argparse.ArgumentParser(
+        description="Compute toy surrogate safety measures for GRAF."
+    )
+    parser.add_argument(
+        "--traj-path",
+        type=str,
+        default="outputs/trajectories/trajectories.json",
+        help="Input trajectories JSON",
+    )
+    parser.add_argument(
+        "--outdir", type=str, default="outputs/ssm_events", help="Output directory"
+    )
     return parser.parse_args()
 
 

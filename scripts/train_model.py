@@ -7,7 +7,9 @@ from pathlib import Path
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train a toy model for GRAF.")
-    parser.add_argument("--outdir", type=str, default="outputs/models", help="Output directory")
+    parser.add_argument(
+        "--outdir", type=str, default="outputs/models", help="Output directory"
+    )
     return parser.parse_args()
 
 

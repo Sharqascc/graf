@@ -7,7 +7,9 @@ pyg_data = pytest.importorskip("torch_geometric.data")
 Data = pyg_data.Data
 Batch = pyg_data.Batch
 
-from graf.models.baselines import GraphFeatureExtractor, MajorityClassBaseline, get_baseline
+from graf.models.baselines import GraphFeatureExtractor  # noqa: E402
+from graf.models.baselines import (MajorityClassBaseline,  # noqa: E402
+                                   get_baseline)
 
 
 def test_graph_feature_extractor_single_graph():

@@ -8,7 +8,6 @@ from typing import Any
 from graf.data.graph_dataset import GraphSampleDataset
 from graf.graph.builders import build_graph_for_frame
 
-
 TOY_SAMPLES = [
     {
         "sample_id": "site01_vid01_win0001",
@@ -18,8 +17,24 @@ TOY_SAMPLES = [
         "label": 1,
         "graph": build_graph_for_frame(
             [
-                {"track_id": 1, "frame_id": 10, "actor_class": "car", "x": 0.0, "y": 0.0, "vx": 2.0, "vy": 0.0},
-                {"track_id": 2, "frame_id": 10, "actor_class": "two_wheeler", "x": 2.0, "y": 1.0, "vx": 1.2, "vy": 0.1},
+                {
+                    "track_id": 1,
+                    "frame_id": 10,
+                    "actor_class": "car",
+                    "x": 0.0,
+                    "y": 0.0,
+                    "vx": 2.0,
+                    "vy": 0.0,
+                },
+                {
+                    "track_id": 2,
+                    "frame_id": 10,
+                    "actor_class": "two_wheeler",
+                    "x": 2.0,
+                    "y": 1.0,
+                    "vx": 1.2,
+                    "vy": 0.1,
+                },
             ],
             radius=5.0,
             actor_classes=["car", "two_wheeler"],
@@ -33,8 +48,24 @@ TOY_SAMPLES = [
         "label": 0,
         "graph": build_graph_for_frame(
             [
-                {"track_id": 3, "frame_id": 11, "actor_class": "car", "x": 0.0, "y": 0.0, "vx": 2.0, "vy": 0.0},
-                {"track_id": 4, "frame_id": 11, "actor_class": "pedestrian", "x": 9.0, "y": 1.0, "vx": 0.3, "vy": 0.0},
+                {
+                    "track_id": 3,
+                    "frame_id": 11,
+                    "actor_class": "car",
+                    "x": 0.0,
+                    "y": 0.0,
+                    "vx": 2.0,
+                    "vy": 0.0,
+                },
+                {
+                    "track_id": 4,
+                    "frame_id": 11,
+                    "actor_class": "pedestrian",
+                    "x": 9.0,
+                    "y": 1.0,
+                    "vx": 0.3,
+                    "vy": 0.0,
+                },
             ],
             radius=5.0,
             actor_classes=["car", "pedestrian"],
@@ -48,9 +79,33 @@ TOY_SAMPLES = [
         "label": 1,
         "graph": build_graph_for_frame(
             [
-                {"track_id": 5, "frame_id": 20, "actor_class": "auto_rickshaw", "x": 1.0, "y": 1.0, "vx": 1.6, "vy": 0.2},
-                {"track_id": 6, "frame_id": 20, "actor_class": "two_wheeler", "x": 3.5, "y": 1.8, "vx": 1.8, "vy": 0.0},
-                {"track_id": 7, "frame_id": 20, "actor_class": "pedestrian", "x": 6.0, "y": 2.0, "vx": 0.2, "vy": -0.1},
+                {
+                    "track_id": 5,
+                    "frame_id": 20,
+                    "actor_class": "auto_rickshaw",
+                    "x": 1.0,
+                    "y": 1.0,
+                    "vx": 1.6,
+                    "vy": 0.2,
+                },
+                {
+                    "track_id": 6,
+                    "frame_id": 20,
+                    "actor_class": "two_wheeler",
+                    "x": 3.5,
+                    "y": 1.8,
+                    "vx": 1.8,
+                    "vy": 0.0,
+                },
+                {
+                    "track_id": 7,
+                    "frame_id": 20,
+                    "actor_class": "pedestrian",
+                    "x": 6.0,
+                    "y": 2.0,
+                    "vx": 0.2,
+                    "vy": -0.1,
+                },
             ],
             radius=4.5,
             actor_classes=["auto_rickshaw", "two_wheeler", "pedestrian"],
@@ -64,8 +119,24 @@ TOY_SAMPLES = [
         "label": 0,
         "graph": build_graph_for_frame(
             [
-                {"track_id": 8, "frame_id": 25, "actor_class": "bus", "x": 0.0, "y": 5.0, "vx": 1.0, "vy": 0.0},
-                {"track_id": 9, "frame_id": 25, "actor_class": "car", "x": 8.0, "y": 5.5, "vx": 1.1, "vy": 0.0},
+                {
+                    "track_id": 8,
+                    "frame_id": 25,
+                    "actor_class": "bus",
+                    "x": 0.0,
+                    "y": 5.0,
+                    "vx": 1.0,
+                    "vy": 0.0,
+                },
+                {
+                    "track_id": 9,
+                    "frame_id": 25,
+                    "actor_class": "car",
+                    "x": 8.0,
+                    "y": 5.5,
+                    "vx": 1.1,
+                    "vy": 0.0,
+                },
             ],
             radius=3.0,
             actor_classes=["bus", "car"],
@@ -75,8 +146,12 @@ TOY_SAMPLES = [
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build graph JSONL dataset for GCN risk training.")
-    parser.add_argument("--out", type=str, default="data/processed/graphs/site_graphs.jsonl")
+    parser = argparse.ArgumentParser(
+        description="Build graph JSONL dataset for GCN risk training."
+    )
+    parser.add_argument(
+        "--out", type=str, default="data/processed/graphs/site_graphs.jsonl"
+    )
     return parser.parse_args()
 
 

@@ -16,7 +16,9 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("--root", type=str, default=".", help="Repository root")
 
     demo = subparsers.add_parser("demo-graphs", help="Export a toy graph sample")
-    demo.add_argument("--outdir", type=str, default="outputs/graphs", help="Output directory")
+    demo.add_argument(
+        "--outdir", type=str, default="outputs/graphs", help="Output directory"
+    )
 
     return parser
 

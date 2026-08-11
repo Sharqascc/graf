@@ -40,10 +40,10 @@ def find_nearby_pairs(
             dist = np.linalg.norm(positions[i] - positions[j])
             if dist < distance_threshold:
                 pair = tuple(sorted((str(tracks[i]), str(tracks[j]))))
-                frame_pairs.append(pair)
+                frame_pairs.append(pair)  # type: ignore[arg-type]
 
         if frame_pairs:
-            nearby_pairs[int(frame)] = frame_pairs
+            nearby_pairs[int(frame)] = frame_pairs  # type: ignore[arg-type]
 
     return nearby_pairs
 
@@ -129,6 +129,8 @@ def filter_meaningful_conflicts(
     min_avg_speed: float = 0.0,
 ) -> List[ConflictPair]:
     return [
-        pair for pair in conflict_pairs
-        if pair.min_distance <= max_min_distance and pair.avg_relative_speed >= min_avg_speed
+        pair
+        for pair in conflict_pairs
+        if pair.min_distance <= max_min_distance
+        and pair.avg_relative_speed >= min_avg_speed
     ]

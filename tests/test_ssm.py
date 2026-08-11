@@ -3,7 +3,7 @@ import pandas as pd
 
 from graf.ssm.pet import PETCalculator, compute_pet_from_conflict_zone
 from graf.ssm.ttc import compute_ttc_constant_velocity
-from graf.trajectories.conflict_pairs import find_nearby_pairs, compute_conflict_pairs
+from graf.trajectories.conflict_pairs import find_nearby_pairs
 
 
 def test_ttc_head_on():
@@ -37,12 +37,14 @@ def test_pet_conflict_zone_sequential():
 
 
 def test_find_nearby_pairs():
-    df = pd.DataFrame({
-        "frame_idx": [0, 0, 0, 1, 1, 1],
-        "track_id": ["a", "b", "c", "a", "b", "c"],
-        "x_m": [0, 2, 100, 0, 2, 100],
-        "y_m": [0, 2, 100, 0, 2, 100],
-    })
+    df = pd.DataFrame(
+        {
+            "frame_idx": [0, 0, 0, 1, 1, 1],
+            "track_id": ["a", "b", "c", "a", "b", "c"],
+            "x_m": [0, 2, 100, 0, 2, 100],
+            "y_m": [0, 2, 100, 0, 2, 100],
+        }
+    )
 
     pairs = find_nearby_pairs(df, distance_threshold=5.0)
     assert 0 in pairs
@@ -53,20 +55,24 @@ def test_find_nearby_pairs():
 
 
 def test_pet_calculator_event():
-    df_a = pd.DataFrame({
-        "track_id": ["a", "a", "a"],
-        "frame_idx": [0, 1, 2],
-        "t_sec": [0.0, 1.0, 2.0],
-        "x_m": [0.0, 1.0, 2.0],
-        "y_m": [0.0, 0.0, 0.0],
-    })
-    df_b = pd.DataFrame({
-        "track_id": ["b", "b", "b"],
-        "frame_idx": [3, 4, 5],
-        "t_sec": [2.2, 3.2, 4.2],
-        "x_m": [2.0, 2.0, 2.0],
-        "y_m": [1.0, 0.2, 0.0],
-    })
+    df_a = pd.DataFrame(
+        {
+            "track_id": ["a", "a", "a"],
+            "frame_idx": [0, 1, 2],
+            "t_sec": [0.0, 1.0, 2.0],
+            "x_m": [0.0, 1.0, 2.0],
+            "y_m": [0.0, 0.0, 0.0],
+        }
+    )
+    df_b = pd.DataFrame(
+        {
+            "track_id": ["b", "b", "b"],
+            "frame_idx": [3, 4, 5],
+            "t_sec": [2.2, 3.2, 4.2],
+            "x_m": [2.0, 2.0, 2.0],
+            "y_m": [1.0, 0.2, 0.0],
+        }
+    )
 
     calc = PETCalculator(proximity_threshold_m=0.5)
     event = calc.compute_pair_pet(df_a, df_b, video_id="vid_test")

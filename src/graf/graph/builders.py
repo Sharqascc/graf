@@ -13,16 +13,9 @@ try:
 except Exception:  # pragma: no cover
     cKDTree = None
 
-from .edges import (
-    ACTOR_CLASSES,
-    SIZE_PRIORS,
-    build_edge_feature,
-    edge_feature_dim,
-    edge_feature_to_list,
-    infer_actor_class,
-    reverse_edge_feature,
-    safe_float,
-)
+from .edges import (ACTOR_CLASSES, SIZE_PRIORS, build_edge_feature,
+                    edge_feature_dim, edge_feature_to_list, infer_actor_class,
+                    reverse_edge_feature, safe_float)
 
 DEFAULT_INTERACTION_RADII = {
     ("car", "car"): 6.0,
@@ -64,7 +57,9 @@ class FeatureStats:
     edge_std: np.ndarray | None = None
 
 
-def one_hot_actor_class(name: str, actor_classes: list[str] | None = None) -> list[float]:
+def one_hot_actor_class(
+    name: str, actor_classes: list[str] | None = None
+) -> list[float]:
     cls_list = actor_classes if actor_classes is not None else ACTOR_CLASSES
     cls_to_idx = {n: i for i, n in enumerate(cls_list)}
     idx = cls_to_idx.get(name, cls_to_idx.get("other", len(cls_list) - 1))
@@ -92,7 +87,7 @@ class GraphBuilder:
     Research-oriented single-frame traffic interaction graph builder.
 
     Node feature order:
-      [x, y, vx, vy, speed, ax, ay, accel_mag, sin_heading, cos_heading, size_prior] + one_hot_class
+      [x, y, vx, vy, speed, ax, ay, accel_mag, sin_heading, cos_heading, size_prior] + one_hot_class  # noqa: E501
 
     Edge feature order:
       [
@@ -126,8 +121,12 @@ class GraphBuilder:
     ) -> None:
         self.radius = radius
         self.directed = directed
-        self.actor_classes = actor_classes if actor_classes is not None else ACTOR_CLASSES
-        self.pair_radii = pair_radii if pair_radii is not None else DEFAULT_INTERACTION_RADII
+        self.actor_classes = (
+            actor_classes if actor_classes is not None else ACTOR_CLASSES
+        )
+        self.pair_radii = (
+            pair_radii if pair_radii is not None else DEFAULT_INTERACTION_RADII
+        )
         self.use_kdtree = use_kdtree
         self.use_class_specific_radii = use_class_specific_radii
         self.use_velocity_adaptive_radius = use_velocity_adaptive_radius
@@ -237,10 +236,14 @@ class GraphBuilder:
 
             pair_radius = self.radius
             if self.use_class_specific_radii:
-                pair_radius = get_pair_radius(class_list[i], class_list[j], self.radius, self.pair_radii)
+                pair_radius = get_pair_radius(
+                    class_list[i], class_list[j], self.radius, self.pair_radii
+                )
 
             if self.use_velocity_adaptive_radius:
-                pair_radius += self.velocity_radius_scale * max(float(speed_np[i]), float(speed_np[j]))
+                pair_radius += self.velocity_radius_scale * max(
+                    float(speed_np[i]), float(speed_np[j])
+                )
 
             edge_feat_ij = build_edge_feature(
                 actor_records[i],
@@ -253,7 +256,10 @@ class GraphBuilder:
             if dist <= 1e-8 or dist > pair_radius:
                 continue
 
-            if self.min_closing_speed is not None and float(edge_feat_ij["closing_speed"]) < self.min_closing_speed:
+            if (
+                self.min_closing_speed is not None
+                and float(edge_feat_ij["closing_speed"]) < self.min_closing_speed
+            ):
                 continue
 
             if self.max_ttc is not None and float(edge_feat_ij["ttc"]) > self.max_ttc:
@@ -282,10 +288,14 @@ class GraphBuilder:
         )
 
         if self.normalize and self.stats is not None:
-            x_np = self._normalize_array(x_np, self.stats.node_mean, self.stats.node_std)
-            edge_np = self._normalize_array(edge_np, self.stats.edge_mean, self.stats.edge_std)
+            x_np = self._normalize_array(
+                x_np, self.stats.node_mean, self.stats.node_std
+            )
+            edge_np = self._normalize_array(
+                edge_np, self.stats.edge_mean, self.stats.edge_std
+            )
 
-        x = torch.tensor(x_np, dtype=torch.float32)
+        x = torch.tensor(x_np, dtype=torch.float32)  # type: ignore[assignment]
         edge_attr = torch.tensor(edge_np, dtype=torch.float32)
 
         data = Data(
@@ -293,14 +303,23 @@ class GraphBuilder:
             edge_index=edge_index,
             edge_attr=edge_attr,
             pos=torch.tensor(pos_np, dtype=torch.float32),
-            num_nodes=x.shape[0],
+            num_nodes=x.shape[0],  # type: ignore[attr-defined]
         )
         data.track_ids = torch.tensor(track_ids, dtype=torch.long)
-        data.frame_id = int(frame_id if frame_id is not None else (frame_ids[0] if frame_ids else 0))
+        data.frame_id = int(
+            frame_id if frame_id is not None else (frame_ids[0] if frame_ids else 0)
+        )
         if video_id is not None:
             data.video_id = video_id
         data.actor_class_index = torch.tensor(
-            [self.actor_classes.index(c) if c in self.actor_classes else self.actor_classes.index("other") for c in class_list],
+            [
+                (
+                    self.actor_classes.index(c)
+                    if c in self.actor_classes
+                    else self.actor_classes.index("other")
+                )
+                for c in class_list
+            ],
             dtype=torch.long,
         )
         return data
@@ -370,15 +389,26 @@ class GraphBuilder:
         checks = {
             "has_nodes": int(data.num_nodes) > 0,
             "has_edges": data.edge_index.shape[1] > 0,
-            "finite_node_features": bool(torch.isfinite(data.x).all()) if data.x.numel() else True,
-            "finite_edge_features": bool(torch.isfinite(data.edge_attr).all()) if data.edge_attr.numel() else True,
+            "finite_node_features": (
+                bool(torch.isfinite(data.x).all()) if data.x.numel() else True
+            ),
+            "finite_edge_features": (
+                bool(torch.isfinite(data.edge_attr).all())
+                if data.edge_attr.numel()
+                else True
+            ),
             "valid_edge_indices": True,
             "no_self_loops": True,
         }
 
         if data.edge_index.numel():
-            checks["valid_edge_indices"] = bool((data.edge_index >= 0).all() and (data.edge_index < data.num_nodes).all())
-            checks["no_self_loops"] = not bool((data.edge_index[0] == data.edge_index[1]).any())
+            checks["valid_edge_indices"] = bool(
+                (data.edge_index >= 0).all()
+                and (data.edge_index < data.num_nodes).all()
+            )
+            checks["no_self_loops"] = not bool(
+                (data.edge_index[0] == data.edge_index[1]).any()
+            )
 
         return checks
 
@@ -408,7 +438,9 @@ class GraphBuilder:
         return pairs
 
     def _max_search_radius(self) -> float:
-        max_pair_radius = max(self.pair_radii.values()) if self.pair_radii else self.radius
+        max_pair_radius = (
+            max(self.pair_radii.values()) if self.pair_radii else self.radius
+        )
         base = max(self.radius, max_pair_radius)
         if self.use_velocity_adaptive_radius:
             base += 20.0 * self.velocity_radius_scale
@@ -486,8 +518,16 @@ def build_graph_for_frame(
 
     edges = []
     seen = set()
-    edge_index = data.edge_index.t().tolist() if getattr(data, "edge_index", None) is not None and data.edge_index.numel() else []
-    edge_attr = data.edge_attr.tolist() if getattr(data, "edge_attr", None) is not None and data.edge_attr.numel() else []
+    edge_index = (
+        data.edge_index.t().tolist()
+        if getattr(data, "edge_index", None) is not None and data.edge_index.numel()
+        else []
+    )
+    edge_attr = (
+        data.edge_attr.tolist()
+        if getattr(data, "edge_attr", None) is not None and data.edge_attr.numel()
+        else []
+    )
 
     for k, (src0, dst0) in enumerate(edge_index):
         if src0 == dst0:
@@ -519,7 +559,6 @@ def build_graph_for_frame(
         "edges": edges,
     }
 
-
     nodes = []
     for i, row in enumerate(records):
         feats = data.x[i].tolist() if i < data.x.size(0) else []
@@ -536,8 +575,16 @@ def build_graph_for_frame(
 
     edges = []
     seen = set()
-    edge_index = data.edge_index.t().tolist() if getattr(data, "edge_index", None) is not None and data.edge_index.numel() else []
-    edge_attr = data.edge_attr.tolist() if getattr(data, "edge_attr", None) is not None and data.edge_attr.numel() else []
+    edge_index = (
+        data.edge_index.t().tolist()
+        if getattr(data, "edge_index", None) is not None and data.edge_index.numel()
+        else []
+    )
+    edge_attr = (
+        data.edge_attr.tolist()
+        if getattr(data, "edge_attr", None) is not None and data.edge_attr.numel()
+        else []
+    )
 
     for k, (src0, dst0) in enumerate(edge_index):
         if src0 == dst0:

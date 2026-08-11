@@ -52,7 +52,8 @@ class LegacyGraphSampleDataset:
 
         if sample["track_ids"] is None:
             sample["track_ids"] = [
-                n.get("track_id") for n in nodes
+                n.get("track_id")
+                for n in nodes
                 if isinstance(n, dict) and n.get("track_id") is not None
             ]
 
@@ -130,7 +131,9 @@ class SpatioTemporalWindowDataset(Dataset):
             if len(ordered_indices) < self.window_size:
                 continue
 
-            for start in range(0, len(ordered_indices) - self.window_size + 1, self.stride):
+            for start in range(
+                0, len(ordered_indices) - self.window_size + 1, self.stride
+            ):
                 windows.append(ordered_indices[start : start + self.window_size])
 
         return windows

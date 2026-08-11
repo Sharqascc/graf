@@ -23,3 +23,4 @@ package-dir = {"" = "src"}
 where = ["src"]
 include = ["graf*"]
 namespaces = false
+[tool.black]

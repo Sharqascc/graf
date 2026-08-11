@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from typing import Final, Sequence
@@ -76,19 +75,21 @@ def validate_node_layout(
     if data.x.shape[1] != expected_dim:
         raise ValueError(
             f"Unexpected node feature dimension: got {data.x.shape[1]}, "
-            f"expected {expected_dim} = {len(BASE_NODE_FEATURES)} base + {len(classes)} class one-hot."
+            f"expected {expected_dim} = {len(BASE_NODE_FEATURES)} base + {len(classes)} class one-hot."  # noqa: E501
         )
 
     if require_pos:
         if not hasattr(data, "pos") or data.pos is None:
             raise ValueError("Graph data must contain 'pos' when require_pos=True.")
         if data.pos.dim() != 2 or data.pos.shape[1] != 2:
-            raise ValueError(f"Expected data.pos shape [num_nodes, 2], got {tuple(data.pos.shape)}.")
+            raise ValueError(
+                f"Expected data.pos shape [num_nodes, 2], got {tuple(data.pos.shape)}."
+            )
 
     if hasattr(data, "pos") and data.pos is not None and data.pos.numel() > 0:
         if data.pos.shape[0] != data.x.shape[0]:
             raise ValueError(
-                f"Mismatch between x and pos node counts: {data.x.shape[0]} vs {data.pos.shape[0]}."
+                f"Mismatch between x and pos node counts: {data.x.shape[0]} vs {data.pos.shape[0]}."  # noqa: E501
             )
 
     if hasattr(data, "actor_class_index") and data.actor_class_index is not None:
@@ -101,7 +102,9 @@ def validate_node_layout(
 def get_node_feature_index(feature_name: str) -> int:
     if feature_name not in NODE_FEATURE_MAPPING:
         valid = ", ".join(NODE_FEATURE_MAPPING.keys())
-        raise KeyError(f"Unknown node feature '{feature_name}'. Valid features: {valid}")
+        raise KeyError(
+            f"Unknown node feature '{feature_name}'. Valid features: {valid}"
+        )
     return NODE_FEATURE_MAPPING[feature_name]
 
 
@@ -133,7 +136,9 @@ def get_heading_components(data: Data) -> torch.Tensor:
     return get_node_feature_block(data, ("sin_heading", "cos_heading"))
 
 
-def get_class_one_hot(data: Data, actor_classes: Sequence[str] | None = None) -> torch.Tensor:
+def get_class_one_hot(
+    data: Data, actor_classes: Sequence[str] | None = None
+) -> torch.Tensor:
     validate_node_layout(data, actor_classes=actor_classes)
     sl = class_feature_slice(actor_classes)
     if data.x.numel() == 0:
@@ -195,11 +200,11 @@ def clone_with_updated_node_feature(
 
     if values.dim() != 1:
         raise ValueError(
-            f"Expected replacement values to be 1D with shape [num_nodes], got {tuple(values.shape)}."
+            f"Expected replacement values to be 1D with shape [num_nodes], got {tuple(values.shape)}."  # noqa: E501
         )
     if values.shape[0] != data.x.shape[0]:
         raise ValueError(
-            f"Replacement feature length {values.shape[0]} does not match num_nodes {data.x.shape[0]}."
+            f"Replacement feature length {values.shape[0]} does not match num_nodes {data.x.shape[0]}."  # noqa: E501
         )
 
     out = data.clone()
@@ -218,15 +223,15 @@ def clone_with_updated_node_feature_block(
 
     if values.dim() != 2:
         raise ValueError(
-            f"Expected replacement block to be 2D with shape [num_nodes, num_features], got {tuple(values.shape)}."
+            f"Expected replacement block to be 2D with shape [num_nodes, num_features], got {tuple(values.shape)}."  # noqa: E501
         )
     if values.shape[0] != data.x.shape[0]:
         raise ValueError(
-            f"Replacement block node count {values.shape[0]} does not match num_nodes {data.x.shape[0]}."
+            f"Replacement block node count {values.shape[0]} does not match num_nodes {data.x.shape[0]}."  # noqa: E501
         )
     if values.shape[1] != len(indices):
         raise ValueError(
-            f"Replacement block feature count {values.shape[1]} does not match requested feature count {len(indices)}."
+            f"Replacement block feature count {values.shape[1]} does not match requested feature count {len(indices)}."  # noqa: E501
         )
 
     out = data.clone()

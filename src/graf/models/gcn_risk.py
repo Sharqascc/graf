@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Optional, Type
 
 
 def has_torch_geometric() -> bool:
     try:
         import torch  # noqa: F401
         import torch_geometric  # noqa: F401
+
         return True
     except Exception:
         return False
@@ -50,15 +51,12 @@ class SimpleGCNRiskModel:
     __call__ = forward
 
 
+_RISK_MODEL_CLASS: Optional[Type[GCNRiskModel]] = None
 try:
     import torch
     from torch import nn
-    from torch_geometric.nn import (
-        GCNConv,
-        global_add_pool,
-        global_max_pool,
-        global_mean_pool,
-    )
+    from torch_geometric.nn import (GCNConv, global_add_pool, global_max_pool,
+                                    global_mean_pool)
 
     _POOLERS = {
         "mean": global_mean_pool,
@@ -125,8 +123,9 @@ try:
                 f"pool='{self.pool}')"
             )
 
+    _RISK_MODEL_CLASS = GCNRiskModel
 except Exception:
-    GCNRiskModel = None
+    _RISK_MODEL_CLASS = None
 
 
 def build_model(
@@ -136,7 +135,7 @@ def build_model(
     dropout: float = 0.0,
     pool: str = "mean",
 ) -> Any:
-    if GCNRiskModel is None:
+    if _RISK_MODEL_CLASS is None:
         return SimpleGCNRiskModel(
             in_channels=in_channels,
             hidden_channels=hidden_channels,
@@ -145,10 +144,10 @@ def build_model(
             pool=pool,
         )
 
-    return GCNRiskModel(
+    return _RISK_MODEL_CLASS(
         in_channels=in_channels,
         hidden_channels=hidden_channels,
         num_layers=num_layers,
         dropout=dropout,
-        pool=pool,
+        pool=pool,  # type: ignore[arg-type]
     )

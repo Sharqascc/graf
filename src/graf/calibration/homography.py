@@ -6,7 +6,6 @@ from typing import Sequence, Tuple
 import cv2
 import numpy as np
 
-
 Point2D = Tuple[float, float]
 
 
@@ -51,7 +50,7 @@ def fit_homography(
     if H is None:
         raise RuntimeError("Failed to estimate homography matrix")
 
-    projected = project_points(H, img)
+    projected = project_points(H, [tuple(p) for p in img])
     err = np.sqrt(np.mean(np.sum((projected - world) ** 2, axis=1)))
 
     return HomographyResult(

@@ -22,19 +22,27 @@ def package_tensor_graph(
     Package already-built tensors into a canonical PyG Data object.
     """
     if x.dim() != 2:
-        raise ValueError(f"x must be 2D [num_nodes, num_features], got {tuple(x.shape)}")
+        raise ValueError(
+            f"x must be 2D [num_nodes, num_features], got {tuple(x.shape)}"
+        )
     if edge_index.dim() != 2 or edge_index.shape[0] != 2:
-        raise ValueError(f"edge_index must be [2, num_edges], got {tuple(edge_index.shape)}")
+        raise ValueError(
+            f"edge_index must be [2, num_edges], got {tuple(edge_index.shape)}"
+        )
     if edge_attr.dim() != 2:
-        raise ValueError(f"edge_attr must be 2D [num_edges, num_features], got {tuple(edge_attr.shape)}")
+        raise ValueError(
+            f"edge_attr must be 2D [num_edges, num_features], got {tuple(edge_attr.shape)}"  # noqa: E501
+        )
     if edge_attr.shape[0] != edge_index.shape[1]:
         raise ValueError(
-            f"edge_attr rows ({edge_attr.shape[0]}) must equal num_edges ({edge_index.shape[1]})"
+            f"edge_attr rows ({edge_attr.shape[0]}) must equal num_edges ({edge_index.shape[1]})"  # noqa: E501
         )
 
     if pos is None:
         if x.shape[1] < 2:
-            raise ValueError("pos is None and x has fewer than 2 columns; cannot infer positions")
+            raise ValueError(
+                "pos is None and x has fewer than 2 columns; cannot infer positions"
+            )
         pos = x[:, :2]
 
     if pos.dim() != 2 or pos.shape[1] != 2:
@@ -103,7 +111,7 @@ def to_pyg_data(graph: dict[str, Any]) -> Data:
     Deprecated legacy adapter from dict-graph to canonical PyG Data.
     """
     warnings.warn(
-        "graf.graph.pyg_export.to_pyg_data() is deprecated; use GraphBuilder.build_pyg_data() instead.",
+        "graf.graph.pyg_export.to_pyg_data() is deprecated; use GraphBuilder.build_pyg_data() instead.",  # noqa: E501
         DeprecationWarning,
         stacklevel=2,
     )
@@ -141,7 +149,6 @@ def to_pyg_data(graph: dict[str, Any]) -> Data:
     return data
 
 
-
 def to_pyg_dict(graph):
     """Backward-compatible export returning plain Python structures."""
     nodes = graph.get("nodes", [])
@@ -170,8 +177,34 @@ def to_pyg_dict(graph):
     seen = set()
 
     for e in edges:
-        src_pos = _first_present(e, ("src_node", "source", "src", "from", "u", "sender", "src_id", "src_node_id", "src_track_id"))
-        dst_pos = _first_present(e, ("dst_node", "target", "dst", "to", "v", "receiver", "dst_id", "dst_node_id", "dst_track_id"))
+        src_pos = _first_present(
+            e,
+            (
+                "src_node",
+                "source",
+                "src",
+                "from",
+                "u",
+                "sender",
+                "src_id",
+                "src_node_id",
+                "src_track_id",
+            ),
+        )
+        dst_pos = _first_present(
+            e,
+            (
+                "dst_node",
+                "target",
+                "dst",
+                "to",
+                "v",
+                "receiver",
+                "dst_id",
+                "dst_node_id",
+                "dst_track_id",
+            ),
+        )
 
         if src_pos is None or dst_pos is None or src_pos == dst_pos:
             continue

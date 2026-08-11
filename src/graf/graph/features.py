@@ -80,9 +80,7 @@ def extract_kinematic_features(data: Data) -> torch.Tensor:
     if data.x.numel() == 0:
         return torch.empty((0, 8), dtype=data.x.dtype, device=data.x.device)
     if data.x.size(1) < 8:
-        raise ValueError(
-            f"Expected at least 8 node features, got {data.x.size(1)}."
-        )
+        raise ValueError(f"Expected at least 8 node features, got {data.x.size(1)}.")
     return data.x[:, :8]
 
 
@@ -95,9 +93,7 @@ def extract_heading_features(data: Data) -> torch.Tensor:
     if data.x.numel() == 0:
         return torch.empty((0, 2), dtype=data.x.dtype, device=data.x.device)
     if data.x.size(1) < 10:
-        raise ValueError(
-            f"Expected at least 10 node features, got {data.x.size(1)}."
-        )
+        raise ValueError(f"Expected at least 10 node features, got {data.x.size(1)}.")
     return data.x[:, 8:10]
 
 
@@ -111,8 +107,10 @@ def extract_class_one_hot(data: Data) -> torch.Tensor:
         width = max(data.x.size(1) - num_node_base_features(), 0)
         return torch.empty((0, width), dtype=data.x.dtype, device=data.x.device)
     if data.x.size(1) <= num_node_base_features():
-        return torch.empty((data.x.size(0), 0), dtype=data.x.dtype, device=data.x.device)
-    return data.x[:, num_node_base_features():]
+        return torch.empty(
+            (data.x.size(0), 0), dtype=data.x.dtype, device=data.x.device
+        )
+    return data.x[:, num_node_base_features() :]
 
 
 def extract_edge_distance(data: Data) -> torch.Tensor:
@@ -122,7 +120,9 @@ def extract_edge_distance(data: Data) -> torch.Tensor:
     if getattr(data, "edge_attr", None) is None:
         return torch.empty((0, 1), dtype=torch.float32)
     if data.edge_attr.numel() == 0:
-        return torch.empty((0, 1), dtype=data.edge_attr.dtype, device=data.edge_attr.device)
+        return torch.empty(
+            (0, 1), dtype=data.edge_attr.dtype, device=data.edge_attr.device
+        )
     if data.edge_attr.size(1) < 3:
         raise ValueError(
             f"Expected at least 3 edge features, got {data.edge_attr.size(1)}."
@@ -140,10 +140,12 @@ def extract_edge_kinematics(data: Data) -> torch.Tensor:
     if getattr(data, "edge_attr", None) is None:
         return torch.empty((0, 8), dtype=torch.float32)
     if data.edge_attr.numel() == 0:
-        return torch.empty((0, 8), dtype=data.edge_attr.dtype, device=data.edge_attr.device)
+        return torch.empty(
+            (0, 8), dtype=data.edge_attr.dtype, device=data.edge_attr.device
+        )
     if data.edge_attr.size(1) < len(EDGE_FEATURE_ORDER):
         raise ValueError(
-            f"Expected {len(EDGE_FEATURE_ORDER)} edge features, got {data.edge_attr.size(1)}."
+            f"Expected {len(EDGE_FEATURE_ORDER)} edge features, got {data.edge_attr.size(1)}."  # noqa: E501
         )
     idx = [0, 1, 2, 3, 4, 5, 6, 11]
     return data.edge_attr[:, idx]
@@ -159,10 +161,12 @@ def extract_edge_angles(data: Data) -> torch.Tensor:
     if getattr(data, "edge_attr", None) is None:
         return torch.empty((0, 4), dtype=torch.float32)
     if data.edge_attr.numel() == 0:
-        return torch.empty((0, 4), dtype=data.edge_attr.dtype, device=data.edge_attr.device)
+        return torch.empty(
+            (0, 4), dtype=data.edge_attr.dtype, device=data.edge_attr.device
+        )
     if data.edge_attr.size(1) < len(EDGE_FEATURE_ORDER):
         raise ValueError(
-            f"Expected {len(EDGE_FEATURE_ORDER)} edge features, got {data.edge_attr.size(1)}."
+            f"Expected {len(EDGE_FEATURE_ORDER)} edge features, got {data.edge_attr.size(1)}."  # noqa: E501
         )
     idx = [7, 8, 9, 10]
     return data.edge_attr[:, idx]
@@ -178,10 +182,12 @@ def extract_edge_risk_features(data: Data) -> torch.Tensor:
     if getattr(data, "edge_attr", None) is None:
         return torch.empty((0, 7), dtype=torch.float32)
     if data.edge_attr.numel() == 0:
-        return torch.empty((0, 7), dtype=data.edge_attr.dtype, device=data.edge_attr.device)
+        return torch.empty(
+            (0, 7), dtype=data.edge_attr.dtype, device=data.edge_attr.device
+        )
     if data.edge_attr.size(1) < len(EDGE_FEATURE_ORDER):
         raise ValueError(
-            f"Expected {len(EDGE_FEATURE_ORDER)} edge features, got {data.edge_attr.size(1)}."
+            f"Expected {len(EDGE_FEATURE_ORDER)} edge features, got {data.edge_attr.size(1)}."  # noqa: E501
         )
     idx = [2, 5, 6, 11, 12, 13, 14]
     return data.edge_attr[:, idx]
@@ -194,12 +200,14 @@ def filter_subgraph_by_class(
     keep_isolated_nodes: bool = True,
 ) -> Data:
     """
-    Extract the induced subgraph for nodes whose actor_class_index matches target_class_idx.
+    Extract the induced subgraph for nodes whose actor_class_index matches target_class_idx.  # noqa: E501
 
-    If keep_isolated_nodes is True, matching nodes are kept even if they end up with no edges.
+    If keep_isolated_nodes is True, matching nodes are kept even if they end up with no edges.  # noqa: E501
     """
     if not hasattr(data, "actor_class_index"):
-        raise AttributeError("Data object is missing required attribute 'actor_class_index'.")
+        raise AttributeError(
+            "Data object is missing required attribute 'actor_class_index'."
+        )
 
     if data.num_nodes == 0:
         return data.clone()
@@ -233,7 +241,7 @@ def filter_subgraph_by_node_mask(
         raise ValueError("node_mask must be one-dimensional.")
     if node_mask.numel() != data.num_nodes:
         raise ValueError(
-            f"node_mask length {node_mask.numel()} does not match num_nodes {data.num_nodes}."
+            f"node_mask length {node_mask.numel()} does not match num_nodes {data.num_nodes}."  # noqa: E501
         )
 
     if subset is None:
@@ -254,7 +262,11 @@ def filter_subgraph_by_node_mask(
     if keep_isolated_nodes:
         x = data.x[node_mask] if hasattr(data, "x") else None
         pos = data.pos[node_mask] if hasattr(data, "pos") else None
-        actor_class_index = data.actor_class_index[node_mask] if hasattr(data, "actor_class_index") else None
+        actor_class_index = (
+            data.actor_class_index[node_mask]
+            if hasattr(data, "actor_class_index")
+            else None
+        )
         track_ids = data.track_ids[node_mask] if hasattr(data, "track_ids") else None
         num_nodes = int(subset.numel())
     else:
@@ -263,10 +275,16 @@ def filter_subgraph_by_node_mask(
         kept = torch.unique(edge_index.view(-1), sorted=True)
         x = data.x[subset][kept] if hasattr(data, "x") else None
         pos = data.pos[subset][kept] if hasattr(data, "pos") else None
-        actor_class_index = data.actor_class_index[subset][kept] if hasattr(data, "actor_class_index") else None
+        actor_class_index = (
+            data.actor_class_index[subset][kept]
+            if hasattr(data, "actor_class_index")
+            else None
+        )
         track_ids = data.track_ids[subset][kept] if hasattr(data, "track_ids") else None
 
-        remap = torch.full((subset.numel(),), -1, dtype=torch.long, device=edge_index.device)
+        remap = torch.full(
+            (subset.numel(),), -1, dtype=torch.long, device=edge_index.device
+        )
         remap[kept] = torch.arange(kept.numel(), device=edge_index.device)
         edge_index = remap[edge_index]
         num_nodes = int(kept.numel())
@@ -307,7 +325,7 @@ def validate_feature_layout(data: Data) -> None:
         raise ValueError(f"Data.x must be rank-2, got shape {tuple(data.x.shape)}.")
     if data.edge_index.dim() != 2 or data.edge_index.size(0) != 2:
         raise ValueError(
-            f"Data.edge_index must have shape [2, E], got {tuple(data.edge_index.shape)}."
+            f"Data.edge_index must have shape [2, E], got {tuple(data.edge_index.shape)}."  # noqa: E501
         )
     if data.edge_attr.dim() != 2:
         raise ValueError(
@@ -324,7 +342,7 @@ def validate_feature_layout(data: Data) -> None:
 
     if data.x.size(1) < expected_node_min:
         raise ValueError(
-            f"Expected at least {expected_node_min} node features, got {data.x.size(1)}."
+            f"Expected at least {expected_node_min} node features, got {data.x.size(1)}."  # noqa: E501
         )
     if data.edge_attr.size(1) != expected_edge:
         raise ValueError(
@@ -334,7 +352,11 @@ def validate_feature_layout(data: Data) -> None:
 
 def _empty_like(data: Data) -> Data:
     x_width = data.x.size(1) if hasattr(data, "x") and data.x.dim() == 2 else 0
-    e_width = data.edge_attr.size(1) if hasattr(data, "edge_attr") and data.edge_attr.dim() == 2 else 0
+    e_width = (
+        data.edge_attr.size(1)
+        if hasattr(data, "edge_attr") and data.edge_attr.dim() == 2
+        else 0
+    )
 
     x = torch.empty(
         (0, x_width),
@@ -409,40 +431,13 @@ def graph_to_tensors(graph: dict) -> dict:
         "edge_attr": edge_attr,
     }
 
+
 def _compat_to_list(value):
     try:
         import torch
+
         if isinstance(value, torch.Tensor):
             return value.tolist()
     except Exception:
         pass
     return value
-
-def graph_to_tensors(graph: dict) -> dict:
-    nodes = graph.get("nodes", [])
-    edges = graph.get("edges", [])
-
-    x = [list(node.get("features", []))[:12] for node in nodes]
-    edge_index = []
-    edge_attr = []
-
-    for edge in edges:
-        src0 = edge.get("src_node")
-        dst0 = edge.get("dst_node")
-
-        if src0 is None or dst0 is None:
-            src = edge.get("src")
-            dst = edge.get("dst")
-            if src is None or dst is None:
-                continue
-            src0 = int(src) - 1
-            dst0 = int(dst) - 1
-
-        edge_index.append([int(src0), int(dst0)])
-        edge_attr.append(list(edge.get("features", [])))
-
-    return {
-        "x": x,
-        "edge_index": edge_index,
-        "edge_attr": edge_attr,
-    }

@@ -1,19 +1,16 @@
 import torch
 from torch_geometric.data import Data
 
-from graf.graph.features import (
-    extract_kinematic_features,
-    extract_edge_risk_features,
-    filter_subgraph_by_class,
-    validate_feature_layout,
-)
+from graf.graph.features import (extract_edge_risk_features,
+                                 extract_kinematic_features,
+                                 filter_subgraph_by_class,
+                                 validate_feature_layout)
 
 
 def test_vectorized_subgraph_extraction():
     x = torch.randn((3, 19), dtype=torch.float32)
     edge_index = torch.tensor(
-        [[0, 1, 1, 2],
-         [1, 0, 2, 1]],
+        [[0, 1, 1, 2], [1, 0, 2, 1]],
         dtype=torch.long,
     )
     edge_attr = torch.randn((4, 15), dtype=torch.float32)

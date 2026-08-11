@@ -7,8 +7,12 @@ from pathlib import Path
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build toy temporal windows for GRAF.")
-    parser.add_argument("--graph-dir", type=str, default="outputs/graphs", help="Input graph directory")
-    parser.add_argument("--outdir", type=str, default="outputs/windows", help="Output directory")
+    parser.add_argument(
+        "--graph-dir", type=str, default="outputs/graphs", help="Input graph directory"
+    )
+    parser.add_argument(
+        "--outdir", type=str, default="outputs/windows", help="Output directory"
+    )
     parser.add_argument("--window-size", type=int, default=2, help="Graphs per window")
     return parser.parse_args()
 
