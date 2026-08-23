@@ -5,6 +5,19 @@ from pathlib import Path
 import torch
 from torch_geometric.data import Data, Dataset
 
+import torch_geometric.data.data as pyg_data
+import torch_geometric.data.storage as pyg_storage
+torch.serialization.add_safe_globals([
+    Data,
+    pyg_data.DataEdgeAttr,
+    pyg_data.DataTensorAttr,
+    pyg_storage.GlobalStorage,
+    pyg_storage.BaseStorage,
+    pyg_storage.NodeStorage,
+    pyg_storage.EdgeStorage,
+])
+
+
 
 class PtGraphDataset(Dataset):
     """
@@ -46,7 +59,10 @@ class PtGraphDataset(Dataset):
 
     def get(self, idx: int) -> Data:
         path = self._files[idx]
-        data = torch.load(path, map_location="cpu", weights_only=False)
+        try:
+            data = torch.load(path, map_location="cpu", weights_only=True)
+        except Exception as e:
+            raise IOError(f"Failed to load graph from {path}: {e}") from e
         if not isinstance(data, Data):
             raise TypeError(f"Expected a PyG Data object in {path}, got {type(data)!r}")
         return data

@@ -4,6 +4,12 @@ import argparse
 import sys
 from pathlib import Path
 
+from graf.utils.logger import get_logger
+from graf.utils.pipeline_status import print_pipeline_status
+from graf.utils.export_graph_samples import export_graph_samples
+
+logger = get_logger(__name__)
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -14,6 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     status = subparsers.add_parser("status", help="Show pipeline status")
     status.add_argument("--root", type=str, default=".", help="Repository root")
+    status.add_argument("--depth", type=int, default=4, help="Tree print depth")
 
     demo = subparsers.add_parser("demo-graphs", help="Export a toy graph sample")
     demo.add_argument(
@@ -23,38 +30,31 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _run_pipeline_status(root: str) -> int:
+def run_status(root: str, depth: int = 4) -> int:
     repo_root = Path(root).resolve()
-    sys.path.insert(0, str(repo_root))
-    from scripts.pipeline_status import main as pipeline_status_main
-
-    old_argv = sys.argv[:]
     try:
-        sys.argv = ["pipeline_status.py", "--root", str(repo_root)]
-        pipeline_status_main()
-    finally:
-        sys.argv = old_argv
-    return 0
+        print_pipeline_status(repo_root, depth=depth)
+        return 0
+    except Exception as e:
+        logger.error("Pipeline status failed: %s", e)
+        return 1
 
 
-def _run_export_graph_samples(outdir: str) -> int:
-    repo_root = Path.cwd().resolve()
-    sys.path.insert(0, str(repo_root))
-    from scripts.export_graph_samples import main as export_graph_samples_main
-
-    old_argv = sys.argv[:]
+def run_demo_graphs(outdir: str) -> int:
     try:
-        sys.argv = ["export_graph_samples.py", "--outdir", str(outdir)]
-        export_graph_samples_main()
-    finally:
-        sys.argv = old_argv
-    return 0
+        out_path = export_graph_samples(outdir)
+        print(f"Wrote {out_path}")
+        return 0
+    except Exception as e:
+        logger.error("Export graph samples failed: %s", e)
+        return 1
 
 
 def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
+    # Temporary workaround for JSON config invocation; can be removed later
     if argv and argv[0].startswith("/") and argv[0].endswith(".json"):
         argv = []
 
@@ -62,9 +62,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "status":
-        return _run_pipeline_status(args.root)
+        return run_status(args.root, args.depth)
     if args.command == "demo-graphs":
-        return _run_export_graph_samples(args.outdir)
+        return run_demo_graphs(args.outdir)
 
     parser.print_help()
     return 0
