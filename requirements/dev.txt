@@ -1,6 +1,6 @@
 -r base.txt
 pytest
-black
-isort
+pytest-cov
 ruff
 mypy
+pre-commit

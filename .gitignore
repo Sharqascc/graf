@@ -21,3 +21,7 @@ outputs/*
 
 # Generated packaging metadata
 src/graf.egg-info/
+
+# Coverage reports
+.coverage
+htmlcov/
