@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, Type
+from typing import Any, Literal
 
 
 def has_torch_geometric() -> bool:
@@ -51,12 +51,16 @@ class SimpleGCNRiskModel:
     __call__ = forward
 
 
-_RISK_MODEL_CLASS: Optional[Type[GCNRiskModel]] = None
+_RISK_MODEL_CLASS: type[GCNRiskModel] | None = None
 try:
     import torch
     from torch import nn
-    from torch_geometric.nn import (GCNConv, global_add_pool, global_max_pool,
-                                    global_mean_pool)
+    from torch_geometric.nn import (
+        GCNConv,
+        global_add_pool,
+        global_max_pool,
+        global_mean_pool,
+    )
 
     _POOLERS = {
         "mean": global_mean_pool,

@@ -1,7 +1,7 @@
 import json
-from pathlib import Path
 
 from graf.utils.export_graph_samples import export_graph_samples
+
 
 def test_export_graph_samples_creates_file(tmp_path):
     out_path = export_graph_samples(tmp_path)

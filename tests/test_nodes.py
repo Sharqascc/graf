@@ -3,11 +3,12 @@ import torch
 from torch_geometric.data import Data
 
 from graf.graph.nodes import (
-    BASE_NODE_FEATURES,
     ACTOR_CLASSES,
+    BASE_NODE_FEATURES,
     node_feature_dim,
     validate_node_layout,
 )
+
 
 def test_node_feature_dim_default():
     expected = len(BASE_NODE_FEATURES) + len(ACTOR_CLASSES)

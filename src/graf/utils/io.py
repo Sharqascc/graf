@@ -63,7 +63,7 @@ def snapshot_environment(repo_dir: str | Path, out_dir: str | Path) -> None:
 
         env["torch"] = torch.__version__
         env["cuda_available"] = torch.cuda.is_available()  # type: ignore[assignment]
-        env["cuda_version"] = getattr(torch.version, "cuda", None)  # type: ignore[assignment]  # noqa: E501
+        env["cuda_version"] = getattr(torch.version, "cuda", None)  # type: ignore[assignment]
         if torch.cuda.is_available():
             env["device_name"] = torch.cuda.get_device_name(0)
     except Exception:

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence, Tuple
 
 import cv2
 import numpy as np
 
-Point2D = Tuple[float, float]
+Point2D = tuple[float, float]
 
 
 @dataclass(slots=True)

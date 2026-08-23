@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import combinations
-from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -12,7 +11,7 @@ import pandas as pd
 class ConflictPair:
     track_id_a: str
     track_id_b: str
-    frame_indices: List[int]
+    frame_indices: list[int]
     min_distance: float
     min_distance_frame: int
     avg_relative_speed: float
@@ -25,8 +24,8 @@ def find_nearby_pairs(
     x_col: str = "x_m",
     y_col: str = "y_m",
     distance_threshold: float = 15.0,
-) -> Dict[int, List[Tuple[str, str]]]:
-    nearby_pairs: Dict[int, List[Tuple[str, str]]] = {}
+) -> dict[int, list[tuple[str, str]]]:
+    nearby_pairs: dict[int, list[tuple[str, str]]] = {}
 
     for frame, group in df.groupby(frame_col):
         if len(group) < 2:
@@ -35,7 +34,7 @@ def find_nearby_pairs(
         tracks = group[track_col].astype(str).values
         positions = group[[x_col, y_col]].to_numpy(dtype=float)
 
-        frame_pairs: List[Tuple[str, str]] = []
+        frame_pairs: list[tuple[str, str]] = []
         for i, j in combinations(range(len(tracks)), 2):
             dist = np.linalg.norm(positions[i] - positions[j])
             if dist < distance_threshold:
@@ -57,7 +56,7 @@ def compute_conflict_pairs(
     speed_col: str = "speed_mps",
     min_interaction_frames: int = 3,
     distance_threshold: float = 15.0,
-) -> List[ConflictPair]:
+) -> list[ConflictPair]:
     nearby = find_nearby_pairs(
         df=df,
         frame_col=frame_col,
@@ -67,12 +66,12 @@ def compute_conflict_pairs(
         distance_threshold=distance_threshold,
     )
 
-    pair_frames: Dict[Tuple[str, str], List[int]] = {}
+    pair_frames: dict[tuple[str, str], list[int]] = {}
     for frame, pairs in nearby.items():
         for pair in pairs:
             pair_frames.setdefault(pair, []).append(frame)
 
-    conflict_pairs: List[ConflictPair] = []
+    conflict_pairs: list[ConflictPair] = []
 
     for (track_a, track_b), frames in pair_frames.items():
         frames_sorted = sorted(frames)
@@ -83,7 +82,7 @@ def compute_conflict_pairs(
 
         min_dist = float("inf")
         min_dist_frame = -1
-        rel_speeds: List[float] = []
+        rel_speeds: list[float] = []
 
         for frame in frames_sorted:
             frame_data = pair_df[pair_df[frame_col] == frame]
@@ -124,10 +123,10 @@ def compute_conflict_pairs(
 
 
 def filter_meaningful_conflicts(
-    conflict_pairs: List[ConflictPair],
+    conflict_pairs: list[ConflictPair],
     max_min_distance: float = 5.0,
     min_avg_speed: float = 0.0,
-) -> List[ConflictPair]:
+) -> list[ConflictPair]:
     return [
         pair
         for pair in conflict_pairs

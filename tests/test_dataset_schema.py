@@ -1,5 +1,9 @@
-from graf.data.schema import (DetectionRecord, TrackRecord, bbox_bottom_center,
-                              track_to_detection)
+from graf.data.schema import (
+    DetectionRecord,
+    TrackRecord,
+    bbox_bottom_center,
+    track_to_detection,
+)
 
 
 def test_bbox_bottom_center():

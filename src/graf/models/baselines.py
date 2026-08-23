@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
@@ -279,7 +280,7 @@ class MajorityClassBaseline(BaselineClassifierMixin, BaseEstimator, ClassifierMi
 
         self.class_prior_ = None
 
-    def fit(self, X: Any, y: Any) -> "MajorityClassBaseline":
+    def fit(self, X: Any, y: Any) -> MajorityClassBaseline:
 
         y_arr = self._prepare_y(y)
 
@@ -347,7 +348,7 @@ class LogisticRegressionBaseline(
 
         self.classes_ = None
 
-    def fit(self, X: Any, y: Any) -> "LogisticRegressionBaseline":
+    def fit(self, X: Any, y: Any) -> LogisticRegressionBaseline:
 
         X_arr = self._prepare_X(X)
 
@@ -414,7 +415,7 @@ class RandomForestBaseline(BaselineClassifierMixin, BaseEstimator, ClassifierMix
 
         self.classes_ = None
 
-    def fit(self, X: Any, y: Any) -> "RandomForestBaseline":
+    def fit(self, X: Any, y: Any) -> RandomForestBaseline:
 
         X_arr = self._prepare_X(X)
 
@@ -430,7 +431,7 @@ class RandomForestBaseline(BaselineClassifierMixin, BaseEstimator, ClassifierMix
             n_jobs=self.n_jobs,
         )
 
-        self._model.fit(X_arr, y_arr)  # type: ignore[attr-defined]  # type: ignore[attr-defined]  # noqa: E501
+        self._model.fit(X_arr, y_arr)  # type: ignore[attr-defined]  # type: ignore[attr-defined]
 
         self.classes_ = getattr(self._model, "classes_", None)
 
@@ -493,7 +494,7 @@ class MLPBaseline(BaselineClassifierMixin, BaseEstimator, ClassifierMixin):
 
         self.classes_ = None
 
-    def fit(self, X: Any, y: Any) -> "MLPBaseline":
+    def fit(self, X: Any, y: Any) -> MLPBaseline:
 
         X_arr = self._prepare_X(X)
 
@@ -512,7 +513,7 @@ class MLPBaseline(BaselineClassifierMixin, BaseEstimator, ClassifierMixin):
             random_state=self.random_state,
         )
 
-        self._model.fit(X_arr, y_arr)  # type: ignore[attr-defined]  # type: ignore[attr-defined]  # noqa: E501
+        self._model.fit(X_arr, y_arr)  # type: ignore[attr-defined]  # type: ignore[attr-defined]
 
         self.classes_ = getattr(self._model, "classes_", None)
 

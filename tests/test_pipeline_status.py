@@ -1,12 +1,14 @@
-import pytest
 from pathlib import Path
 
+import pytest
+
 from graf.utils.pipeline_status import (
-    should_skip,
     count_real_files,
-    stage_status_icon,
     print_pipeline_status,
+    should_skip,
+    stage_status_icon,
 )
+
 
 def test_should_skip_ignored_dirs():
     assert should_skip(Path(".git/config"))

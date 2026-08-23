@@ -4,6 +4,7 @@ from torch_geometric.data import Data
 
 from graf.graph.temporal import build_temporal_window_graph
 
+
 def make_frame(video_id, frame_id, num_nodes=3, has_y=False):
     x = torch.rand(num_nodes, 5)
     pos = torch.rand(num_nodes, 2)

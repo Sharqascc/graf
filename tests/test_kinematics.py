@@ -1,8 +1,11 @@
 import numpy as np
 import pandas as pd
 
-from graf.trajectories.kinematics import (add_time_seconds, compute_kinematics,
-                                          smooth_positions)
+from graf.trajectories.kinematics import (
+    add_time_seconds,
+    compute_kinematics,
+    smooth_positions,
+)
 
 
 def test_add_time_seconds():

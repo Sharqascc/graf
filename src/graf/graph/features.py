@@ -145,7 +145,7 @@ def extract_edge_kinematics(data: Data) -> torch.Tensor:
         )
     if data.edge_attr.size(1) < len(EDGE_FEATURE_ORDER):
         raise ValueError(
-            f"Expected {len(EDGE_FEATURE_ORDER)} edge features, got {data.edge_attr.size(1)}."  # noqa: E501
+            f"Expected {len(EDGE_FEATURE_ORDER)} edge features, got {data.edge_attr.size(1)}."
         )
     idx = [0, 1, 2, 3, 4, 5, 6, 11]
     return data.edge_attr[:, idx]
@@ -166,7 +166,7 @@ def extract_edge_angles(data: Data) -> torch.Tensor:
         )
     if data.edge_attr.size(1) < len(EDGE_FEATURE_ORDER):
         raise ValueError(
-            f"Expected {len(EDGE_FEATURE_ORDER)} edge features, got {data.edge_attr.size(1)}."  # noqa: E501
+            f"Expected {len(EDGE_FEATURE_ORDER)} edge features, got {data.edge_attr.size(1)}."
         )
     idx = [7, 8, 9, 10]
     return data.edge_attr[:, idx]
@@ -187,7 +187,7 @@ def extract_edge_risk_features(data: Data) -> torch.Tensor:
         )
     if data.edge_attr.size(1) < len(EDGE_FEATURE_ORDER):
         raise ValueError(
-            f"Expected {len(EDGE_FEATURE_ORDER)} edge features, got {data.edge_attr.size(1)}."  # noqa: E501
+            f"Expected {len(EDGE_FEATURE_ORDER)} edge features, got {data.edge_attr.size(1)}."
         )
     idx = [2, 5, 6, 11, 12, 13, 14]
     return data.edge_attr[:, idx]
@@ -241,7 +241,7 @@ def filter_subgraph_by_node_mask(
         raise ValueError("node_mask must be one-dimensional.")
     if node_mask.numel() != data.num_nodes:
         raise ValueError(
-            f"node_mask length {node_mask.numel()} does not match num_nodes {data.num_nodes}."  # noqa: E501
+            f"node_mask length {node_mask.numel()} does not match num_nodes {data.num_nodes}."
         )
 
     if subset is None:
@@ -325,7 +325,7 @@ def validate_feature_layout(data: Data) -> None:
         raise ValueError(f"Data.x must be rank-2, got shape {tuple(data.x.shape)}.")
     if data.edge_index.dim() != 2 or data.edge_index.size(0) != 2:
         raise ValueError(
-            f"Data.edge_index must have shape [2, E], got {tuple(data.edge_index.shape)}."  # noqa: E501
+            f"Data.edge_index must have shape [2, E], got {tuple(data.edge_index.shape)}."
         )
     if data.edge_attr.dim() != 2:
         raise ValueError(
@@ -342,7 +342,7 @@ def validate_feature_layout(data: Data) -> None:
 
     if data.x.size(1) < expected_node_min:
         raise ValueError(
-            f"Expected at least {expected_node_min} node features, got {data.x.size(1)}."  # noqa: E501
+            f"Expected at least {expected_node_min} node features, got {data.x.size(1)}."
         )
     if data.edge_attr.size(1) != expected_edge:
         raise ValueError(

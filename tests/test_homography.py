@@ -2,12 +2,13 @@ import numpy as np
 import pytest
 
 from graf.calibration.homography import (
-    fit_homography,
-    project_points,
-    invert_homography,
-    world_to_image,
     HomographyResult,
+    fit_homography,
+    invert_homography,
+    project_points,
+    world_to_image,
 )
+
 
 def test_project_points_basic():
     H = np.eye(3)

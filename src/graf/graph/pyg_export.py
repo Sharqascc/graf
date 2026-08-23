@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import Any
 
 import torch
-from torch_geometric.data import Data
-
 import torch_geometric.data.data as pyg_data
 import torch_geometric.data.storage as pyg_storage
+from torch_geometric.data import Data
+
 torch.serialization.add_safe_globals([
     Data,
     pyg_data.DataEdgeAttr,
@@ -44,11 +44,11 @@ def package_tensor_graph(
         )
     if edge_attr.dim() != 2:
         raise ValueError(
-            f"edge_attr must be 2D [num_edges, num_features], got {tuple(edge_attr.shape)}"  # noqa: E501
+            f"edge_attr must be 2D [num_edges, num_features], got {tuple(edge_attr.shape)}"
         )
     if edge_attr.shape[0] != edge_index.shape[1]:
         raise ValueError(
-            f"edge_attr rows ({edge_attr.shape[0]}) must equal num_edges ({edge_index.shape[1]})"  # noqa: E501
+            f"edge_attr rows ({edge_attr.shape[0]}) must equal num_edges ({edge_index.shape[1]})"
         )
 
     if pos is None:
@@ -116,7 +116,7 @@ def load_graph_sample(path: str | Path) -> Data:
     try:
         data = torch.load(path, map_location="cpu", weights_only=True)
     except Exception as e:
-        raise IOError(f"Failed to load graph sample from {path}: {e}") from e
+        raise OSError(f"Failed to load graph sample from {path}: {e}") from e
     if not isinstance(data, Data):
         raise TypeError(f"Expected a PyG Data object in {path}, got {type(data)!r}")
     return data
@@ -127,7 +127,7 @@ def to_pyg_data(graph: dict[str, Any]) -> Data:
     Deprecated legacy adapter from dict-graph to canonical PyG Data.
     """
     warnings.warn(
-        "graf.graph.pyg_export.to_pyg_data() is deprecated; use GraphBuilder.build_pyg_data() instead.",  # noqa: E501
+        "graf.graph.pyg_export.to_pyg_data() is deprecated; use GraphBuilder.build_pyg_data() instead.",
         DeprecationWarning,
         stacklevel=2,
     )

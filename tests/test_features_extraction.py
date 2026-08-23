@@ -2,19 +2,20 @@ import pytest
 import torch
 from torch_geometric.data import Data
 
+from graf.graph.edges import EDGE_FEATURE_ORDER
 from graf.graph.features import (
-    num_node_base_features,
-    num_edge_features,
-    extract_node_base_features,
-    extract_kinematic_features,
-    extract_heading_features,
     extract_class_one_hot,
+    extract_edge_angles,
     extract_edge_distance,
     extract_edge_kinematics,
-    extract_edge_angles,
     extract_edge_risk_features,
+    extract_heading_features,
+    extract_kinematic_features,
+    extract_node_base_features,
+    num_edge_features,
+    num_node_base_features,
 )
-from graf.graph.edges import EDGE_FEATURE_ORDER
+
 
 def test_num_node_base_features():
     assert num_node_base_features() == 11

@@ -1,7 +1,13 @@
 import json
-from pathlib import Path
 
-from graf.utils.io import ensure_dir, write_json, write_jsonl, write_text, get_git_commit
+from graf.utils.io import (
+    ensure_dir,
+    get_git_commit,
+    write_json,
+    write_jsonl,
+    write_text,
+)
+
 
 def test_ensure_dir_creates(tmp_path):
     d = tmp_path / "sub" / "dir"

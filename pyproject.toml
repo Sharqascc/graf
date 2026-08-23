@@ -23,4 +23,39 @@ package-dir = {"" = "src"}
 where = ["src"]
 include = ["graf*"]
 namespaces = false
-[tool.black]
+
+
+[tool.ruff]
+extend-exclude = ["notebooks"]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+ignore = [
+    "E501",
+    "E402",
+    "N802",
+    "N803",
+    "N806",
+    "N816",
+    "B905",
+    "RUF022",
+    "RUF043",
+    "RUF046",
+    "RUF059",
+    "SIM102",
+    "SIM105",
+    "SIM108",
+    "C414",
+]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF"]
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+disable_error_code = ["import-untyped", "no-any-return"]
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = ["tests/"]

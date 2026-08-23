@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 import numpy as np
 
@@ -9,7 +8,7 @@ import numpy as np
 @dataclass(slots=True)
 class TTCResult:
     ttc_seconds: float
-    collision_point: Optional[Tuple[float, float]] = None
+    collision_point: tuple[float, float] | None = None
     is_approaching: bool = False
     status: str = "uncomputed"
 

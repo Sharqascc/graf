@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
 
 import numpy as np
 import torch
@@ -13,9 +14,16 @@ try:
 except Exception:  # pragma: no cover
     cKDTree = None
 
-from .edges import (ACTOR_CLASSES, SIZE_PRIORS, build_edge_feature,
-                    edge_feature_dim, edge_feature_to_list, infer_actor_class,
-                    reverse_edge_feature, safe_float)
+from .edges import (
+    ACTOR_CLASSES,
+    SIZE_PRIORS,
+    build_edge_feature,
+    edge_feature_dim,
+    edge_feature_to_list,
+    infer_actor_class,
+    reverse_edge_feature,
+    safe_float,
+)
 
 DEFAULT_INTERACTION_RADII = {
     ("car", "car"): 6.0,

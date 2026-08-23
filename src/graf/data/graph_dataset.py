@@ -70,7 +70,7 @@ class LegacyGraphSampleDataset:
         return sample
 
     @classmethod
-    def from_jsonl(cls, path: str | Path) -> "LegacyGraphSampleDataset":
+    def from_jsonl(cls, path: str | Path) -> LegacyGraphSampleDataset:
         path = Path(path)
         samples: list[dict[str, Any]] = []
 

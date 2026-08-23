@@ -8,6 +8,7 @@ from graf.graph.features import (
     validate_feature_layout,
 )
 
+
 def make_data(num_nodes=5, num_edges=4):
     x = torch.rand(num_nodes, 11)
     edge_index = torch.tensor([[0, 1, 1, 2, 3], [1, 0, 2, 1, 4]], dtype=torch.long)[:, :num_edges]

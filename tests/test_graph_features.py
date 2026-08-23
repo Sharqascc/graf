@@ -1,10 +1,12 @@
 import torch
 from torch_geometric.data import Data
 
-from graf.graph.features import (extract_edge_risk_features,
-                                 extract_kinematic_features,
-                                 filter_subgraph_by_class,
-                                 validate_feature_layout)
+from graf.graph.features import (
+    extract_edge_risk_features,
+    extract_kinematic_features,
+    filter_subgraph_by_class,
+    validate_feature_layout,
+)
 
 
 def test_vectorized_subgraph_extraction():

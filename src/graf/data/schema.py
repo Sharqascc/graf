@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
-BBox = Tuple[float, float, float, float]
-Point2D = Tuple[float, float]
+BBox = tuple[float, float, float, float]
+Point2D = tuple[float, float]
 
 
 @dataclass(slots=True)
@@ -15,9 +15,9 @@ class VideoRecord:
     fps: float
     width: int
     height: int
-    start_time: Optional[str] = None
-    duration_sec: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    start_time: str | None = None
+    duration_sec: float | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
         if self.fps <= 0:
@@ -27,7 +27,7 @@ class VideoRecord:
                 f"width/height must be > 0, got {(self.width, self.height)}"
             )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -35,7 +35,7 @@ class VideoRecord:
 class DetectionRecord:
     video_id: str
     frame_idx: int
-    actor_id: Optional[str]
+    actor_id: str | None
     class_name: str
     confidence: float
     bbox_xyxy: BBox
@@ -49,7 +49,7 @@ class DetectionRecord:
         if self.frame_idx < 0:
             raise ValueError(f"frame_idx must be >= 0, got {self.frame_idx}")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -60,8 +60,8 @@ class TrackRecord:
     track_id: str
     class_name: str
     bbox_xyxy: BBox
-    footpoint_img: Optional[Point2D] = None
-    confidence: Optional[float] = None
+    footpoint_img: Point2D | None = None
+    confidence: float | None = None
     occluded: bool = False
 
     def validate(self) -> None:
@@ -73,7 +73,7 @@ class TrackRecord:
         if self.confidence is not None and not (0.0 <= self.confidence <= 1.0):
             raise ValueError(f"Confidence must be in [0, 1], got {self.confidence}")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -86,9 +86,9 @@ class TrajectoryRecord:
     x_m: float
     y_m: float
     t_sec: float
-    speed_mps: Optional[float] = None
-    heading_rad: Optional[float] = None
-    accel_mps2: Optional[float] = None
+    speed_mps: float | None = None
+    heading_rad: float | None = None
+    accel_mps2: float | None = None
     source: str = "homography"
 
     def validate(self) -> None:
@@ -97,7 +97,7 @@ class TrajectoryRecord:
         if self.t_sec < 0:
             raise ValueError(f"t_sec must be >= 0, got {self.t_sec}")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -111,17 +111,17 @@ class SSMEventRecord:
     start_frame: int
     end_frame: int
     min_value: float
-    threshold: Optional[float] = None
-    severity: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    threshold: float | None = None
+    severity: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
         if self.start_frame > self.end_frame:
             raise ValueError(
-                f"start_frame must be <= end_frame, got {(self.start_frame, self.end_frame)}"  # noqa: E501
+                f"start_frame must be <= end_frame, got {(self.start_frame, self.end_frame)}"
             )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 

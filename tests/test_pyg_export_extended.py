@@ -1,12 +1,13 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
 import torch
 from torch_geometric.data import Data
-from unittest.mock import patch, MagicMock
 
 from graf.graph.pyg_export import (
+    load_graph_sample,
     package_tensor_graph,
     save_graph_sample,
-    load_graph_sample,
     to_pyg_data,
     to_pyg_dict,
 )

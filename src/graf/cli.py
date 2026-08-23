@@ -4,9 +4,9 @@ import argparse
 import sys
 from pathlib import Path
 
+from graf.utils.export_graph_samples import export_graph_samples
 from graf.utils.logger import get_logger
 from graf.utils.pipeline_status import print_pipeline_status
-from graf.utils.export_graph_samples import export_graph_samples
 
 logger = get_logger(__name__)
 

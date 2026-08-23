@@ -1,8 +1,10 @@
 import os
 import random
+
 import numpy as np
 
 from graf.utils.seeds import set_global_seed
+
 
 def test_set_global_seed_reproducible():
     set_global_seed(42)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Final, Sequence
+from collections.abc import Sequence
+from typing import Final
 
 import torch
 from torch_geometric.data import Data
@@ -75,7 +76,7 @@ def validate_node_layout(
     if data.x.shape[1] != expected_dim:
         raise ValueError(
             f"Unexpected node feature dimension: got {data.x.shape[1]}, "
-            f"expected {expected_dim} = {len(BASE_NODE_FEATURES)} base + {len(classes)} class one-hot."  # noqa: E501
+            f"expected {expected_dim} = {len(BASE_NODE_FEATURES)} base + {len(classes)} class one-hot."
         )
 
     if require_pos:
@@ -89,7 +90,7 @@ def validate_node_layout(
     if hasattr(data, "pos") and data.pos is not None and data.pos.numel() > 0:
         if data.pos.shape[0] != data.x.shape[0]:
             raise ValueError(
-                f"Mismatch between x and pos node counts: {data.x.shape[0]} vs {data.pos.shape[0]}."  # noqa: E501
+                f"Mismatch between x and pos node counts: {data.x.shape[0]} vs {data.pos.shape[0]}."
             )
 
     if hasattr(data, "actor_class_index") and data.actor_class_index is not None:
@@ -200,11 +201,11 @@ def clone_with_updated_node_feature(
 
     if values.dim() != 1:
         raise ValueError(
-            f"Expected replacement values to be 1D with shape [num_nodes], got {tuple(values.shape)}."  # noqa: E501
+            f"Expected replacement values to be 1D with shape [num_nodes], got {tuple(values.shape)}."
         )
     if values.shape[0] != data.x.shape[0]:
         raise ValueError(
-            f"Replacement feature length {values.shape[0]} does not match num_nodes {data.x.shape[0]}."  # noqa: E501
+            f"Replacement feature length {values.shape[0]} does not match num_nodes {data.x.shape[0]}."
         )
 
     out = data.clone()
@@ -223,15 +224,15 @@ def clone_with_updated_node_feature_block(
 
     if values.dim() != 2:
         raise ValueError(
-            f"Expected replacement block to be 2D with shape [num_nodes, num_features], got {tuple(values.shape)}."  # noqa: E501
+            f"Expected replacement block to be 2D with shape [num_nodes, num_features], got {tuple(values.shape)}."
         )
     if values.shape[0] != data.x.shape[0]:
         raise ValueError(
-            f"Replacement block node count {values.shape[0]} does not match num_nodes {data.x.shape[0]}."  # noqa: E501
+            f"Replacement block node count {values.shape[0]} does not match num_nodes {data.x.shape[0]}."
         )
     if values.shape[1] != len(indices):
         raise ValueError(
-            f"Replacement block feature count {values.shape[1]} does not match requested feature count {len(indices)}."  # noqa: E501
+            f"Replacement block feature count {values.shape[1]} does not match requested feature count {len(indices)}."
         )
 
     out = data.clone()
@@ -242,25 +243,25 @@ def clone_with_updated_node_feature_block(
 
 __all__ = [
     "BASE_NODE_FEATURES",
-    "NODE_FEATURE_MAPPING",
     "KINEMATIC_FEATURES",
+    "NODE_FEATURE_MAPPING",
     "POSITION_FEATURES",
-    "node_base_feature_dim",
-    "node_feature_dim",
     "class_feature_offset",
     "class_feature_slice",
-    "validate_node_layout",
-    "get_node_feature_index",
-    "get_node_feature_slice",
-    "get_node_feature_block",
-    "get_position_features",
-    "get_kinematic_features",
-    "get_heading_components",
-    "get_class_one_hot",
-    "get_spatial_positions",
-    "get_track_ids",
-    "get_actor_class_index",
-    "get_actor_class_names",
     "clone_with_updated_node_feature",
     "clone_with_updated_node_feature_block",
+    "get_actor_class_index",
+    "get_actor_class_names",
+    "get_class_one_hot",
+    "get_heading_components",
+    "get_kinematic_features",
+    "get_node_feature_block",
+    "get_node_feature_index",
+    "get_node_feature_slice",
+    "get_position_features",
+    "get_spatial_positions",
+    "get_track_ids",
+    "node_base_feature_dim",
+    "node_feature_dim",
+    "validate_node_layout",
 ]

@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-from typing import List, Sequence, Tuple
+from collections.abc import Sequence
 
 import numpy as np
 
 from graf.calibration.homography import project_points
 from graf.data.schema import TrackRecord, bbox_bottom_center
 
-Point2D = Tuple[float, float]
+Point2D = tuple[float, float]
 
 
 def image_points_to_world(H: np.ndarray, points: Sequence[Point2D]) -> np.ndarray:
     return project_points(H, points)
 
 
-def tracks_to_world_points(H: np.ndarray, tracks: Sequence[TrackRecord]) -> List[dict]:
+def tracks_to_world_points(H: np.ndarray, tracks: Sequence[TrackRecord]) -> list[dict]:
     image_pts = [
         (
             track.footpoint_img

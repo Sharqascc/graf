@@ -9,8 +9,13 @@ from graf.data.graph_dataset import GraphSampleDataset
 from graf.evaluation.binary_metrics import binary_classification_metrics
 from graf.graph.pyg_export import to_pyg_data
 from graf.models.gcn_risk import build_model
-from graf.utils.io import (ensure_dir, get_git_commit, snapshot_environment,
-                           write_json, write_jsonl)
+from graf.utils.io import (
+    ensure_dir,
+    get_git_commit,
+    snapshot_environment,
+    write_json,
+    write_jsonl,
+)
 from graf.utils.seeds import set_global_seed
 
 

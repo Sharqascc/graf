@@ -5,20 +5,21 @@ from torch_geometric.data import Data
 from graf.graph.nodes import (
     ACTOR_CLASSES,
     BASE_NODE_FEATURES,
-    get_node_feature_index,
-    get_node_feature_slice,
-    get_node_feature_block,
-    get_position_features,
-    get_kinematic_features,
-    get_heading_components,
-    get_class_one_hot,
-    get_spatial_positions,
-    get_track_ids,
-    get_actor_class_index,
-    get_actor_class_names,
     clone_with_updated_node_feature,
     clone_with_updated_node_feature_block,
+    get_actor_class_index,
+    get_actor_class_names,
+    get_class_one_hot,
+    get_heading_components,
+    get_kinematic_features,
+    get_node_feature_block,
+    get_node_feature_index,
+    get_node_feature_slice,
+    get_position_features,
+    get_spatial_positions,
+    get_track_ids,
 )
+
 
 def make_data(num_nodes=3, actor_classes=None):
     actor_classes = actor_classes or ACTOR_CLASSES

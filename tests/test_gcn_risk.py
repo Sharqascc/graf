@@ -1,4 +1,3 @@
-# flake8: noqa: E402
 import pytest
 
 torch = pytest.importorskip("torch")
@@ -6,7 +5,7 @@ pyg_data = pytest.importorskip("torch_geometric.data")
 
 from torch_geometric.data import Data
 
-from graf.models.gcn_risk import build_model, has_torch_geometric  # noqa: E402
+from graf.models.gcn_risk import build_model, has_torch_geometric
 
 
 def test_has_torch_geometric():

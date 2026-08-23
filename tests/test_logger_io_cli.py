@@ -1,11 +1,11 @@
 import logging
-import os
-import pytest
-from pathlib import Path
 
-from graf.utils.logger import get_logger
-from graf.utils.io import snapshot_environment, write_text, ensure_dir
+import pytest
+
 from graf.cli import build_parser, main
+from graf.utils.io import snapshot_environment
+from graf.utils.logger import get_logger
+
 
 def test_get_logger_returns_logger():
     logger = get_logger("test_logger")

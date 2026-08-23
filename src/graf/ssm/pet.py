@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -12,8 +11,8 @@ from graf.data.schema import SSMEventRecord
 @dataclass(slots=True)
 class PETResult:
     pet_seconds: float
-    conflict_point: Optional[Tuple[float, float]] = None
-    enters_first: Optional[str] = None
+    conflict_point: tuple[float, float] | None = None
+    enters_first: str | None = None
     status: str = "uncomputed"
 
     @property
@@ -102,7 +101,7 @@ class PETCalculator:
         df_a: pd.DataFrame,
         df_b: pd.DataFrame,
         video_id: str,
-    ) -> Optional[SSMEventRecord]:
+    ) -> SSMEventRecord | None:
         required = {"track_id", "frame_idx", "t_sec", "x_m", "y_m"}
         missing_a = required.difference(df_a.columns)
         missing_b = required.difference(df_b.columns)
