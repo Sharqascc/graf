@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import yaml
+
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -56,6 +60,32 @@ DEFAULT_INTERACTION_RADII = {
     ("bicycle", "bicycle"): 2.5,
 }
 
+def load_pair_radii(config_path: str | Path) -> dict[tuple[str, str], float]:
+    """
+    Load class-specific interaction radii from a YAML config.
+
+    Expected YAML shape:
+        pair_radii:
+          - [car, car, 6.0]
+          - [car, pedestrian, 4.0]
+    """
+    path = Path(config_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Config file not found: {path}")
+
+    with path.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    raw = data.get("pair_radii", [])
+    radii: dict[tuple[str, str], float] = {}
+    for item in raw:
+        if not isinstance(item, (list, tuple)) or len(item) != 3:
+            raise ValueError(f"Invalid pair_radii entry: {item!r}")
+        a, b, r = item
+        radii[(str(a), str(b))] = float(r)
+    return radii
+
+
 
 @dataclass(slots=True)
 class FeatureStats:
@@ -81,6 +111,7 @@ def get_pair_radius(
     class_b: str,
     default_radius: float,
     pair_radii: dict[tuple[str, str], float] | None = None,
+        config_path: str | Path | None = None,
 ) -> float:
     radii = pair_radii if pair_radii is not None else DEFAULT_INTERACTION_RADII
     if (class_a, class_b) in radii:
@@ -116,6 +147,7 @@ class GraphBuilder:
         directed: bool = True,
         actor_classes: list[str] | None = None,
         pair_radii: dict[tuple[str, str], float] | None = None,
+        config_path: str | Path | None = None,
         use_kdtree: bool = True,
         use_class_specific_radii: bool = True,
         use_velocity_adaptive_radius: bool = False,
@@ -132,9 +164,12 @@ class GraphBuilder:
         self.actor_classes = (
             actor_classes if actor_classes is not None else ACTOR_CLASSES
         )
-        self.pair_radii = (
-            pair_radii if pair_radii is not None else DEFAULT_INTERACTION_RADII
-        )
+        if pair_radii is not None:
+            self.pair_radii = pair_radii
+        elif config_path is not None:
+            self.pair_radii = load_pair_radii(config_path)
+        else:
+            self.pair_radii = DEFAULT_INTERACTION_RADII
         self.use_kdtree = use_kdtree
         self.use_class_specific_radii = use_class_specific_radii
         self.use_velocity_adaptive_radius = use_velocity_adaptive_radius
