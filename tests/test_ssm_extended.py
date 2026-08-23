@@ -1,12 +1,11 @@
-
 import numpy as np
 import pandas as pd
 import pytest
 
 from graf.ssm.pet import (
+    PETCalculator,
     PETResult,
     compute_pet_from_conflict_zone,
-    PETCalculator,
 )
 from graf.ssm.ttc import TTCResult, compute_ttc_constant_velocity
 

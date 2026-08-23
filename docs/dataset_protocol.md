@@ -1,1 +1,3 @@
-# Dataset protocol
+# Dataset Protocol
+
+## Directory structure
