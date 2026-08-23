@@ -98,6 +98,12 @@ class GraphFeatureExtractor:
         if Data is not None and isinstance(data, Data):
             return [data]
 
+        if isinstance(data, (str, bytes)):
+            raise TypeError(
+                "Unsupported input type for GraphFeatureExtractor.transform(). "
+                "Expected ndarray-like, torch_geometric Data/Batch, or list of Data."
+            )
+
         if isinstance(data, Sequence):
             return list(data)
 
@@ -119,7 +125,15 @@ class GraphFeatureExtractor:
 
         y = _to_numpy(getattr(graph, "y", None))
 
-        num_nodes = int(getattr(graph, "num_nodes", x.shape[0] if x.ndim == 2 else 0))
+        inferred_num_nodes = None
+        if getattr(graph, "num_nodes", None) is not None:
+            inferred_num_nodes = int(graph.num_nodes)
+        elif x.ndim == 2:
+            inferred_num_nodes = int(x.shape[0])
+        else:
+            inferred_num_nodes = 0
+
+        num_nodes = inferred_num_nodes
 
         if edge_index.ndim == 2 and edge_index.shape[0] == 2:
             num_edges = int(edge_index.shape[1])
