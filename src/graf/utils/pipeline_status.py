@@ -168,7 +168,9 @@ def get_git_info(root: Path) -> tuple[str, str, str, str]:
     return branch, clean, sync, status_sb
 
 
-def print_tree(directory: Path, max_depth: int, prefix: str = "", depth: int = 0) -> None:
+def print_tree(
+    directory: Path, max_depth: int, prefix: str = "", depth: int = 0
+) -> None:
     if depth > max_depth:
         return
     entries = [

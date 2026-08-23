@@ -14,11 +14,13 @@ def test_ensure_dir_creates(tmp_path):
     result = ensure_dir(d)
     assert result.is_dir()
 
+
 def test_write_json(tmp_path):
     p = tmp_path / "data.json"
     write_json(p, {"a": 1, "b": [2, 3]})
     loaded = json.loads(p.read_text())
     assert loaded == {"a": 1, "b": [2, 3]}
+
 
 def test_write_jsonl(tmp_path):
     p = tmp_path / "data.jsonl"
@@ -28,10 +30,12 @@ def test_write_jsonl(tmp_path):
     assert len(lines) == 2
     assert json.loads(lines[0]) == {"x": 1}
 
+
 def test_write_text(tmp_path):
     p = tmp_path / "note.txt"
     write_text(p, "hello")
     assert p.read_text() == "hello"
+
 
 def test_get_git_commit_unknown(tmp_path):
     assert get_git_commit(tmp_path) == "unknown"

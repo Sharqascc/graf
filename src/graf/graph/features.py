@@ -261,26 +261,50 @@ def filter_subgraph_by_node_mask(
 
     if keep_isolated_nodes:
         x = data.x[node_mask] if hasattr(data, "x") else None
-        pos = data.pos[node_mask] if hasattr(data, "pos") and data.pos is not None and data.pos is not None else None
-        actor_class_index = (
-            data.actor_class_index[node_mask]
-            if hasattr(data, "actor_class_index") and data.actor_class_index is not None and data.actor_class_index is not None
+        pos = (
+            data.pos[node_mask]
+            if hasattr(data, "pos") and data.pos is not None and data.pos is not None
             else None
         )
-        track_ids = data.track_ids[node_mask] if hasattr(data, "track_ids") and data.track_ids is not None and data.track_ids is not None else None
+        actor_class_index = (
+            data.actor_class_index[node_mask]
+            if hasattr(data, "actor_class_index")
+            and data.actor_class_index is not None
+            and data.actor_class_index is not None
+            else None
+        )
+        track_ids = (
+            data.track_ids[node_mask]
+            if hasattr(data, "track_ids")
+            and data.track_ids is not None
+            and data.track_ids is not None
+            else None
+        )
         num_nodes = int(subset.numel())
     else:
         if edge_index.numel() == 0:
             return _empty_like(data)
         kept = torch.unique(edge_index.view(-1), sorted=True)
         x = data.x[subset][kept] if hasattr(data, "x") else None
-        pos = data.pos[subset][kept] if hasattr(data, "pos") and data.pos is not None and data.pos is not None else None
-        actor_class_index = (
-            data.actor_class_index[subset][kept]
-            if hasattr(data, "actor_class_index") and data.actor_class_index is not None and data.actor_class_index is not None
+        pos = (
+            data.pos[subset][kept]
+            if hasattr(data, "pos") and data.pos is not None and data.pos is not None
             else None
         )
-        track_ids = data.track_ids[subset][kept] if hasattr(data, "track_ids") and data.track_ids is not None and data.track_ids is not None else None
+        actor_class_index = (
+            data.actor_class_index[subset][kept]
+            if hasattr(data, "actor_class_index")
+            and data.actor_class_index is not None
+            and data.actor_class_index is not None
+            else None
+        )
+        track_ids = (
+            data.track_ids[subset][kept]
+            if hasattr(data, "track_ids")
+            and data.track_ids is not None
+            and data.track_ids is not None
+            else None
+        )
 
         remap = torch.full(
             (subset.numel(),), -1, dtype=torch.long, device=edge_index.device
@@ -376,19 +400,32 @@ def _empty_like(data: Data) -> Data:
 
     out = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, num_nodes=0)
 
-    if hasattr(data, "pos") and data.pos is not None and data.pos is not None and data.pos is not None:
+    if (
+        hasattr(data, "pos")
+        and data.pos is not None
+        and data.pos is not None
+        and data.pos is not None
+    ):
         out.pos = torch.empty(
             (0, data.pos.size(1)),
             dtype=data.pos.dtype,
             device=data.pos.device,
         )
-    if hasattr(data, "actor_class_index") and data.actor_class_index is not None and data.actor_class_index is not None:
+    if (
+        hasattr(data, "actor_class_index")
+        and data.actor_class_index is not None
+        and data.actor_class_index is not None
+    ):
         out.actor_class_index = torch.empty(
             (0,),
             dtype=data.actor_class_index.dtype,
             device=data.actor_class_index.device,
         )
-    if hasattr(data, "track_ids") and data.track_ids is not None and data.track_ids is not None:
+    if (
+        hasattr(data, "track_ids")
+        and data.track_ids is not None
+        and data.track_ids is not None
+    ):
         out.track_ids = torch.empty(
             (0,),
             dtype=data.track_ids.dtype,

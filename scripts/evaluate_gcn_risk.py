@@ -42,7 +42,7 @@ def main() -> None:
     hidden_channels = int(config.get("hidden_channels", 64))
 
     sample = dataset[0]
-    in_channels = sample.x.size(-1)
+    in_channels = sample.x.size(-1)  # type: ignore[attr-defined]
     model = build_model(in_channels=in_channels, hidden_channels=hidden_channels)
     if not hasattr(model, "load_state_dict"):
         raise RuntimeError(

@@ -82,7 +82,9 @@ def test_save_load_roundtrip(tmp_path):
     edge_index = torch.tensor([[0, 1], [1, 2]], dtype=torch.long)
     edge_attr = torch.rand(2, 3)
     pos = torch.rand(3, 2)
-    data = package_tensor_graph(x, edge_index, edge_attr, pos=pos, metadata={"video_id": "vid1", "frame_id": 2})
+    data = package_tensor_graph(
+        x, edge_index, edge_attr, pos=pos, metadata={"video_id": "vid1", "frame_id": 2}
+    )
     path = save_graph_sample(data, tmp_path, prefix="test")
     assert path.exists()
     loaded = load_graph_sample(path)
@@ -146,7 +148,10 @@ def test_to_pyg_dict_with_nodes_and_edges():
 
 def test_to_pyg_dict_skips_invalid_edges():
     graph = {
-        "nodes": [{"track_id": 1, "features": [1.0]}, {"track_id": 2, "features": [2.0]}],
+        "nodes": [
+            {"track_id": 1, "features": [1.0]},
+            {"track_id": 2, "features": [2.0]},
+        ],
         "edges": [
             {"src_node": 1, "dst_node": 1},
             {"src_node": 1, "dst_node": 2, "distance": 1.0},

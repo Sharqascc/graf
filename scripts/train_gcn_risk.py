@@ -65,7 +65,7 @@ def _sample_meta(dataset, index: int) -> dict:
         "video_id": getattr(sample, "video_id", ""),
         "window_id": getattr(sample, "window_id", ""),
         "label": int(
-            getattr(sample, "y", 0).item()
+            getattr(sample, "y", 0).item()  # type: ignore[union-attr]
             if hasattr(getattr(sample, "y", 0), "item")
             else getattr(sample, "y", 0)
         ),

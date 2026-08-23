@@ -9,15 +9,17 @@ import torch_geometric.data.data as pyg_data
 import torch_geometric.data.storage as pyg_storage
 from torch_geometric.data import Data
 
-torch.serialization.add_safe_globals([
-    Data,
-    pyg_data.DataEdgeAttr,
-    pyg_data.DataTensorAttr,
-    pyg_storage.GlobalStorage,
-    pyg_storage.BaseStorage,
-    pyg_storage.NodeStorage,
-    pyg_storage.EdgeStorage,
-])
+torch.serialization.add_safe_globals(
+    [
+        Data,
+        pyg_data.DataEdgeAttr,
+        pyg_data.DataTensorAttr,
+        pyg_storage.GlobalStorage,
+        pyg_storage.BaseStorage,
+        pyg_storage.NodeStorage,
+        pyg_storage.EdgeStorage,
+    ]
+)
 
 
 from .builders import GraphBuilder

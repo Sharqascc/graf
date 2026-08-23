@@ -65,7 +65,9 @@ def invert_homography(H: np.ndarray) -> np.ndarray:
     try:
         return np.linalg.inv(H)
     except np.linalg.LinAlgError as e:
-        raise RuntimeError(f"Homography matrix is singular and cannot be inverted: {e}") from e
+        raise RuntimeError(
+            f"Homography matrix is singular and cannot be inverted: {e}"
+        ) from e
 
 
 def world_to_image(H: np.ndarray, world_points: Sequence[Point2D]) -> np.ndarray:
