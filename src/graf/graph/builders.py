@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-import yaml
-
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
+import yaml
 from torch_geometric.data import Data
 
 try:
@@ -60,6 +58,7 @@ DEFAULT_INTERACTION_RADII = {
     ("bicycle", "bicycle"): 2.5,
 }
 
+
 def load_pair_radii(config_path: str | Path) -> dict[tuple[str, str], float]:
     """
     Load class-specific interaction radii from a YAML config.
@@ -86,7 +85,6 @@ def load_pair_radii(config_path: str | Path) -> dict[tuple[str, str], float]:
     return radii
 
 
-
 @dataclass(slots=True)
 class FeatureStats:
     node_mean: np.ndarray | None = None
@@ -111,7 +109,7 @@ def get_pair_radius(
     class_b: str,
     default_radius: float,
     pair_radii: dict[tuple[str, str], float] | None = None,
-        config_path: str | Path | None = None,
+    config_path: str | Path | None = None,
 ) -> float:
     radii = pair_radii if pair_radii is not None else DEFAULT_INTERACTION_RADII
     if (class_a, class_b) in radii:

@@ -1,15 +1,14 @@
 import numpy as np
-import pytest
 import torch
 from torch_geometric.data import Data
 
 from graf.graph.builders import (
     GraphBuilder,
-    compute_feature_stats,
-    build_graph_for_frame,
-    build_pyg_graph_for_frame,
     _legacy_group_by_frame,
     _legacy_trim_graph_edges,
+    build_graph_for_frame,
+    build_pyg_graph_for_frame,
+    compute_feature_stats,
 )
 
 
@@ -99,8 +98,8 @@ def test_legacy_group_by_frame():
 def test_legacy_trim_graph_edges_skips_self_loop_and_picks_first():
     graph = {
         "edges": [
-            {"source": 1, "target": 1},   # self loop skip
-            {"source": 2, "target": 3},   # valid
+            {"source": 1, "target": 1},  # self loop skip
+            {"source": 2, "target": 3},  # valid
         ]
     }
     trimmed = _legacy_trim_graph_edges(graph)

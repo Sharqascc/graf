@@ -1,7 +1,6 @@
 import pytest
-from pathlib import Path
 
-from graf.graph.builders import GraphBuilder, load_pair_radii, DEFAULT_INTERACTION_RADII
+from graf.graph.builders import DEFAULT_INTERACTION_RADII, GraphBuilder, load_pair_radii
 
 
 def test_load_pair_radii_from_yaml(tmp_path):

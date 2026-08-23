@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import pytest
@@ -6,7 +5,10 @@ import torch
 from torch_geometric.data import Data
 
 from graf.data.dataset import PtGraphDataset
-from graf.data.graph_dataset import LegacyGraphSampleDataset, SpatioTemporalWindowDataset
+from graf.data.graph_dataset import (
+    LegacyGraphSampleDataset,
+    SpatioTemporalWindowDataset,
+)
 
 
 # --- LegacyGraphSampleDataset ---
@@ -51,7 +53,12 @@ def test_legacy_dataset_normalize_frame_id_fallback():
 
 
 def test_legacy_dataset_normalize_track_ids_fallback():
-    row = {"graph": {"nodes": [{"track_id": "a"}, {"track_id": "b"}, {"other": 1}], "edges": []}}
+    row = {
+        "graph": {
+            "nodes": [{"track_id": "a"}, {"track_id": "b"}, {"other": 1}],
+            "edges": [],
+        }
+    }
     ds = LegacyGraphSampleDataset([row])
     assert ds[0]["track_ids"] == ["a", "b"]
 
@@ -67,11 +74,14 @@ def test_legacy_dataset_copies_extra_keys():
 def test_legacy_dataset_from_jsonl(tmp_path):
     file = tmp_path / "samples.jsonl"
     file.write_text(
-        "\n".join([
-            '{"graph": {"nodes": [], "label": 1}, "sample_id": "a"}',
-            "",
-            '{"graph": {"nodes": [], "label": 0}, "sample_id": "b"}',
-        ]) + "\n",
+        "\n".join(
+            [
+                '{"graph": {"nodes": [], "label": 1}, "sample_id": "a"}',
+                "",
+                '{"graph": {"nodes": [], "label": 0}, "sample_id": "b"}',
+            ]
+        )
+        + "\n",
         encoding="utf-8",
     )
     ds = LegacyGraphSampleDataset.from_jsonl(file)

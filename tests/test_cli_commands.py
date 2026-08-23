@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 from graf.cli import main, run_demo_graphs, run_status
 
 
@@ -12,9 +10,7 @@ def test_run_status_success(monkeypatch):
         called["root"] = root
         called["depth"] = depth
 
-    monkeypatch.setattr(
-        "graf.cli.print_pipeline_status", fake_print_pipeline_status
-    )
+    monkeypatch.setattr("graf.cli.print_pipeline_status", fake_print_pipeline_status)
 
     exit_code = run_status("/tmp", depth=2)
     assert exit_code == 0
@@ -26,9 +22,7 @@ def test_run_status_failure(monkeypatch):
     def fake_print_pipeline_status(root, depth):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(
-        "graf.cli.print_pipeline_status", fake_print_pipeline_status
-    )
+    monkeypatch.setattr("graf.cli.print_pipeline_status", fake_print_pipeline_status)
 
     exit_code = run_status("/tmp")
     assert exit_code == 1
@@ -40,9 +34,7 @@ def test_run_demo_graphs_success(monkeypatch, capsys):
     def fake_export_graph_samples(outdir):
         return fake_path
 
-    monkeypatch.setattr(
-        "graf.cli.export_graph_samples", fake_export_graph_samples
-    )
+    monkeypatch.setattr("graf.cli.export_graph_samples", fake_export_graph_samples)
 
     exit_code = run_demo_graphs("/tmp/out")
     captured = capsys.readouterr()
@@ -54,9 +46,7 @@ def test_run_demo_graphs_failure(monkeypatch):
     def fake_export_graph_samples(outdir):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(
-        "graf.cli.export_graph_samples", fake_export_graph_samples
-    )
+    monkeypatch.setattr("graf.cli.export_graph_samples", fake_export_graph_samples)
 
     exit_code = run_demo_graphs("/tmp/out")
     assert exit_code == 1

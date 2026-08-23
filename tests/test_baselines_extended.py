@@ -1,18 +1,17 @@
 import numpy as np
 import pytest
-from sklearn.base import BaseEstimator
+from torch_geometric.data import Data
 
 from graf.models.baselines import (
-    MLPBaseline,
     GraphFeatureExtractor,
     LogisticRegressionBaseline,
     MajorityClassBaseline,
+    MLPBaseline,
     RandomForestBaseline,
     _safe_stats,
     _to_numpy,
     get_baseline,
 )
-from torch_geometric.data import Data
 
 
 # ---------------------------------------------------------------------------

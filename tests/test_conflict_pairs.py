@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -62,7 +61,9 @@ def test_compute_conflict_pairs_basic():
             {"frame_idx": 3, "track_id": "b", "x_m": 0.2, "y_m": 0.0, "speed_mps": 3.0},
         ]
     )
-    conflicts = compute_conflict_pairs(df, min_interaction_frames=3, distance_threshold=5.0)
+    conflicts = compute_conflict_pairs(
+        df, min_interaction_frames=3, distance_threshold=5.0
+    )
     assert len(conflicts) == 1
     c = conflicts[0]
     assert c.track_id_a == "a"
@@ -83,7 +84,9 @@ def test_compute_conflict_pairs_min_frames_not_met():
             {"frame_idx": 2, "track_id": "b", "x_m": 1.0, "y_m": 0.0},
         ]
     )
-    conflicts = compute_conflict_pairs(df, min_interaction_frames=3, distance_threshold=5.0)
+    conflicts = compute_conflict_pairs(
+        df, min_interaction_frames=3, distance_threshold=5.0
+    )
     assert conflicts == []
 
 
@@ -98,21 +101,48 @@ def test_compute_conflict_pairs_no_speed_col():
             {"frame_idx": 3, "track_id": "b", "x_m": 1.0, "y_m": 0.0},
         ]
     )
-    conflicts = compute_conflict_pairs(df, min_interaction_frames=3, distance_threshold=5.0)
+    conflicts = compute_conflict_pairs(
+        df, min_interaction_frames=3, distance_threshold=5.0
+    )
     assert len(conflicts) == 1
     assert conflicts[0].avg_relative_speed == 0.0
 
 
 def test_filter_meaningful_conflicts():
     pairs = [
-        ConflictPair("a", "b", [1, 2], min_distance=3.0, min_distance_frame=1, avg_relative_speed=2.0),
-        ConflictPair("c", "d", [1, 2], min_distance=10.0, min_distance_frame=1, avg_relative_speed=5.0),
-        ConflictPair("e", "f", [1, 2], min_distance=1.0, min_distance_frame=1, avg_relative_speed=0.0),
+        ConflictPair(
+            "a",
+            "b",
+            [1, 2],
+            min_distance=3.0,
+            min_distance_frame=1,
+            avg_relative_speed=2.0,
+        ),
+        ConflictPair(
+            "c",
+            "d",
+            [1, 2],
+            min_distance=10.0,
+            min_distance_frame=1,
+            avg_relative_speed=5.0,
+        ),
+        ConflictPair(
+            "e",
+            "f",
+            [1, 2],
+            min_distance=1.0,
+            min_distance_frame=1,
+            avg_relative_speed=0.0,
+        ),
     ]
-    filtered = filter_meaningful_conflicts(pairs, max_min_distance=5.0, min_avg_speed=0.5)
+    filtered = filter_meaningful_conflicts(
+        pairs, max_min_distance=5.0, min_avg_speed=0.5
+    )
     assert len(filtered) == 1
     assert filtered[0].track_id_a == "a"
 
     # No speed threshold
-    filtered2 = filter_meaningful_conflicts(pairs, max_min_distance=5.0, min_avg_speed=0.0)
+    filtered2 = filter_meaningful_conflicts(
+        pairs, max_min_distance=5.0, min_avg_speed=0.0
+    )
     assert len(filtered2) == 2
