@@ -17,7 +17,7 @@ class PETResult:
 
     @property
     def is_critical(self) -> bool:
-        return np.isfinite(self.pet_seconds) and 0 <= self.pet_seconds <= 3.0
+        return bool(np.isfinite(self.pet_seconds) and 0 <= self.pet_seconds <= 3.0)
 
     @property
     def severity(self) -> float:

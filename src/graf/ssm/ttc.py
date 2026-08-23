@@ -14,7 +14,7 @@ class TTCResult:
 
     @property
     def is_critical(self) -> bool:
-        return np.isfinite(self.ttc_seconds) and 0 < self.ttc_seconds <= 3.0
+        return bool(np.isfinite(self.ttc_seconds) and 0 < self.ttc_seconds <= 3.0)
 
     @property
     def severity(self) -> float:
