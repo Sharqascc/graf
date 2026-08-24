@@ -1,5 +1,8 @@
 
 import argparse
+import yaml
+import sys
+from pathlib import Path
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -8,7 +11,9 @@ import numpy as np
 import pandas as pd
 import torch
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from graf.data.graph_dataset import SpatioTemporalWindowDataset
+from graf.calibration.homography import project_points
 from graf.models.gcn_risk import build_model, has_torch_geometric
 from graf.utils.io import ensure_dir, write_json
 
@@ -31,7 +36,20 @@ def filter_tracks(df: pd.DataFrame, min_conf: float = 0.4, min_len: int = 5) -> 
     return df
 
 
-def add_kinematics(df: pd.DataFrame, pixels_per_meter: float = 20.0, fps: float = 23.98) -> pd.DataFrame:
+def add_kinematics(df: pd.DataFrame, pixels_per_meter: float = 20.0, fps: float = 23.98, H: np.ndarray | None = None) -> pd.DataFrame:
+    if H is not None:
+        # Use homography to convert bbox bottom center to world coordinates
+        df["x_center"] = (df["bbox_xyxy"].apply(lambda b: b[0]) + df["bbox_xyxy"].apply(lambda b: b[2])) / 2.0
+        df["y_bottom"] = df["bbox_xyxy"].apply(lambda b: b[3])  # bottom y
+        pts = df[["x_center", "y_bottom"]].to_numpy(dtype=np.float64)
+        world = project_points(H, [tuple(p) for p in pts])
+        df["x_m"] = world[:, 0]
+        df["y_m"] = world[:, 1]
+    else:
+        df["x_center"] = (df["bbox_xyxy"].apply(lambda b: b[0]) + df["bbox_xyxy"].apply(lambda b: b[2])) / 2.0
+        df["y_center"] = (df["bbox_xyxy"].apply(lambda b: b[1]) + df["bbox_xyxy"].apply(lambda b: b[3])) / 2.0
+        df["x_m"] = df["x_center"] / pixels_per_meter
+        df["y_m"] = df["y_center"] / pixels_per_meter
     df["x_center"] = (df["bbox_xyxy"].apply(lambda b: b[0]) + df["bbox_xyxy"].apply(lambda b: b[2])) / 2.0
     df["y_center"] = (df["bbox_xyxy"].apply(lambda b: b[1]) + df["bbox_xyxy"].apply(lambda b: b[3])) / 2.0
     df["x_m"] = df["x_center"] / pixels_per_meter
@@ -122,6 +140,7 @@ def main():
     parser.add_argument("--window_size", type=int, default=5)
     parser.add_argument("--stride", type=int, default=2)
     parser.add_argument("--threshold", type=float, default=1.5)
+    parser.add_argument("--homography_config", type=str, default=None, help="YAML file with homography matrix")
     parser.add_argument("--pixels_per_meter", type=float, default=20.0)
     parser.add_argument("--fps", type=float, default=23.98)
     parser.add_argument("--epochs", type=int, default=50)
@@ -130,7 +149,15 @@ def main():
     # Load and prepare tracks
     df = load_tracks(args.tracks)
     df = filter_tracks(df)
-    df = add_kinematics(df, pixels_per_meter=args.pixels_per_meter, fps=args.fps)
+
+    # Load homography if provided
+    H = None
+    if args.homography_config:
+        with open(args.homography_config) as f:
+            hom_cfg = yaml.safe_load(f)
+        H = np.array(hom_cfg["H"], dtype=np.float64)
+
+    df = add_kinematics(df, pixels_per_meter=args.pixels_per_meter, fps=args.fps, H=H)
 
     # Compute TTC events
     ttc_events = compute_ttc_events(df)
