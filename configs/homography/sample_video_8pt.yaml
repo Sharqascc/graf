@@ -69,6 +69,4 @@ calibration_inlier_mask:
 - 1
 - 0
 - 1
-mean_inlier_error_m: 2.4141426607930844e-07
-max_inlier_error_m: 4.770120356921724e-07
-note: Default reliable 4-point calibration. Use with --homography_config.
+note: Full 8-point set. Some points may be outliers; use with caution.
