@@ -1,316 +1,228 @@
-from __future__ import annotations
 
 import argparse
-import math
-from datetime import UTC, datetime
+import json
+from collections import defaultdict
 from pathlib import Path
 
-from graf.data.graph_dataset import GraphSampleDataset
-from graf.evaluation.binary_metrics import binary_classification_metrics
-from graf.graph.pyg_export import to_pyg_data
-from graf.models.gcn_risk import build_model
-from graf.utils.io import (
-    ensure_dir,
-    get_git_commit,
-    snapshot_environment,
-    write_json,
-    write_jsonl,
-)
-from graf.utils.seeds import set_global_seed
+import numpy as np
+import pandas as pd
+import torch
+
+from graf.data.graph_dataset import SpatioTemporalWindowDataset
+from graf.models.gcn_risk import build_model, has_torch_geometric
+from graf.utils.io import ensure_dir, write_json
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Train GCN risk model on graph JSONL samples."
+def load_tracks(path: str) -> pd.DataFrame:
+    tracks = []
+    with open(path) as f:
+        for line in f:
+            if line.strip():
+                tracks.append(json.loads(line))
+    df = pd.DataFrame(tracks)
+    return df
+
+
+def filter_tracks(df: pd.DataFrame, min_conf: float = 0.4, min_len: int = 5) -> pd.DataFrame:
+    df = df[df["confidence"] >= min_conf].copy()
+    lengths = df.groupby("track_id").size()
+    valid = lengths[lengths >= min_len].index
+    df = df[df["track_id"].isin(valid)].copy()
+    return df
+
+
+def add_kinematics(df: pd.DataFrame, pixels_per_meter: float = 20.0, fps: float = 23.98) -> pd.DataFrame:
+    df["x_center"] = (df["bbox_xyxy"].apply(lambda b: b[0]) + df["bbox_xyxy"].apply(lambda b: b[2])) / 2.0
+    df["y_center"] = (df["bbox_xyxy"].apply(lambda b: b[1]) + df["bbox_xyxy"].apply(lambda b: b[3])) / 2.0
+    df["x_m"] = df["x_center"] / pixels_per_meter
+    df["y_m"] = df["y_center"] / pixels_per_meter
+    df["t_sec"] = df["frame_idx"] / fps
+
+    velocities = {}
+    window = 5
+    for track_id, group in df.groupby("track_id"):
+        group = group.sort_values("frame_idx")
+        xs = group["x_m"].values
+        ys = group["y_m"].values
+        times = group["t_sec"].values
+
+        vx_series = [0.0]
+        vy_series = [0.0]
+        for i in range(1, len(group)):
+            dt = times[i] - times[i-1]
+            vx = (xs[i] - xs[i-1]) / dt if dt > 0 else 0.0
+            vy = (ys[i] - ys[i-1]) / dt if dt > 0 else 0.0
+            vx_series.append(vx)
+            vy_series.append(vy)
+
+        def smooth(series, win=window):
+            out = []
+            for i in range(len(series)):
+                start = max(0, i - win // 2)
+                end = min(len(series), i + win // 2 + 1)
+                out.append(np.mean(series[start:end]))
+            return out
+
+        vx_smooth = smooth(vx_series)
+        vy_smooth = smooth(vy_series)
+
+        for idx, (_, row) in enumerate(group.iterrows()):
+            velocities[row.name] = (vx_smooth[idx], vy_smooth[idx])
+
+    df["vx"] = df.index.map(lambda i: velocities.get(i, (0.0, 0.0))[0])
+    df["vy"] = df.index.map(lambda i: velocities.get(i, (0.0, 0.0))[1])
+    return df
+
+
+def compute_ttc_events(df: pd.DataFrame, distance_threshold: float = 3.0,
+                       closing_rate_threshold: float = 0.5,
+                       ttc_threshold: float = 5.0) -> list[dict]:
+    events = []
+    for frame_idx, frame_df in df.groupby("frame_idx"):
+        records = frame_df.to_dict("records")
+        for i in range(len(records)):
+            for j in range(i+1, len(records)):
+                a, b = records[i], records[j]
+                pos_a = np.array([a["x_m"], a["y_m"]])
+                pos_b = np.array([b["x_m"], b["y_m"]])
+                vel_a = np.array([a["vx"], a["vy"]])
+                vel_b = np.array([b["vx"], b["vy"]])
+                rel_pos = pos_b - pos_a
+                rel_vel = vel_b - vel_a
+                dist = np.linalg.norm(rel_pos)
+                if dist < distance_threshold:
+                    closing_rate = -np.dot(rel_pos, rel_vel)
+                    rel_speed_sq = np.dot(rel_vel, rel_vel)
+                    if rel_speed_sq > 1e-9 and closing_rate > closing_rate_threshold:
+                        ttc = closing_rate / rel_speed_sq
+                    else:
+                        ttc = float("inf")
+                    if np.isfinite(ttc) and 0 < ttc < ttc_threshold:
+                        events.append({
+                            "video_id": "sample_video",
+                            "event_id": f"TTC_{a['track_id']}_{b['track_id']}_{frame_idx}",
+                            "metric_name": "TTC",
+                            "track_id_a": str(a["track_id"]),
+                            "track_id_b": str(b["track_id"]),
+                            "start_frame": int(frame_idx),
+                            "end_frame": int(frame_idx),
+                            "min_value": float(ttc),
+                            "threshold": ttc_threshold,
+                            "severity": "critical" if ttc < 1.5 else "non_critical",
+                            "metadata": {"distance_m": float(dist), "closing_rate_mps": float(closing_rate)}
+                        })
+    return events
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--tracks", required=True)
+    parser.add_argument("--graphs_dir", required=True)
+    parser.add_argument("--output_dir", default="outputs/models")
+    parser.add_argument("--window_size", type=int, default=5)
+    parser.add_argument("--stride", type=int, default=2)
+    parser.add_argument("--threshold", type=float, default=1.5)
+    parser.add_argument("--pixels_per_meter", type=float, default=20.0)
+    parser.add_argument("--fps", type=float, default=23.98)
+    parser.add_argument("--epochs", type=int, default=50)
+    args = parser.parse_args()
+
+    # Load and prepare tracks
+    df = load_tracks(args.tracks)
+    df = filter_tracks(df)
+    df = add_kinematics(df, pixels_per_meter=args.pixels_per_meter, fps=args.fps)
+
+    # Compute TTC events
+    ttc_events = compute_ttc_events(df)
+
+    # Build windows and labels
+    frame_ttc = defaultdict(list)
+    for ev in ttc_events:
+        frame_ttc[ev["start_frame"]].append(ev["min_value"])
+
+    window_ds = SpatioTemporalWindowDataset(
+        graph_dir=args.graphs_dir,
+        window_size=args.window_size,
+        stride=args.stride,
     )
-    parser.add_argument(
-        "--graphs", type=str, required=True, help="Path to graph samples JSONL."
-    )
-    parser.add_argument(
-        "--outdir",
-        type=str,
-        default="outputs/models/gcn_risk",
-        help="Base output directory.",
-    )
-    parser.add_argument(
-        "--group-key",
-        type=str,
-        default="site_id",
-        help="Grouping key for leakage-safe splitting.",
-    )
-    parser.add_argument(
-        "--val-frac",
-        type=float,
-        default=0.2,
-        help="Validation fraction at group level.",
-    )
-    parser.add_argument("--seed", type=int, default=42, help="Random seed.")
-    parser.add_argument("--epochs", type=int, default=30, help="Training epochs.")
-    parser.add_argument("--batch-size", type=int, default=32, help="Mini-batch size.")
-    parser.add_argument(
-        "--hidden-channels", type=int, default=64, help="Hidden channels for GCN."
-    )
-    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
-    parser.add_argument(
-        "--weight-decay", type=float, default=1e-4, help="Adam weight decay."
-    )
-    return parser.parse_args()
 
+    labels = []
+    for i in range(len(window_ds)):
+        frames = window_ds[i].frame_ids.tolist()
+        vals = []
+        for fid in frames:
+            vals.extend(frame_ttc.get(fid, []))
+        min_ttc = min(vals) if vals else float("inf")
+        labels.append(1 if min_ttc < args.threshold else 0)
 
-def _sample_meta(dataset, index: int) -> dict:
-    sample = dataset[index]
-    return {
-        "sample_id": getattr(sample, "sample_id", str(index)),
-        "site_id": getattr(sample, "site_id", ""),
-        "video_id": getattr(sample, "video_id", ""),
-        "window_id": getattr(sample, "window_id", ""),
-        "label": int(
-            getattr(sample, "y", 0).item()  # type: ignore[union-attr]
-            if hasattr(getattr(sample, "y", 0), "item")
-            else getattr(sample, "y", 0)
-        ),
-    }
+    labels_tensor = torch.tensor(labels, dtype=torch.float32)
 
+    # Split
+    indices = list(range(len(window_ds)))
+    np.random.seed(42)
+    np.random.shuffle(indices)
+    split = int(0.7 * len(indices))
+    train_idx = indices[:split]
+    val_idx = indices[split:]
 
-def grouped_split_indices(
-    samples: list[dict], group_key: str, val_frac: float, seed: int
-) -> tuple[list[int], list[int]]:
-    groups = []
-    for i, sample in enumerate(samples):
-        group = sample.get(group_key)
-        if group in (None, ""):
-            group = sample.get("video_id") or sample.get("site_id") or f"ungrouped_{i}"
-        groups.append(str(group))
+    if not has_torch_geometric or len(window_ds) == 0:
+        print("Torch Geometric not available or no windows found.")
+        return
 
-    unique_groups = sorted(set(groups))
-    if len(unique_groups) < 2:
-        n = len(samples)
-        split = max(1, int(round(n * (1.0 - val_frac))))
-        split = min(split, max(n - 1, 1))
-        return list(range(split)), list(range(split, n))
-
-    try:
-        from sklearn.model_selection import GroupShuffleSplit
-
-        splitter = GroupShuffleSplit(n_splits=1, test_size=val_frac, random_state=seed)
-        train_idx, val_idx = next(splitter.split(samples, groups=groups))
-        return train_idx.tolist(), val_idx.tolist()
-    except Exception:
-        import random
-
-        rng = random.Random(seed)
-        shuffled = unique_groups[:]
-        rng.shuffle(shuffled)
-        n_val_groups = max(1, int(math.ceil(len(shuffled) * val_frac)))
-        val_groups = set(shuffled[:n_val_groups])
-        train_idx = [i for i, g in enumerate(groups) if g not in val_groups]
-        val_idx = [i for i, g in enumerate(groups) if g in val_groups]
-        if not train_idx or not val_idx:
-            split = max(1, int(round(len(samples) * (1.0 - val_frac))))
-            split = min(split, max(len(samples) - 1, 1))
-            return list(range(split)), list(range(split, len(samples)))
-        return train_idx, val_idx
-
-
-def build_subset(dataset, indices):
-    return [dataset[i] for i in indices]
-
-
-def evaluate(model, loader, device):
-    import torch
-
-    model.eval()
-    losses = []
-    logits_all = []
-    y_all = []
-    with torch.no_grad():
-        for batch in loader:
-            batch = batch.to(device)
-            logits = model(batch)
-            y = batch.y.view(-1).float()
-            loss = torch.nn.BCEWithLogitsLoss()(logits, y)
-            losses.append(loss.detach().item())
-            logits_all.extend(logits.detach().cpu().tolist())
-            y_all.extend(y.detach().cpu().tolist())
-
-    metrics = binary_classification_metrics(y_all, logits_all)
-    metrics["loss"] = sum(losses) / max(len(losses), 1)
-    return metrics, logits_all, y_all
-
-
-def main() -> None:
-    args = parse_args()
-    set_global_seed(args.seed, deterministic=True)
-
-    try:
-        import torch
-        from torch_geometric.loader import DataLoader
-    except Exception as exc:
-        raise RuntimeError(
-            "Torch and torch_geometric must be installed to train the GCN risk model."
-        ) from exc
-
-    raw_dataset = GraphSampleDataset.from_jsonl(args.graphs)
-    raw_samples = raw_dataset.samples
-    dataset = [to_pyg_data(sample) for sample in raw_samples]
-    if len(dataset) < 2:
-        raise RuntimeError("Need at least 2 graph samples to train/evaluate.")
-
-    train_idx, val_idx = grouped_split_indices(
-        raw_samples, args.group_key, args.val_frac, args.seed
-    )
-    train_ds = build_subset(dataset, train_idx)
-    val_ds = build_subset(dataset, val_idx)
-
-    sample = train_ds[0]
-    in_channels = sample.x.size(-1)
-
-    model = build_model(in_channels=in_channels, hidden_channels=args.hidden_channels)
-    if not hasattr(model, "parameters"):
-        raise RuntimeError(
-            "Loaded fallback non-torch model. Torch/PyG install is incomplete."
-        )
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device)
-
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False)
-
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=args.lr, weight_decay=args.weight_decay
-    )
+    # Model
+    first = window_ds[0]
+    model = build_model(in_channels=first.x.size(1), hidden_channels=32)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     criterion = torch.nn.BCEWithLogitsLoss()
 
-    commit = get_git_commit(Path(__file__).resolve().parents[1])
-    run_name = f"{datetime.now(UTC).strftime('%Y-%m-%d_%H%M%S')}_{commit}"
-    run_dir = ensure_dir(Path(args.outdir) / run_name)
-    snapshot_environment(Path(__file__).resolve().parents[1], run_dir)
-
-    config = vars(args).copy()
-    config["train_size"] = len(train_ds)
-    config["val_size"] = len(val_ds)
-    config["device"] = str(device)
-    config["git_commit"] = commit
-    write_json(run_dir / "config.json", config)
-
-    best_f1 = -1.0
-    history = []
-
-    for epoch in range(1, args.epochs + 1):
+    best_acc = 0.0
+    for epoch in range(args.epochs):
         model.train()
-        train_losses = []
-
-        for batch in train_loader:
-            batch = batch.to(device)
+        total_loss = 0
+        for idx in train_idx:
+            data = window_ds[idx]
             optimizer.zero_grad()
-            logits = model(batch)
-            y = batch.y.view(-1).float()
-            loss = criterion(logits, y)
+            out = model(data)
+            target = labels_tensor[idx].unsqueeze(0)
+            loss = criterion(out, target)
             loss.backward()
             optimizer.step()
-            train_losses.append(loss.detach().item())
+            total_loss += loss.item()
 
-        val_metrics, val_logits, val_targets = evaluate(model, val_loader, device)
-        train_loss = sum(train_losses) / max(len(train_losses), 1)
+        model.eval()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for idx in val_idx:
+                data = window_ds[idx]
+                out = model(data)
+                pred = (torch.sigmoid(out) > 0.5).float()
+                correct += (pred.item() == labels_tensor[idx].item())
+                total += 1
+        acc = correct / total if total else 0.0
+        best_acc = max(best_acc, acc)
 
-        row = {
-            "epoch": epoch,
-            "train_loss": train_loss,
-            **{f"val_{k}": float(v) for k, v in val_metrics.items()},
-        }
-        history.append(row)
+        if (epoch + 1) % 10 == 0:
+            print(f"Epoch {epoch+1}/{args.epochs} | Loss: {total_loss/len(train_idx):.4f} | Val Acc: {acc:.3f}")
 
-        print(
-            f"epoch={epoch:03d} "
-            f"train_loss={train_loss:.4f} "
-            f"val_loss={val_metrics['loss']:.4f} "
-            f"val_f1={val_metrics.get('f1', 0.0):.4f} "
-            f"val_acc={val_metrics.get('accuracy', 0.0):.4f}"
-        )
+    # Save model
+    output_dir = Path(args.output_dir)
+    ensure_dir(output_dir)
+    torch.save(model.state_dict(), output_dir / "gcn_risk_filtered.pt")
 
-        checkpoint = {
-            "epoch": epoch,
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "config": config,
-            "val_metrics": val_metrics,
-        }
-        torch.save(checkpoint, run_dir / "last.pt")
-
-        current_f1 = float(val_metrics.get("f1", 0.0))
-        if current_f1 > best_f1:
-            best_f1 = current_f1
-            torch.save(checkpoint, run_dir / "best.pt")
-
-    predictions = []
-    model.eval()
-    with torch.no_grad():
-        for dataset_index in val_idx:
-            item = dataset[dataset_index]
-            item = item.to(device)
-            logits = model(item)
-            if hasattr(logits, "numel") and logits.numel() == 1:
-                logit = float(logits.detach().cpu().view(-1)[0].item())
-            else:
-                logit = float(logits.detach().cpu().view(-1)[0])
-            prob = 1.0 / (1.0 + math.exp(-logit))
-            predictions.append(
-                {
-                    "sample_id": item.sample_id,
-                    "site_id": getattr(item, "site_id", None),
-                    "video_id": getattr(item, "video_id", None),
-                    "window_id": getattr(item, "window_id", None),
-                    "label": int(item.y.detach().cpu().view(-1)[0].item()),
-                    "split": "val",
-                    "logit": logit,
-                    "prob": prob,
-                    "pred_label": int(prob >= 0.5),
-                }
-            )
-
-    true_labels = [int(p["label"]) for p in predictions]
-    pred_labels = [int(p["pred_label"]) for p in predictions]
-    val_pos = sum(true_labels)
-    val_neg = len(true_labels) - val_pos
-    pred_pos = sum(pred_labels)
-    pred_neg = len(pred_labels) - pred_pos
-
-    tp = sum(1 for y, yhat in zip(true_labels, pred_labels) if y == 1 and yhat == 1)
-    tn = sum(1 for y, yhat in zip(true_labels, pred_labels) if y == 0 and yhat == 0)
-    fp = sum(1 for y, yhat in zip(true_labels, pred_labels) if y == 0 and yhat == 1)
-    fn = sum(1 for y, yhat in zip(true_labels, pred_labels) if y == 1 and yhat == 0)
-
-    warnings = []
-    if len(true_labels) < 10:
-        warnings.append(
-            "validation split has fewer than 10 samples; metrics may be unstable"
-        )
-    if val_pos == 0 or val_neg == 0:
-        warnings.append(
-            "validation split is single-class; binary metrics are not reliable"
-        )
-    if pred_pos == 0 and len(pred_labels) > 0:
-        warnings.append("model predicted zero positive samples at threshold 0.5")
-
-    write_json(
-        run_dir / "metrics.json",
-        {
-            "best_val_f1": best_f1,
-            "history": history,
-            "val_sample_count": len(true_labels),
-            "val_positive_count": val_pos,
-            "val_negative_count": val_neg,
-            "val_pred_positive_count": pred_pos,
-            "val_pred_negative_count": pred_neg,
-            "val_confusion": {"tp": tp, "tn": tn, "fp": fp, "fn": fn},
-            "warnings": warnings,
-        },
-    )
-
-    write_jsonl(run_dir / "predictions.jsonl", predictions)
-    print(f"saved_run_dir={run_dir}")
-
+    # Save metrics
+    metrics = {
+        "label_threshold": args.threshold,
+        "train_size": len(train_idx),
+        "val_size": len(val_idx),
+        "best_val_accuracy": float(best_acc),
+        "num_positive": int(sum(labels)),
+        "num_negative": int(len(labels) - sum(labels)),
+        "epochs": args.epochs,
+        "ttc_events_count": len(ttc_events),
+    }
+    write_json(output_dir / "training_metrics_filtered.json", metrics)
+    print(f"Model and metrics saved to {output_dir}")
 
 if __name__ == "__main__":
     main()
