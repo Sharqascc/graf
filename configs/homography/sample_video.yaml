@@ -1,8 +1,45 @@
-# Homography configuration for sample_video
-# This 3x3 matrix maps image pixel coordinates to world meters.
-# Replace with a matrix fitted from calibration points.
 H:
-  - [0.05, 0.0, 0.0]   # x_m = 0.05 * x_pixel
-  - [0.0, 0.05, 0.0]   # y_m = 0.05 * y_pixel
-  - [0.0, 0.0, 1.0]
-pixels_per_meter: 20.0   # used as fallback if H is identity
+- - 0.2751319837335709
+  - -1.777646266682872
+  - 200.188483969703
+- - -0.5750460158525301
+  - -0.7853110441154795
+  - 378.21919740309244
+- - -0.0016546602118620057
+  - 0.02193371461781007
+  - 1.0
+calibration_points_pixel:
+- - 416.0
+  - 177.0
+- - 479.0
+  - 187.0
+- - 422.0
+  - 389.0
+- - 171.0
+  - 354.0
+calibration_points_world:
+- - 0.0
+  - 0.0
+- - -0.10284181518334687
+  - -10.229933251544193
+- - -42.47366977887104
+  - -19.236722309530986
+- - -45.0447151643006
+  - 0.22238985312268078
+calibration_points_latlon:
+- - 22.349934
+  - 73.20134
+- - 22.349842
+  - 73.201339
+- - 22.349761
+  - 73.200927
+- - 22.349936
+  - 73.200902
+ransac_reproj_threshold: 1.0
+calibration_inlier_mask:
+- 1
+- 1
+- 1
+- 1
+mean_inlier_error_m: 6.312251809259841e-07
+max_inlier_error_m: 1.341314854477719e-06
