@@ -1,0 +1,8 @@
+# Homography configuration for sample_video
+# This 3x3 matrix maps image pixel coordinates to world meters.
+# Replace with a matrix fitted from calibration points.
+H:
+  - [0.05, 0.0, 0.0]   # x_m = 0.05 * x_pixel
+  - [0.0, 0.05, 0.0]   # y_m = 0.05 * y_pixel
+  - [0.0, 0.0, 1.0]
+pixels_per_meter: 20.0   # used as fallback if H is identity
