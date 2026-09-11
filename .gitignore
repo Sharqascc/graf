@@ -25,3 +25,4 @@ src/graf.egg-info/
 # Coverage reports
 .coverage
 htmlcov/
+data/synthetic/
