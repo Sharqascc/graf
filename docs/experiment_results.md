@@ -52,3 +52,18 @@ python scripts/train_conflict_pairs.py \
   --num_folds 5 \
   --seed 42
 ```
+
+## Reproducibility note
+
+The video, tracks, and calibrated graphs referenced above are not committed
+to this repository. The 87.5% CV number was produced from local data that has
+since been removed.
+
+For a self-contained smoke test of the same pipeline stages
+(tracks -> graphs -> windows -> GCN CV), run:
+
+    pytest tests/test_end_to_end_synthetic.py -v
+
+This takes ~30 s on CPU and requires no external data. To reproduce the
+original numbers, place the source video at `data/raw/videos/sample_video.mp4`
+and run the stages in `docs/pipeline.md` in order.

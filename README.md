@@ -8,6 +8,23 @@ GRAF is a research pipeline for building graph representations of traffic intera
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+## Project status
+
+**Working end-to-end on synthetic data; not yet validated on real annotated video.**
+
+| Area | Status |
+|---|---|
+| Library code (`src/graf/`) | Complete; 290 unit tests pass |
+| Synthetic end-to-end test | `tests/test_end_to_end_synthetic.py` (~30 s on CPU) |
+| Training API | `from graf.training import run_cross_validation` |
+| Real-video pipeline | Runs, but no committed data or ground truth |
+| Tracking quality metrics (MOTA / IDF1 / ID switches) | Not implemented |
+| Reproducible real-video accuracy | None - see `docs/experiment_results.md` |
+
+The 87.5% cross-validation accuracy in `docs/experiment_results.md` was produced
+from local data that is not committed. See the reproducibility note there for
+how to run a self-contained smoke test instead.
+
 ## Features
 
 - **Detection & Tracking** – interfaces for YOLOv8, RT‑DETR, ByteTrack, BotSORT
