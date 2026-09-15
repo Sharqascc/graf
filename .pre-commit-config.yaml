@@ -5,13 +5,18 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-ast
+      - id: debug-statements
       - id: check-added-large-files
+        args: ["--maxkb=1000"]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.4
     hooks:
       - id: ruff
-        args: [ --fix ]
+        args: [--fix]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -19,3 +24,4 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-PyYAML]
+        exclude: ^(tests/|notebooks/)

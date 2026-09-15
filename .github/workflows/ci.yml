@@ -2,25 +2,41 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
-  test:
+  lint:
+    name: "1 · Ruff"
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip ruff==0.16.4
+      - run: ruff check --output-format=github .
+      - run: ruff format --check .
 
+  unit-tests:
+    name: "2 · Unit tests"
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -28,15 +44,28 @@ jobs:
           pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
           pip install torch-geometric
           pip install pytest-cov
-
-      - name: Run tests
+      - name: Run unit tests
         run: |
-          pytest -q --cov=src --cov-report=term-missing
+          pytest -q --cov=src --cov-report=term-missing \
+            --ignore=tests/test_property_based.py
 
-      - name: Lint with ruff
+  property-tests:
+    name: "3 · Property tests (Hypothesis)"
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    env:
+      HYPOTHESIS_PROFILE: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
         run: |
-          ruff check .
-
-      - name: Type check with mypy
-        run: |
-          mypy src
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt -r requirements/dev.txt
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install torch-geometric
+      - name: Run property tests
+        run: pytest -q tests/test_property_based.py -m hypothesis

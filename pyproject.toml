@@ -44,6 +44,7 @@ dev = [
   "ruff",
   "mypy",
   "pre-commit",
+  "hypothesis",
 ]
 gpu = [
   "torch",
