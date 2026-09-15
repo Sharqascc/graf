@@ -27,3 +27,7 @@ src/graf.egg-info/
 htmlcov/
 data/synthetic/
 .tox/
+*.pt
+*.onnx
+runs/
+*.cache

@@ -1,6 +1,6 @@
 model_name: yolov8
-weights: null
+weights: yolov8n.pt        # or yolov8s.pt / yolov8m.pt / custom .pt
 conf_threshold: 0.25
 iou_threshold: 0.5
-imgsz: 1280
-classes: null
+imgsz: 1280               # 640 is faster; 1280 finds more small objects
+classes: null             # null = keep every COCO class that maps to GRAF
