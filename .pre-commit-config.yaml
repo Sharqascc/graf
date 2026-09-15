@@ -25,3 +25,12 @@ repos:
       - id: mypy
         additional_dependencies: [types-PyYAML]
         exclude: ^(tests/|notebooks/)
+
+  - repo: local
+    hooks:
+      - id: deptry
+        name: deptry (dependency hygiene)
+        entry: deptry .
+        language: system
+        pass_filenames: false
+        always_run: true
