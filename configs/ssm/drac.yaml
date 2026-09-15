@@ -1,2 +1,5 @@
+# Config for the planned DRAC implementation. See
+# src/graf/ssm/drac.py for the intended API; DRAC is not yet
+# implemented, so this file is inert.
 metric: DRAC
 threshold_mps2: 3.35
