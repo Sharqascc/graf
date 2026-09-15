@@ -1,4 +1,4 @@
-"""DRAC (Deceleration Rate to Avoid Crash) — planned, not yet implemented.
+"""DRAC (Deceleration Rate to Avoid Crash).
 
 DRAC measures the constant deceleration an actor would need to apply to
 avoid a collision with another actor, given current kinematics. The FHWA
@@ -6,46 +6,154 @@ Surrogate Safety Assessment Model defines it as:
 
     DRAC = v_rel**2 / (2 * d)
 
-where ``v_rel`` is the relative speed at braking onset and ``d`` is the gap
-distance between the two actors at that moment. A common critical threshold
-is 3.35 m/s^2 (the config default in ``configs/ssm/drac.yaml``).
+where ``v_rel`` is the *closing speed* — the component of relative velocity
+along the line connecting the two actors, positive when they are
+approaching — and ``d`` is the *effective gap*: the Euclidean separation
+minus the collision radius, i.e. the distance to contact rather than the
+centre-to-centre distance.
 
-This module is a placeholder kept so downstream imports and the README's
-SSM feature list have a documented landing spot. The eventual public API
-will mirror :mod:`graf.ssm.ttc`:
+The default critical threshold is 3.35 m/s^2, matching the FHWA SSAM
+recommendation and ``configs/ssm/drac.yaml``.
 
-    @dataclass
-    class DRACResult:
-        drac_mps2: float
-        is_critical: bool
-        status: str
-
-    def compute_drac_constant_velocity(
-        pos1, vel1, pos2, vel2, *, gap_override=None
-    ) -> DRACResult: ...
-
-Nothing is exported from here yet — see the tests in
-``tests/test_ssm_stubs.py`` for the current (stub) behavior.
+This mirrors :mod:`graf.ssm.ttc`: dataclass result, ``is_critical`` and
+``severity`` properties, and status strings.
 """
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from dataclasses import dataclass
+
+import numpy as np
+
+#: FHWA SSAM default: decelerations at or above this rate are critical.
+CRITICAL_DRAC_MPS2: float = 3.35
+
+#: Deceleration above which severity saturates to 1.0. Roughly the limit of
+#: emergency braking on dry asphalt; higher values are physically implausible
+#: and treated as maximally severe.
+MAX_SEVERITY_DRAC_MPS2: float = 10.0
+
+__all__ = [
+    "CRITICAL_DRAC_MPS2",
+    "MAX_SEVERITY_DRAC_MPS2",
+    "DRACResult",
+    "compute_drac_constant_velocity",
+]
 
 
-class DRACResult:  # pragma: no cover
-    """Placeholder dataclass — see module docstring for the planned API."""
+@dataclass(slots=True)
+class DRACResult:
+    drac_mps2: float
+    closing_speed_mps: float = 0.0
+    gap_m: float = 0.0
+    status: str = "uncomputed"
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
-        raise NotImplementedError(
-            "DRAC is planned but not implemented. "
-            "See src/graf/ssm/drac.py for the intended API."
+    @property
+    def is_critical(self) -> bool:
+        return bool(
+            np.isfinite(self.drac_mps2) and self.drac_mps2 >= CRITICAL_DRAC_MPS2
         )
 
+    @property
+    def severity(self) -> float:
+        # Note: unlike TTC/PET, +inf here means "already in collision" and
+        # maps to maximum severity, not zero.
+        if np.isinf(self.drac_mps2):
+            return 1.0
+        if not np.isfinite(self.drac_mps2) or self.drac_mps2 <= 0.0:
+            return 0.0
+        return float(min(self.drac_mps2 / MAX_SEVERITY_DRAC_MPS2, 1.0))
 
-def compute_drac_constant_velocity(*args: object, **kwargs: object) -> object:
-    """Placeholder — see module docstring for the planned API."""
-    raise NotImplementedError(
-        "DRAC is planned but not implemented. "
-        "See src/graf/ssm/drac.py for the intended API."
+
+def compute_drac_constant_velocity(
+    pos1: np.ndarray,
+    vel1: np.ndarray,
+    pos2: np.ndarray,
+    vel2: np.ndarray,
+    collision_radius: float = 1.5,
+    gap_override: float | None = None,
+) -> DRACResult:
+    """Compute DRAC between two actors with constant-velocity kinematics.
+
+    Parameters
+    ----------
+    pos1, vel1, pos2, vel2
+        2D position and velocity of each actor (m and m/s).
+    collision_radius
+        Sum of actor radii that defines contact (default 1.5 m, matching
+        :func:`graf.ssm.ttc.compute_ttc_constant_velocity`).
+    gap_override
+        If provided, use this value as the raw centre-to-centre gap instead
+        of computing it from ``pos1``/``pos2``. Useful when the caller has a
+        better gap estimate (e.g. from bounding boxes with occlusion).
+
+    Returns
+    -------
+    DRACResult
+        ``status`` is one of ``"computed"``, ``"zero_relative_speed"``,
+        ``"diverging_or_parallel"``, or ``"already_in_collision"``.
+    """
+    pos1 = np.asarray(pos1, dtype=float)
+    vel1 = np.asarray(vel1, dtype=float)
+    pos2 = np.asarray(pos2, dtype=float)
+    vel2 = np.asarray(vel2, dtype=float)
+
+    rel_pos = pos2 - pos1
+    rel_vel = vel2 - vel1
+
+    # Direction of the inter-actor line is always derived from the actual
+    # positions. Only the *magnitude* of the gap can be overridden, so that
+    # callers with a better gap estimate (e.g. bounding boxes under partial
+    # occlusion) still get correct closing-speed computation.
+    actual_distance = float(np.linalg.norm(rel_pos))
+    if gap_override is not None:
+        raw_gap = float(gap_override)
+    else:
+        raw_gap = actual_distance
+
+    gap = raw_gap - float(collision_radius)
+
+    rel_speed_sq = float(np.dot(rel_vel, rel_vel))
+    if rel_speed_sq < 1e-12:
+        return DRACResult(
+            drac_mps2=0.0,
+            closing_speed_mps=0.0,
+            gap_m=max(gap, 0.0),
+            status="zero_relative_speed",
+        )
+
+    if actual_distance <= 1e-12 or raw_gap <= 1e-12:
+        return DRACResult(
+            drac_mps2=float("inf"),
+            closing_speed_mps=float(np.sqrt(rel_speed_sq)),
+            gap_m=0.0,
+            status="already_in_collision",
+        )
+
+    unit = rel_pos / actual_distance
+    closing_speed = -float(np.dot(unit, rel_vel))
+
+    if closing_speed <= 0.0:
+        return DRACResult(
+            drac_mps2=0.0,
+            closing_speed_mps=closing_speed,
+            gap_m=max(gap, 0.0),
+            status="diverging_or_parallel",
+        )
+
+    if gap <= 0.0:
+        return DRACResult(
+            drac_mps2=float("inf"),
+            closing_speed_mps=closing_speed,
+            gap_m=0.0,
+            status="already_in_collision",
+        )
+
+    drac = (closing_speed * closing_speed) / (2.0 * gap)
+
+    return DRACResult(
+        drac_mps2=float(drac),
+        closing_speed_mps=closing_speed,
+        gap_m=float(gap),
+        status="computed",
     )

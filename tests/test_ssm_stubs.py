@@ -1,56 +1,24 @@
-"""Tests for the DRAC and event-mining placeholder modules.
+"""Tests for the event-mining placeholder module.
 
-These modules are documented as planned-but-unimplemented. The tests here
-verify two things:
+The event-mining module is documented as planned-but-unimplemented. These
+tests verify two things:
 
-  1. The modules import cleanly (no accidental syntax or import errors as
+  1. The module imports cleanly (no accidental syntax or import errors as
      the stub text evolves).
-  2. Their public entry points raise ``NotImplementedError`` with a
-     message that points a reader at the intended API.
+  2. Its public entry point raises ``NotImplementedError`` with a message
+     that points a reader at the intended API.
 
-When DRAC or event mining are actually implemented, these tests should be
-deleted and replaced with real behavior tests.
+When event mining is actually implemented, this file should be deleted and
+replaced with real behavior tests. (DRAC was implemented in a prior change
+and its tests now live in ``tests/test_ssm.py`` and
+``tests/test_property_based.py``.)
 """
 
 from __future__ import annotations
 
 import pytest
 
-from graf.ssm import drac as drac_mod
 from graf.ssm import event_mining as mining_mod
-
-# ------------------------------------------------------------------
-# drac
-# ------------------------------------------------------------------
-
-
-def test_drac_module_imports():
-    assert drac_mod.__all__ == []
-
-
-def test_drac_result_raises_not_implemented():
-    with pytest.raises(NotImplementedError, match="DRAC is planned"):
-        drac_mod.DRACResult(0.0, False, "uncomputed")
-
-
-def test_compute_drac_raises_not_implemented():
-    with pytest.raises(NotImplementedError, match="DRAC is planned"):
-        drac_mod.compute_drac_constant_velocity()
-
-
-def test_compute_drac_ignores_positional_and_keyword_args():
-    """Stub must raise regardless of what callers pass."""
-    with pytest.raises(NotImplementedError):
-        drac_mod.compute_drac_constant_velocity([0, 0], [1, 0], [10, 0], [-1, 0])
-    with pytest.raises(NotImplementedError):
-        drac_mod.compute_drac_constant_velocity(
-            pos1=[0, 0], vel1=[1, 0], pos2=[10, 0], vel2=[-1, 0]
-        )
-
-
-# ------------------------------------------------------------------
-# event_mining
-# ------------------------------------------------------------------
 
 
 def test_event_mining_module_imports():
