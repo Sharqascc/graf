@@ -1,33 +1,30 @@
-"""CLI wrapper around graf.training.conflict_pairs.run_cross_validation."""
+"""CLI wrapper around graf.cli.run_train_conflict_pairs.
+
+Kept as a standalone entrypoint for script-style invocations (e.g. the
+documented example in docs/experiment_results.md). Flags are defined in
+one place — ``graf.cli.build_parser()`` — so the script and the
+``graf train-conflict-pairs`` subcommand cannot drift.
+
+Prefer ``graf train-conflict-pairs ...`` for new work; this script exists
+for backwards compatibility with existing docs and CI invocations.
+"""
 
 from __future__ import annotations
 
-import argparse
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from graf.training.conflict_pairs import run_cross_validation
+from graf.cli import build_parser, run_train_conflict_pairs
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser()
-    p.add_argument("--tracks", required=True)
-    p.add_argument("--graphs_dir", required=True)
-    p.add_argument("--homography_config", required=True)
-    p.add_argument("--output_dir", default="outputs/models_conflict_pairs")
-    p.add_argument("--window_size", type=int, default=5)
-    p.add_argument("--stride", type=int, default=2)
-    p.add_argument("--distance_threshold", type=float, default=5.0)
-    p.add_argument("--min_interaction_frames", type=int, default=3)
-    p.add_argument("--epochs", type=int, default=50)
-    p.add_argument("--num_folds", type=int, default=5)
-    p.add_argument("--seed", type=int, default=42)
-    args = p.parse_args(argv)
-
-    run_cross_validation(
-        tracks_path=args.tracks,
+    if argv is None:
+        argv = sys.argv[1:]
+    args = build_parser().parse_args(["train-conflict-pairs", *argv])
+    return run_train_conflict_pairs(
+        tracks=args.tracks,
         graphs_dir=args.graphs_dir,
         homography_config=args.homography_config,
         output_dir=args.output_dir,
@@ -39,7 +36,6 @@ def main(argv=None):
         num_folds=args.num_folds,
         seed=args.seed,
     )
-    return 0
 
 
 if __name__ == "__main__":
