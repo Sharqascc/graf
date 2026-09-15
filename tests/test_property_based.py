@@ -335,3 +335,258 @@ def test_graph_reverse_edges_have_mirrored_features(actors):
             ), name
         assert math.isclose(f_ij[idx["size_src"]], f_ji[idx["size_dst"]], rel_tol=1e-6)
         assert math.isclose(f_ij[idx["size_dst"]], f_ji[idx["size_src"]], rel_tol=1e-6)
+
+
+# ------------------------------------------------------------------
+# PET — invariants of compute_pet_from_conflict_zone
+# ------------------------------------------------------------------
+
+pet = pytest.importorskip("graf.ssm.pet")
+
+_coord = st.floats(-20.0, 20.0, allow_nan=False, allow_infinity=False)
+_time_step = st.floats(0.01, 1.0, allow_nan=False, allow_infinity=False)
+_radius = st.floats(0.1, 10.0, allow_nan=False, allow_infinity=False)
+
+
+def _single_traj(center, n, dt, offset_x=0.0, offset_y=0.0):
+    """Straight-line trajectory passing through center ± offsets."""
+    ts = np.arange(n, dtype=float) * dt
+    xs = center[0] + offset_x + np.linspace(-1.0, 1.0, n)
+    ys = center[1] + offset_y + np.zeros(n)
+    return np.stack([xs, ys], axis=1), ts
+
+
+@pytest.mark.hypothesis
+@given(
+    n=st.integers(2, 30),
+    dt=_time_step,
+    cx=_coord,
+    cy=_coord,
+    radius=_radius,
+)
+@settings(max_examples=40, deadline=None)
+def test_pet_status_is_from_known_enum(n, dt, cx, cy, radius):
+    """Status is always one of the documented strings."""
+    known = {
+        "uncomputed",
+        "empty_trajectory",
+        "one_or_both_never_enter_zone",
+        "agent1_then_agent2",
+        "agent2_then_agent1",
+        "zone_overlap",
+    }
+    center = np.array([cx, cy])
+    t1, ts1 = _single_traj(center, n, dt, offset_x=-0.5)
+    t2, ts2 = _single_traj(center, n, dt, offset_x=+0.5)
+    r = pet.compute_pet_from_conflict_zone(t1, t2, ts1, ts2, center, zone_radius=radius)
+    assert r.status in known, r.status
+
+
+@pytest.mark.hypothesis
+@given(
+    n=st.integers(2, 30),
+    dt=_time_step,
+    cx=_coord,
+    cy=_coord,
+    radius=_radius,
+)
+@settings(max_examples=40, deadline=None)
+def test_pet_seconds_non_negative_when_finite(n, dt, cx, cy, radius):
+    """pet_seconds is either +inf or a finite value >= 0."""
+    center = np.array([cx, cy])
+    t1, ts1 = _single_traj(center, n, dt, offset_x=-0.5)
+    t2, ts2 = _single_traj(center, n, dt, offset_x=+0.5)
+    r = pet.compute_pet_from_conflict_zone(t1, t2, ts1, ts2, center, zone_radius=radius)
+    assert not math.isnan(r.pet_seconds)
+    if math.isfinite(r.pet_seconds):
+        assert r.pet_seconds >= 0.0
+
+
+@pytest.mark.hypothesis
+@given(
+    n=st.integers(2, 20),
+    dt=_time_step,
+    cx=_coord,
+    cy=_coord,
+    radius=_radius,
+)
+@settings(max_examples=30, deadline=None)
+def test_pet_empty_trajectory_status(n, dt, cx, cy, radius):
+    """Empty input gives +inf and status empty_trajectory."""
+    center = np.array([cx, cy])
+    t1, ts1 = _single_traj(center, n, dt)
+    empty = np.empty((0, 2), dtype=float)
+    r = pet.compute_pet_from_conflict_zone(
+        empty, t1, np.empty(0), ts1, center, zone_radius=radius
+    )
+    assert r.status == "empty_trajectory"
+    assert math.isinf(r.pet_seconds)
+
+
+@pytest.mark.hypothesis
+@given(
+    n=st.integers(2, 20),
+    dt=_time_step,
+    cx=_coord,
+    cy=_coord,
+    gap=st.floats(100.0, 1000.0, allow_nan=False, allow_infinity=False),
+    radius=_radius,
+)
+@settings(max_examples=30, deadline=None)
+def test_pet_never_enter_zone_gives_infinite(n, dt, cx, cy, gap, radius):
+    """Trajectories far from the zone give +inf and never-enter status."""
+    center = np.array([cx, cy])
+    t1, ts1 = _single_traj(center, n, dt, offset_x=gap)
+    t2, ts2 = _single_traj(center, n, dt, offset_x=gap + 1.0)
+    r = pet.compute_pet_from_conflict_zone(t1, t2, ts1, ts2, center, zone_radius=radius)
+    assert r.status == "one_or_both_never_enter_zone"
+    assert math.isinf(r.pet_seconds)
+
+
+@pytest.mark.hypothesis
+@given(
+    n=st.integers(3, 20),
+    dt=_time_step,
+    cx=_coord,
+    cy=_coord,
+    radius=st.floats(1.0, 10.0, allow_nan=False, allow_infinity=False),
+)
+@settings(max_examples=30, deadline=None)
+def test_pet_symmetric_in_actors(n, dt, cx, cy, radius):
+    """Swapping the two actors swaps enters_first but not pet_seconds."""
+    center = np.array([cx, cy])
+    t1, ts1 = _single_traj(center, n, dt, offset_x=-2.0)
+    t2, ts2 = _single_traj(center, n, dt, offset_x=+2.0)
+    a = pet.compute_pet_from_conflict_zone(t1, t2, ts1, ts2, center, zone_radius=radius)
+    b = pet.compute_pet_from_conflict_zone(t2, t1, ts2, ts1, center, zone_radius=radius)
+    if math.isfinite(a.pet_seconds) and math.isfinite(b.pet_seconds):
+        assert math.isclose(a.pet_seconds, b.pet_seconds, rel_tol=1e-9, abs_tol=1e-9)
+    # enters_first is either None (overlap) on both sides, or mirrored
+    if a.enters_first == "agent1":
+        assert b.enters_first == "agent2"
+    elif a.enters_first == "agent2":
+        assert b.enters_first == "agent1"
+    else:
+        assert b.enters_first is None
+
+
+@pytest.mark.hypothesis
+@given(
+    n=st.integers(2, 20),
+    dt=_time_step,
+    cx=_coord,
+    cy=_coord,
+    radius=_radius,
+)
+@settings(max_examples=30, deadline=None)
+def test_pet_deterministic(n, dt, cx, cy, radius):
+    """Same inputs -> same result."""
+    center = np.array([cx, cy])
+    t1, ts1 = _single_traj(center, n, dt, offset_x=-0.5)
+    t2, ts2 = _single_traj(center, n, dt, offset_x=+0.5)
+    a = pet.compute_pet_from_conflict_zone(t1, t2, ts1, ts2, center, zone_radius=radius)
+    b = pet.compute_pet_from_conflict_zone(t1, t2, ts1, ts2, center, zone_radius=radius)
+    assert a.status == b.status
+    assert a.enters_first == b.enters_first
+    if math.isfinite(a.pet_seconds):
+        assert a.pet_seconds == b.pet_seconds
+
+
+@pytest.mark.hypothesis
+@given(
+    n=st.integers(2, 20),
+    dt=_time_step,
+    cx=_coord,
+    cy=_coord,
+    radius=_radius,
+)
+@settings(max_examples=30, deadline=None)
+def test_pet_severity_bounded(n, dt, cx, cy, radius):
+    """severity is always in [0, 1]."""
+    center = np.array([cx, cy])
+    t1, ts1 = _single_traj(center, n, dt, offset_x=-0.5)
+    t2, ts2 = _single_traj(center, n, dt, offset_x=+0.5)
+    r = pet.compute_pet_from_conflict_zone(t1, t2, ts1, ts2, center, zone_radius=radius)
+    assert 0.0 <= r.severity <= 1.0
+
+
+@pytest.mark.hypothesis
+@given(
+    n=st.integers(2, 20),
+    dt=_time_step,
+    cx=_coord,
+    cy=_coord,
+    radius=_radius,
+)
+@settings(max_examples=30, deadline=None)
+def test_pet_is_critical_iff_short_and_finite(n, dt, cx, cy, radius):
+    """is_critical <=> pet in [0, 3] and finite."""
+    center = np.array([cx, cy])
+    t1, ts1 = _single_traj(center, n, dt, offset_x=-0.5)
+    t2, ts2 = _single_traj(center, n, dt, offset_x=+0.5)
+    r = pet.compute_pet_from_conflict_zone(t1, t2, ts1, ts2, center, zone_radius=radius)
+    expected = math.isfinite(r.pet_seconds) and 0.0 <= r.pet_seconds <= 3.0
+    assert r.is_critical == expected
+
+
+# ------------------------------------------------------------------
+# PETCalculator — invariants of the DataFrame-level API
+# ------------------------------------------------------------------
+
+_required_cols = ["track_id", "frame_idx", "t_sec", "x_m", "y_m"]
+
+
+def _pet_df(track_id, n, dt, x0):
+    return pd.DataFrame(
+        {
+            "track_id": [track_id] * n,
+            "frame_idx": list(range(n)),
+            "t_sec": [i * dt for i in range(n)],
+            "x_m": [x0 + i * 0.1 for i in range(n)],
+            "y_m": [0.0] * n,
+        }
+    )
+
+
+@pytest.mark.hypothesis
+@given(
+    n=st.integers(2, 20),
+    dt=_time_step,
+)
+@settings(max_examples=20, deadline=None)
+def test_pet_calculator_short_trajectory_returns_none(n, dt):
+    """Tracks with <2 rows give None (no PET event)."""
+    calc = pet.PETCalculator(proximity_threshold_m=2.0)
+    a = pd.DataFrame(
+        {"track_id": [0], "frame_idx": [0], "t_sec": [0.0], "x_m": [0.0], "y_m": [0.0]}
+    )
+    b = _pet_df(1, n, dt, x0=0.0)
+    assert calc.compute_pair_pet(a, b, video_id="v") is None
+    assert calc.compute_pair_pet(b, a, video_id="v") is None
+
+
+@pytest.mark.hypothesis
+@given(
+    n=st.integers(3, 20),
+    dt=_time_step,
+    gap=st.floats(100.0, 1000.0, allow_nan=False, allow_infinity=False),
+)
+@settings(max_examples=20, deadline=None)
+def test_pet_calculator_far_apart_returns_none(n, dt, gap):
+    """Pairs whose min distance exceeds the proximity threshold give None."""
+    calc = pet.PETCalculator(proximity_threshold_m=2.0)
+    a = _pet_df(0, n, dt, x0=0.0)
+    b = _pet_df(1, n, dt, x0=gap)
+    assert calc.compute_pair_pet(a, b, video_id="v") is None
+
+
+@pytest.mark.hypothesis
+@given(n=st.integers(2, 10), dt=_time_step)
+@settings(max_examples=15, deadline=None)
+def test_pet_calculator_missing_columns_raises(n, dt):
+    """Missing required columns raise ValueError."""
+    calc = pet.PETCalculator()
+    a = _pet_df(0, n, dt, x0=0.0).drop(columns=["x_m"])
+    b = _pet_df(1, n, dt, x0=0.0)
+    with pytest.raises(ValueError):
+        calc.compute_pair_pet(a, b, video_id="v")
