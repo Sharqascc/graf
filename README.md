@@ -46,6 +46,23 @@ graf train-conflict-pairs --tracks <tracks.jsonl> --graphs_dir <graphs> \
     --epochs 50 --num_folds 5 --seed 42
 ```
 
+### Local CI reproduction (tox)
+
+Run the same checks CI runs, inside a fresh venv:
+
+```bash
+pip install tox
+tox -e lint       # ruff check + ruff format --check + deptry  (~20 s)
+tox -e unit       # pytest --cov, 308 tests                   (~3-5 min first run)
+tox -e property   # Hypothesis under HYPOTHESIS_PROFILE=ci    (~3-5 min first run)
+tox               # all three envs
+```
+
+Each env installs its own deps (`pip install -e .[dev]` plus the CPU torch
+stack) so tox catches missing or misdeclared dependencies that a
+long-lived dev environment has accreted. tox mirrors CI; CI does not
+use tox — see `.github/workflows/ci.yml`.
+
 ## Installation
 
 ### CPU only

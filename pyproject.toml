@@ -43,6 +43,7 @@ dev = [
   "pre-commit",
   "hypothesis",
   "deptry",
+  "tox",
 ]
 gpu = [
   "torch",
@@ -119,6 +120,7 @@ DEP002 = [
   "mypy",
   "pre-commit",
   "deptry",
+  "tox",
   "pytest",
   "pytest-cov",
   "torchvision",
