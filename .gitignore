@@ -26,3 +26,4 @@ src/graf.egg-info/
 .coverage
 htmlcov/
 data/synthetic/
+.tox/
