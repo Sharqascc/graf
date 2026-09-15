@@ -590,3 +590,167 @@ def test_pet_calculator_missing_columns_raises(n, dt):
     b = _pet_df(1, n, dt, x0=0.0)
     with pytest.raises(ValueError):
         calc.compute_pair_pet(a, b, video_id="v")
+
+
+# ------------------------------------------------------------------
+# DRAC — invariants of compute_drac_constant_velocity
+# ------------------------------------------------------------------
+
+drac_mod = pytest.importorskip("graf.ssm.drac")
+
+_pos2d = st.tuples(
+    st.floats(-100.0, 100.0, allow_nan=False, allow_infinity=False),
+    st.floats(-100.0, 100.0, allow_nan=False, allow_infinity=False),
+)
+_vel2d = st.tuples(
+    st.floats(-20.0, 20.0, allow_nan=False, allow_infinity=False),
+    st.floats(-20.0, 20.0, allow_nan=False, allow_infinity=False),
+)
+
+
+def _drac(p1, v1, p2, v2, collision_radius=1.5):
+    return drac_mod.compute_drac_constant_velocity(
+        np.asarray(p1, float),
+        np.asarray(v1, float),
+        np.asarray(p2, float),
+        np.asarray(v2, float),
+        collision_radius=collision_radius,
+    )
+
+
+@pytest.mark.hypothesis
+@given(p1=_pos2d, v1=_vel2d, p2=_pos2d, v2=_vel2d)
+@settings(max_examples=50, deadline=None)
+def test_drac_non_negative_or_infinite(p1, v1, p2, v2):
+    """drac_mps2 is always >= 0 (finite) or +inf; never NaN, never negative."""
+    r = _drac(p1, v1, p2, v2)
+    assert not math.isnan(r.drac_mps2)
+    assert r.drac_mps2 >= 0.0 or math.isinf(r.drac_mps2)
+
+
+@pytest.mark.hypothesis
+@given(p1=_pos2d, v1=_vel2d, p2=_pos2d, v2=_vel2d)
+@settings(max_examples=50, deadline=None)
+def test_drac_symmetric_in_actors(p1, v1, p2, v2):
+    """Swapping the two actors leaves DRAC and status unchanged."""
+    a = _drac(p1, v1, p2, v2)
+    b = _drac(p2, v2, p1, v1)
+    assert a.status == b.status
+    if math.isinf(a.drac_mps2) or math.isinf(b.drac_mps2):
+        assert math.isinf(a.drac_mps2) and math.isinf(b.drac_mps2)
+    else:
+        assert math.isclose(a.drac_mps2, b.drac_mps2, rel_tol=1e-9, abs_tol=1e-9)
+        assert math.isclose(
+            a.closing_speed_mps, b.closing_speed_mps, rel_tol=1e-9, abs_tol=1e-9
+        )
+
+
+@pytest.mark.hypothesis
+@given(
+    p1=_pos2d,
+    p2=st.tuples(
+        st.floats(2.0, 100.0, allow_nan=False, allow_infinity=False),
+        st.floats(-50.0, 50.0, allow_nan=False, allow_infinity=False),
+    ),
+    base_speed=st.floats(0.1, 10.0, allow_nan=False, allow_infinity=False),
+    k=st.floats(0.5, 3.0, allow_nan=False, allow_infinity=False),
+)
+@settings(max_examples=40, deadline=None)
+def test_drac_quadratic_in_closing_speed(p1, p2, base_speed, k):
+    """Scaling closing speed by k scales DRAC by k^2 (fixed gap)."""
+    # Head-on approach along the x-axis: v1 = +base on x, v2 = -base on x
+    v1a = (base_speed, 0.0)
+    v2a = (-base_speed, 0.0)
+    v1b = (base_speed * k, 0.0)
+    v2b = (-base_speed * k, 0.0)
+    a = _drac(p1, v1a, p2, v2a)
+    b = _drac(p1, v1b, p2, v2b)
+    if a.status != "computed" or b.status != "computed":
+        return
+    assert math.isclose(b.drac_mps2, a.drac_mps2 * k * k, rel_tol=1e-6)
+
+
+@pytest.mark.hypothesis
+@given(
+    gap1=st.floats(3.0, 100.0, allow_nan=False, allow_infinity=False),
+    gap2=st.floats(3.0, 100.0, allow_nan=False, allow_infinity=False),
+    speed=st.floats(0.1, 10.0, allow_nan=False, allow_infinity=False),
+)
+@settings(max_examples=40, deadline=None)
+def test_drac_decreases_with_gap(gap1, gap2, speed):
+    """At fixed closing speed, larger gap -> smaller or equal DRAC."""
+    # Centres at x = gap + collision_radius so effective gap == gap
+    cr = 1.5
+    r1 = _drac(
+        (0.0, 0.0), (speed, 0.0), (gap1 + cr, 0.0), (-speed, 0.0), collision_radius=cr
+    )
+    r2 = _drac(
+        (0.0, 0.0), (speed, 0.0), (gap2 + cr, 0.0), (-speed, 0.0), collision_radius=cr
+    )
+    if gap1 < gap2:
+        assert r1.drac_mps2 >= r2.drac_mps2 - 1e-9
+    elif gap2 < gap1:
+        assert r2.drac_mps2 >= r1.drac_mps2 - 1e-9
+    else:
+        assert math.isclose(r1.drac_mps2, r2.drac_mps2, rel_tol=1e-9)
+
+
+@pytest.mark.hypothesis
+@given(p1=_pos2d, v1=_vel2d, p2=_pos2d, v2=_vel2d)
+@settings(max_examples=50, deadline=None)
+def test_drac_deterministic(p1, v1, p2, v2):
+    """Same inputs -> same result."""
+    a = _drac(p1, v1, p2, v2)
+    b = _drac(p1, v1, p2, v2)
+    assert a.status == b.status
+    if math.isfinite(a.drac_mps2) and math.isfinite(b.drac_mps2):
+        assert a.drac_mps2 == b.drac_mps2
+
+
+@pytest.mark.hypothesis
+@given(
+    gap_override=st.floats(3.0, 200.0, allow_nan=False, allow_infinity=False),
+    speed=st.floats(0.5, 10.0, allow_nan=False, allow_infinity=False),
+)
+@settings(max_examples=40, deadline=None)
+def test_drac_gap_override_ignores_positions(gap_override, speed):
+    """With gap_override set, positions do not affect the result."""
+    # Two wildly different position pairs, same gap_override
+    r1 = drac_mod.compute_drac_constant_velocity(
+        np.array([0.0, 0.0]),
+        np.array([speed, 0.0]),
+        np.array([1.0, 0.0]),
+        np.array([-speed, 0.0]),
+        gap_override=gap_override,
+    )
+    r2 = drac_mod.compute_drac_constant_velocity(
+        np.array([100.0, 100.0]),
+        np.array([speed, 0.0]),
+        np.array([1.0, 1.0]),
+        np.array([-speed, 0.0]),
+        gap_override=gap_override,
+    )
+    if r1.status == "computed" and r2.status == "computed":
+        assert r1.gap_m == r2.gap_m
+        # Closing speed depends on geometry (unit vector), which changes;
+        # but the raw gap must be identical.
+        assert r1.gap_m == pytest.approx(gap_override - 1.5)
+
+
+@pytest.mark.hypothesis
+@given(p1=_pos2d, v1=_vel2d, p2=_pos2d, v2=_vel2d)
+@settings(max_examples=50, deadline=None)
+def test_drac_severity_bounded(p1, v1, p2, v2):
+    """severity is always in [0, 1]."""
+    r = _drac(p1, v1, p2, v2)
+    assert 0.0 <= r.severity <= 1.0
+
+
+@pytest.mark.hypothesis
+@given(p1=_pos2d, v1=_vel2d, p2=_pos2d, v2=_vel2d)
+@settings(max_examples=50, deadline=None)
+def test_drac_is_critical_iff_finite_and_above_threshold(p1, v1, p2, v2):
+    """is_critical <=> drac_mps2 is finite and >= CRITICAL_DRAC_MPS2."""
+    r = _drac(p1, v1, p2, v2)
+    expected = math.isfinite(r.drac_mps2) and r.drac_mps2 >= drac_mod.CRITICAL_DRAC_MPS2
+    assert r.is_critical == expected

@@ -1,5 +1,8 @@
+import math
+
 import numpy as np
 import pandas as pd
+import pytest
 
 from graf.ssm.pet import PETCalculator, compute_pet_from_conflict_zone
 from graf.ssm.ttc import compute_ttc_constant_velocity
@@ -80,3 +83,104 @@ def test_pet_calculator_event():
     assert event.metric_name == "PET"
     assert event.track_id_a == "a"
     assert event.track_id_b == "b"
+
+
+# ------------------------------------------------------------------
+# DRAC
+# ------------------------------------------------------------------
+
+from graf.ssm.drac import (
+    CRITICAL_DRAC_MPS2,
+    DRACResult,
+    compute_drac_constant_velocity,
+)
+
+
+def test_drac_head_on():
+    """Two cars closing at 2 m/s with 8.5 m gap."""
+    r = compute_drac_constant_velocity(
+        pos1=(0.0, 0.0),
+        vel1=(1.0, 0.0),
+        pos2=(10.0, 0.0),
+        vel2=(-1.0, 0.0),
+    )
+    assert r.status == "computed"
+    assert r.closing_speed_mps == pytest.approx(2.0)
+    assert r.gap_m == pytest.approx(8.5)
+    assert r.drac_mps2 == pytest.approx(4.0 / (2.0 * 8.5))
+    assert r.is_critical is False
+
+
+def test_drac_critical_when_gap_small():
+    """5 m/s closing on a 2 m effective gap exceeds the 3.35 threshold."""
+    r = compute_drac_constant_velocity(
+        pos1=(0.0, 0.0),
+        vel1=(2.5, 0.0),
+        pos2=(3.5, 0.0),
+        vel2=(-2.5, 0.0),
+    )
+    assert r.gap_m == pytest.approx(2.0)
+    assert r.drac_mps2 == pytest.approx(25.0 / 4.0)
+    assert r.is_critical is True
+
+
+def test_drac_diverging_is_zero():
+    """Away-moving actors -> 0 DRAC with the diverging status."""
+    r = compute_drac_constant_velocity(
+        pos1=(0.0, 0.0),
+        vel1=(-1.0, 0.0),
+        pos2=(10.0, 0.0),
+        vel2=(1.0, 0.0),
+    )
+    assert r.status == "diverging_or_parallel"
+    assert r.drac_mps2 == 0.0
+    assert r.is_critical is False
+
+
+def test_drac_already_in_collision():
+    """Overlapping collision circles -> +inf and already_in_collision."""
+    r = compute_drac_constant_velocity(
+        pos1=(0.0, 0.0),
+        vel1=(1.0, 0.0),
+        pos2=(1.0, 0.0),
+        vel2=(-1.0, 0.0),
+    )
+    assert r.status == "already_in_collision"
+    assert math.isinf(r.drac_mps2)
+    assert r.severity == 1.0
+
+
+def test_drac_zero_relative_speed():
+    """Equal velocities -> 0 DRAC and zero_relative_speed status."""
+    r = compute_drac_constant_velocity(
+        pos1=(0.0, 0.0),
+        vel1=(1.0, 0.0),
+        pos2=(10.0, 0.0),
+        vel2=(1.0, 0.0),
+    )
+    assert r.status == "zero_relative_speed"
+    assert r.drac_mps2 == 0.0
+
+
+def test_drac_gap_override():
+    """gap_override replaces the position-derived distance."""
+    r = compute_drac_constant_velocity(
+        pos1=(0.0, 0.0),
+        vel1=(1.0, 0.0),
+        pos2=(1000.0, 0.0),
+        vel2=(-1.0, 0.0),
+        gap_override=5.5,
+    )
+    assert r.gap_m == pytest.approx(4.0)
+    assert r.drac_mps2 == pytest.approx(4.0 / 8.0)
+
+
+def test_drac_result_dataclass_defaults():
+    r = DRACResult(0.0)
+    assert r.status == "uncomputed"
+    assert r.closing_speed_mps == 0.0
+    assert r.gap_m == 0.0
+
+
+def test_drac_critical_threshold_constant():
+    assert CRITICAL_DRAC_MPS2 == 3.35
