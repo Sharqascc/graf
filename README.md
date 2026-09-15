@@ -36,6 +36,16 @@ how to run a self-contained smoke test instead.
 - **Evaluation** – binary classification metrics, calibration, robustness analysis
 - **Reproducible Pipeline** – configuration files, logging, experiment tracking, and CI
 
+## CLI
+
+```bash
+graf status                              # print pipeline status tree
+graf demo-graphs --outdir outputs/       # write a toy PyG graph sample
+graf train-conflict-pairs --tracks <tracks.jsonl> --graphs_dir <graphs> \
+    --homography_config <h.yaml> --output_dir outputs/models_conflict_pairs \
+    --epochs 50 --num_folds 5 --seed 42
+```
+
 ## Installation
 
 ### CPU only
