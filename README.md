@@ -31,7 +31,7 @@ how to run a self-contained smoke test instead.
 - **Homography Calibration** – image→world coordinate transforms and ROI handling
 - **Graph Construction** – spatial interaction graphs with class‑specific radii and kinematic edge features
 - **Spatio‑Temporal Graphs** – rolling window graphs that connect actors across frames
-- **Surrogate Safety Measures** – TTC, PET, DRAC, and event mining
+- **Surrogate Safety Measures** – TTC, PET *(DRAC and event mining are planned; see src/graf/ssm/)*
 - **Graph Models** – GCN, ST‑GCN, graph transformers, and classic baselines
 - **Evaluation** – binary classification metrics, calibration, robustness analysis
 - **Reproducible Pipeline** – configuration files, logging, experiment tracking, and CI
