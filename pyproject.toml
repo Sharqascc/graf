@@ -28,6 +28,7 @@ dependencies = [
   "numpy",
   "pandas",
   "scipy",
+  "scikit-learn",
   "opencv-python",
   "pyyaml",
   "tqdm",

@@ -8,3 +8,4 @@ networkx
 matplotlib
 seaborn
 jupyter
+scikit-learn
