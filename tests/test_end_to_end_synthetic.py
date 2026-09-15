@@ -1,4 +1,5 @@
 """End-to-end test: synthetic tracks -> graphs -> windows -> GCN CV accuracy."""
+
 from __future__ import annotations
 
 import json
@@ -12,7 +13,7 @@ import torch
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-from scripts.make_synthetic_dataset import generate  # noqa: E402
+from scripts.make_synthetic_dataset import generate
 
 pytest.importorskip("torch_geometric")
 
@@ -35,24 +36,36 @@ def test_generator_layout(synthetic):
 
 
 def test_labels_are_mixed(synthetic):
-    ys = [torch.load(p, weights_only=False).y.item()
-          for p in sorted(synthetic["graphs"].glob("*.pt"))]
+    ys = [
+        torch.load(p, weights_only=False).y.item()
+        for p in sorted(synthetic["graphs"].glob("*.pt"))
+    ]
     assert 0 < sum(ys) < len(ys), f"degenerate labels: {ys}"
 
 
 def test_training_beats_chance(synthetic, tmp_path):
     out_dir = tmp_path / "cv_out"
     cmd = [
-        sys.executable, str(REPO / "scripts" / "train_conflict_pairs.py"),
-        "--tracks", str(synthetic["tracks"]),
-        "--graphs_dir", str(synthetic["graphs"]),
-        "--homography_config", str(synthetic["homography"]),
-        "--output_dir", str(out_dir),
-        "--distance_threshold", "5.0",
-        "--min_interaction_frames", "3",
-        "--epochs", "20",
-        "--num_folds", "3",
-        "--seed", "42",
+        sys.executable,
+        str(REPO / "scripts" / "train_conflict_pairs.py"),
+        "--tracks",
+        str(synthetic["tracks"]),
+        "--graphs_dir",
+        str(synthetic["graphs"]),
+        "--homography_config",
+        str(synthetic["homography"]),
+        "--output_dir",
+        str(out_dir),
+        "--distance_threshold",
+        "5.0",
+        "--min_interaction_frames",
+        "3",
+        "--epochs",
+        "20",
+        "--num_folds",
+        "3",
+        "--seed",
+        "42",
     ]
     res = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO)
     assert res.returncode == 0, f"stdout:\n{res.stdout}\nstderr:\n{res.stderr}"

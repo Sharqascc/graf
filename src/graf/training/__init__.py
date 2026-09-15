@@ -1,4 +1,5 @@
 """Training subpackage."""
+
 from .conflict_pairs import (
     add_world_coords,
     filter_tracks,

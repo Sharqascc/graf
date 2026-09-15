@@ -20,8 +20,8 @@
 | Negative windows | 37 |
 
 ### Machine Learning Results
-**Model:** GCN with 32 hidden channels  
-**Training:** 50 epochs, Adam (lr=0.01), BCEWithLogitsLoss  
+**Model:** GCN with 32 hidden channels
+**Training:** 50 epochs, Adam (lr=0.01), BCEWithLogitsLoss
 **Cross-validation:** 5-fold (seed=42)
 
 | Fold | Validation Accuracy |
@@ -34,7 +34,7 @@
 | **Mean ± Std** | **0.875 ± 0.079** |
 
 ### Conclusion
-The GCN model successfully distinguishes temporal windows containing conflict pairs from non‑conflict windows with **87.5% cross‑validated accuracy**.  
+The GCN model successfully distinguishes temporal windows containing conflict pairs from non‑conflict windows with **87.5% cross‑validated accuracy**.
 This demonstrates the feasibility of graph‑based surrogate safety analysis on real traffic video data.
 
 ### Reproducing Results

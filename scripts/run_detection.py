@@ -1,7 +1,7 @@
-
 import argparse
 import json
 from pathlib import Path
+
 from ultralytics import YOLO
 
 COCO_TO_GRAF = {
@@ -12,6 +12,7 @@ COCO_TO_GRAF = {
     "bus": "bus",
     "motorcycle": "two_wheeler",
 }
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -55,6 +56,7 @@ def main():
                 f.write(json.dumps(record) + "\n")
 
     print(f"Detection saved to {out_path}")
+
 
 if __name__ == "__main__":
     main()

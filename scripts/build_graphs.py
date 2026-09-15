@@ -1,26 +1,34 @@
-
 import argparse
-import numpy as np
-import yaml
-import sys
 import json
-from pathlib import Path
+import sys
 from collections import defaultdict
+from pathlib import Path
 
+import numpy as np
 import torch
+import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from graf.graph.builders import GraphBuilder
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from graf.calibration.homography import project_points
+from graf.graph.builders import GraphBuilder
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--tracks", required=True)
     parser.add_argument("--output_dir", required=True)
-    parser.add_argument("--homography_config", type=str, default=None, help="YAML file with homography matrix")
-    parser.add_argument("--pixels_per_meter", type=float, default=20.0,
-                        help="Approximate conversion from pixels to meters")
+    parser.add_argument(
+        "--homography_config",
+        type=str,
+        default=None,
+        help="YAML file with homography matrix",
+    )
+    parser.add_argument(
+        "--pixels_per_meter",
+        type=float,
+        default=20.0,
+        help="Approximate conversion from pixels to meters",
+    )
     parser.add_argument("--radius", type=float, default=15.0)
     args = parser.parse_args()
 
@@ -30,21 +38,6 @@ def main():
         for line in f:
             if line.strip():
                 tracks.append(json.loads(line))
-
-    # Load homography if provided
-    H = None
-    if args.homography_config:
-        with open(args.homography_config) as f:
-            hom_cfg = yaml.safe_load(f)
-        H = np.array(hom_cfg["H"], dtype=np.float64)
-
-    def to_world(x_pix, y_pix):
-        if H is not None:
-            pts = np.array([[x_pix, y_pix]], dtype=np.float64)
-            world = project_points(H, pts)[0]
-            return world[0], world[1]
-        else:
-            return x_pix / args.pixels_per_meter, y_pix / args.pixels_per_meter
 
     # Load homography if provided
     H = None
@@ -92,14 +85,16 @@ def main():
                 vx = (x_pix - px_prev) / args.pixels_per_meter
                 vy = (y_pix - py_prev) / args.pixels_per_meter
 
-            records.append({
-                "track_id": int(t["track_id"]),
-                "actor_class": t["class_name"],
-                "x_m": x_m,
-                "y_m": y_m,
-                "vx": vx,
-                "vy": vy,
-            })
+            records.append(
+                {
+                    "track_id": int(t["track_id"]),
+                    "actor_class": t["class_name"],
+                    "x_m": x_m,
+                    "y_m": y_m,
+                    "vx": vx,
+                    "vy": vy,
+                }
+            )
 
         data = builder.build_pyg_data(
             records,
@@ -114,6 +109,7 @@ def main():
         prev_positions = current_positions
 
     print(f"Saved {saved} graphs to {out_dir}")
+
 
 if __name__ == "__main__":
     main()

@@ -1,19 +1,17 @@
-
 import argparse
-import yaml
-import sys
-from pathlib import Path
 import json
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
+import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from graf.data.graph_dataset import SpatioTemporalWindowDataset
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from graf.calibration.homography import project_points
+from graf.data.graph_dataset import SpatioTemporalWindowDataset
 from graf.models.gcn_risk import build_model, has_torch_geometric
 from graf.utils.io import ensure_dir, write_json
 
@@ -28,7 +26,9 @@ def load_tracks(path: str) -> pd.DataFrame:
     return df
 
 
-def filter_tracks(df: pd.DataFrame, min_conf: float = 0.4, min_len: int = 5) -> pd.DataFrame:
+def filter_tracks(
+    df: pd.DataFrame, min_conf: float = 0.4, min_len: int = 5
+) -> pd.DataFrame:
     df = df[df["confidence"] >= min_conf].copy()
     lengths = df.groupby("track_id").size()
     valid = lengths[lengths >= min_len].index
@@ -36,29 +36,47 @@ def filter_tracks(df: pd.DataFrame, min_conf: float = 0.4, min_len: int = 5) -> 
     return df
 
 
-def add_kinematics(df: pd.DataFrame, pixels_per_meter: float = 20.0, fps: float = 23.98, H: np.ndarray | None = None) -> pd.DataFrame:
+def add_kinematics(
+    df: pd.DataFrame,
+    pixels_per_meter: float = 20.0,
+    fps: float = 23.98,
+    H: np.ndarray | None = None,
+) -> pd.DataFrame:
     if H is not None:
         # Use homography to convert bbox bottom center to world coordinates
-        df["x_center"] = (df["bbox_xyxy"].apply(lambda b: b[0]) + df["bbox_xyxy"].apply(lambda b: b[2])) / 2.0
+        df["x_center"] = (
+            df["bbox_xyxy"].apply(lambda b: b[0])
+            + df["bbox_xyxy"].apply(lambda b: b[2])
+        ) / 2.0
         df["y_bottom"] = df["bbox_xyxy"].apply(lambda b: b[3])  # bottom y
         pts = df[["x_center", "y_bottom"]].to_numpy(dtype=np.float64)
         world = project_points(H, [tuple(p) for p in pts])
         df["x_m"] = world[:, 0]
         df["y_m"] = world[:, 1]
     else:
-        df["x_center"] = (df["bbox_xyxy"].apply(lambda b: b[0]) + df["bbox_xyxy"].apply(lambda b: b[2])) / 2.0
-        df["y_center"] = (df["bbox_xyxy"].apply(lambda b: b[1]) + df["bbox_xyxy"].apply(lambda b: b[3])) / 2.0
+        df["x_center"] = (
+            df["bbox_xyxy"].apply(lambda b: b[0])
+            + df["bbox_xyxy"].apply(lambda b: b[2])
+        ) / 2.0
+        df["y_center"] = (
+            df["bbox_xyxy"].apply(lambda b: b[1])
+            + df["bbox_xyxy"].apply(lambda b: b[3])
+        ) / 2.0
         df["x_m"] = df["x_center"] / pixels_per_meter
         df["y_m"] = df["y_center"] / pixels_per_meter
-    df["x_center"] = (df["bbox_xyxy"].apply(lambda b: b[0]) + df["bbox_xyxy"].apply(lambda b: b[2])) / 2.0
-    df["y_center"] = (df["bbox_xyxy"].apply(lambda b: b[1]) + df["bbox_xyxy"].apply(lambda b: b[3])) / 2.0
+    df["x_center"] = (
+        df["bbox_xyxy"].apply(lambda b: b[0]) + df["bbox_xyxy"].apply(lambda b: b[2])
+    ) / 2.0
+    df["y_center"] = (
+        df["bbox_xyxy"].apply(lambda b: b[1]) + df["bbox_xyxy"].apply(lambda b: b[3])
+    ) / 2.0
     df["x_m"] = df["x_center"] / pixels_per_meter
     df["y_m"] = df["y_center"] / pixels_per_meter
     df["t_sec"] = df["frame_idx"] / fps
 
     velocities = {}
     window = 5
-    for track_id, group in df.groupby("track_id"):
+    for _track_id, group in df.groupby("track_id"):
         group = group.sort_values("frame_idx")
         xs = group["x_m"].values
         ys = group["y_m"].values
@@ -67,9 +85,9 @@ def add_kinematics(df: pd.DataFrame, pixels_per_meter: float = 20.0, fps: float 
         vx_series = [0.0]
         vy_series = [0.0]
         for i in range(1, len(group)):
-            dt = times[i] - times[i-1]
-            vx = (xs[i] - xs[i-1]) / dt if dt > 0 else 0.0
-            vy = (ys[i] - ys[i-1]) / dt if dt > 0 else 0.0
+            dt = times[i] - times[i - 1]
+            vx = (xs[i] - xs[i - 1]) / dt if dt > 0 else 0.0
+            vy = (ys[i] - ys[i - 1]) / dt if dt > 0 else 0.0
             vx_series.append(vx)
             vy_series.append(vy)
 
@@ -92,14 +110,17 @@ def add_kinematics(df: pd.DataFrame, pixels_per_meter: float = 20.0, fps: float 
     return df
 
 
-def compute_ttc_events(df: pd.DataFrame, distance_threshold: float = 3.0,
-                       closing_rate_threshold: float = 0.5,
-                       ttc_threshold: float = 5.0) -> list[dict]:
+def compute_ttc_events(
+    df: pd.DataFrame,
+    distance_threshold: float = 3.0,
+    closing_rate_threshold: float = 0.5,
+    ttc_threshold: float = 5.0,
+) -> list[dict]:
     events = []
     for frame_idx, frame_df in df.groupby("frame_idx"):
         records = frame_df.to_dict("records")
         for i in range(len(records)):
-            for j in range(i+1, len(records)):
+            for j in range(i + 1, len(records)):
                 a, b = records[i], records[j]
                 pos_a = np.array([a["x_m"], a["y_m"]])
                 pos_b = np.array([b["x_m"], b["y_m"]])
@@ -116,19 +137,24 @@ def compute_ttc_events(df: pd.DataFrame, distance_threshold: float = 3.0,
                     else:
                         ttc = float("inf")
                     if np.isfinite(ttc) and 0 < ttc < ttc_threshold:
-                        events.append({
-                            "video_id": "sample_video",
-                            "event_id": f"TTC_{a['track_id']}_{b['track_id']}_{frame_idx}",
-                            "metric_name": "TTC",
-                            "track_id_a": str(a["track_id"]),
-                            "track_id_b": str(b["track_id"]),
-                            "start_frame": int(frame_idx),
-                            "end_frame": int(frame_idx),
-                            "min_value": float(ttc),
-                            "threshold": ttc_threshold,
-                            "severity": "critical" if ttc < 1.5 else "non_critical",
-                            "metadata": {"distance_m": float(dist), "closing_rate_mps": float(closing_rate)}
-                        })
+                        events.append(
+                            {
+                                "video_id": "sample_video",
+                                "event_id": f"TTC_{a['track_id']}_{b['track_id']}_{frame_idx}",
+                                "metric_name": "TTC",
+                                "track_id_a": str(a["track_id"]),
+                                "track_id_b": str(b["track_id"]),
+                                "start_frame": int(frame_idx),
+                                "end_frame": int(frame_idx),
+                                "min_value": float(ttc),
+                                "threshold": ttc_threshold,
+                                "severity": "critical" if ttc < 1.5 else "non_critical",
+                                "metadata": {
+                                    "distance_m": float(dist),
+                                    "closing_rate_mps": float(closing_rate),
+                                },
+                            }
+                        )
     return events
 
 
@@ -140,7 +166,12 @@ def main():
     parser.add_argument("--window_size", type=int, default=5)
     parser.add_argument("--stride", type=int, default=2)
     parser.add_argument("--threshold", type=float, default=1.5)
-    parser.add_argument("--homography_config", type=str, default=None, help="YAML file with homography matrix")
+    parser.add_argument(
+        "--homography_config",
+        type=str,
+        default=None,
+        help="YAML file with homography matrix",
+    )
     parser.add_argument("--pixels_per_meter", type=float, default=20.0)
     parser.add_argument("--fps", type=float, default=23.98)
     parser.add_argument("--epochs", type=int, default=50)
@@ -192,7 +223,7 @@ def main():
     train_idx = indices[:split]
     val_idx = indices[split:]
 
-    if not has_torch_geometric or len(window_ds) == 0:
+    if not has_torch_geometric() or len(window_ds) == 0:
         print("Torch Geometric not available or no windows found.")
         return
 
@@ -224,13 +255,15 @@ def main():
                 data = window_ds[idx]
                 out = model(data)
                 pred = (torch.sigmoid(out) > 0.5).float()
-                correct += (pred.item() == labels_tensor[idx].item())
+                correct += pred.item() == labels_tensor[idx].item()
                 total += 1
         acc = correct / total if total else 0.0
         best_acc = max(best_acc, acc)
 
         if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch+1}/{args.epochs} | Loss: {total_loss/len(train_idx):.4f} | Val Acc: {acc:.3f}")
+            print(
+                f"Epoch {epoch + 1}/{args.epochs} | Loss: {total_loss / len(train_idx):.4f} | Val Acc: {acc:.3f}"
+            )
 
     # Save model
     output_dir = Path(args.output_dir)
@@ -250,6 +283,7 @@ def main():
     }
     write_json(output_dir / "training_metrics_filtered.json", metrics)
     print(f"Model and metrics saved to {output_dir}")
+
 
 if __name__ == "__main__":
     main()

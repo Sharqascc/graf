@@ -1,7 +1,8 @@
-
 import argparse
 from pathlib import Path
+
 import cv2
+
 
 def main():
     parser = argparse.ArgumentParser(description="Extract frames from a video file")
@@ -35,6 +36,7 @@ def main():
 
     cap.release()
     print(f"Extracted {saved} frames to {save_dir}")
+
 
 if __name__ == "__main__":
     main()

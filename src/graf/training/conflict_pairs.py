@@ -1,4 +1,5 @@
 """Conflict-pair supervised training for graph-level risk classification."""
+
 from __future__ import annotations
 
 import json
@@ -38,8 +39,7 @@ def add_world_coords(
     """Project pixel bboxes into world coordinates and compute velocities."""
     df = df.copy()
     df["x_center"] = (
-        df["bbox_xyxy"].apply(lambda b: b[0])
-        + df["bbox_xyxy"].apply(lambda b: b[2])
+        df["bbox_xyxy"].apply(lambda b: b[0]) + df["bbox_xyxy"].apply(lambda b: b[2])
     ) / 2.0
     df["y_bottom"] = df["bbox_xyxy"].apply(lambda b: b[3])
     pts = df[["x_center", "y_bottom"]].to_numpy(dtype=np.float64)
@@ -149,7 +149,9 @@ def run_cross_validation(
     )
 
     labels = [
-        1 if any(fid in conflict_frames for fid in window_ds[i].frame_ids.tolist()) else 0
+        1
+        if any(fid in conflict_frames for fid in window_ds[i].frame_ids.tolist())
+        else 0
         for i in range(len(window_ds))
     ]
     labels_tensor = torch.tensor(labels, dtype=torch.float32)
@@ -166,7 +168,7 @@ def run_cross_validation(
             train_idx, val_idx, window_ds, labels_tensor, epochs, seed + fold
         )
         fold_accs.append(acc)
-        print(f"Fold {fold+1}/{num_folds} | Val Acc: {acc:.3f}")
+        print(f"Fold {fold + 1}/{num_folds} | Val Acc: {acc:.3f}")
 
     mean_acc = float(np.mean(fold_accs))
     std_acc = float(np.std(fold_accs))

@@ -1,8 +1,8 @@
-
 import argparse
 import json
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
+
 
 def iou(boxA, boxB):
     xA = max(boxA[0], boxB[0])
@@ -16,6 +16,7 @@ def iou(boxA, boxB):
     if denom <= 0:
         return 0.0
     return interArea / denom
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -63,14 +64,16 @@ def main():
                         "class_name": det["class_name"],
                         "frames_since_update": 0,
                     }
-                    tracks.append({
-                        "video_id": det["video_id"],
-                        "frame_idx": det["frame_idx"],
-                        "track_id": tid,
-                        "class_name": det["class_name"],
-                        "confidence": det["confidence"],
-                        "bbox_xyxy": det["bbox_xyxy"],
-                    })
+                    tracks.append(
+                        {
+                            "video_id": det["video_id"],
+                            "frame_idx": det["frame_idx"],
+                            "track_id": tid,
+                            "class_name": det["class_name"],
+                            "confidence": det["confidence"],
+                            "bbox_xyxy": det["bbox_xyxy"],
+                        }
+                    )
                     assigned.add(best_det)
                     unmatched.remove(best_det)
 
@@ -84,17 +87,23 @@ def main():
                 "class_name": det["class_name"],
                 "frames_since_update": 0,
             }
-            tracks.append({
-                "video_id": det["video_id"],
-                "frame_idx": det["frame_idx"],
-                "track_id": tid,
-                "class_name": det["class_name"],
-                "confidence": det["confidence"],
-                "bbox_xyxy": det["bbox_xyxy"],
-            })
+            tracks.append(
+                {
+                    "video_id": det["video_id"],
+                    "frame_idx": det["frame_idx"],
+                    "track_id": tid,
+                    "class_name": det["class_name"],
+                    "confidence": det["confidence"],
+                    "bbox_xyxy": det["bbox_xyxy"],
+                }
+            )
 
         # Remove tracks not seen for 30 frames
-        stale = [tid for tid, info in active_tracks.items() if info["frames_since_update"] > 30]
+        stale = [
+            tid
+            for tid, info in active_tracks.items()
+            if info["frames_since_update"] > 30
+        ]
         for tid in stale:
             del active_tracks[tid]
 
@@ -105,6 +114,7 @@ def main():
             f.write(json.dumps(t) + "\n")
 
     print(f"Tracks saved to {out_path}")
+
 
 if __name__ == "__main__":
     main()

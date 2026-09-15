@@ -1,4 +1,5 @@
 """CLI wrapper around graf.training.conflict_pairs.run_cross_validation."""
+
 from __future__ import annotations
 
 import argparse
