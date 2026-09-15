@@ -18,12 +18,15 @@ _METRIC_DIRECTION is the single source of truth for this mapping.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+import yaml
 
 from graf.data.schema import SSMEventRecord
 
-__all__ = ["mine_events"]
+__all__ = ["load_ssm_thresholds", "mine_events"]
 
 _REQUIRED_COLUMNS: tuple[str, ...] = (
     "video_id",
@@ -95,6 +98,46 @@ def _emit_event(
             },
         )
     )
+
+
+def load_ssm_thresholds(config_dir: str | Path) -> dict[str, float]:
+    """Load SSM thresholds from a directory of YAML configs.
+
+    Each ``*.yaml`` file in *config_dir* is expected to declare a
+    ``metric:`` field plus a numeric threshold in one of these keys
+    (checked in order): ``threshold_seconds``, ``threshold_mps2``,
+    ``threshold``. The first numeric value found is used.
+
+    Returns
+    -------
+    dict[str, float]
+        Mapping from metric name (e.g. ``"TTC"``) to threshold. Files
+        without a recognised metric or threshold are silently skipped —
+        the directory may contain unrelated configs.
+
+    Raises
+    ------
+    FileNotFoundError
+        If *config_dir* does not exist.
+    """
+    config_dir = Path(config_dir)
+    if not config_dir.exists():
+        raise FileNotFoundError(f"Config directory not found: {config_dir}")
+
+    thresholds: dict[str, float] = {}
+    for path in sorted(config_dir.glob("*.yaml")):
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            continue
+        metric = data.get("metric")
+        if not isinstance(metric, str):
+            continue
+        for key in ("threshold_seconds", "threshold_mps2", "threshold"):
+            value = data.get(key)
+            if isinstance(value, (int, float)):
+                thresholds[metric] = float(value)
+                break
+    return thresholds
 
 
 def mine_events(
