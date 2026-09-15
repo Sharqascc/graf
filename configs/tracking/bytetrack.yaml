@@ -1,12 +1,30 @@
 # Tracking config for scripts/run_tracking.py.
 #
 # The file is named bytetrack.yaml for future compatibility, but the
-# script implements a simple greedy IoU associator, not the real ByteTrack
-# algorithm. Parameters below drive that script; keys marked "reserved"
-# are placeholders for a future real-ByteTrack integration.
+# script implements a greedy IoU associator with motion-aware prediction,
+# not the real ByteTrack algorithm.
 tracker_name: bytetrack
 track_thresh: 0.5       # minimum detection confidence to consider
-iou_threshold: 0.3      # greedy IoU association threshold
+iou_threshold: 0.3      # association score threshold (see below)
 track_buffer: 30        # frames without a match before a track is dropped
 min_box_area: 10        # drop detections with box area (px^2) below this
 match_thresh: 0.8       # reserved: second-stage IoU in real ByteTrack
+
+# Motion-aware prediction
+# ----------------------
+# When the detection stride is > 1, an actor's bbox can move dozens of
+# pixels between processed frames. Plain IoU then fails and every
+# detection becomes its own track.
+#
+# The association score is
+#     max(iou(probe, det), 1 - centroid_distance / max_centroid_distance_px)
+# where `probe` is the last-known bbox shifted by the track's estimated
+# velocity. A match passes if the score >= iou_threshold.
+#
+# The centroid-distance term is what lets a track bootstrap velocity on
+# its first match — otherwise IoU is 0 on a fast mover's second frame and
+# the track dies before it ever has a velocity to predict with.
+use_motion_prediction: true
+velocity_smoothing: 0.5       # EMA alpha: 1.0 trusts latest velocity only
+max_prediction_offset_px: 300 # per-axis cap on the shift applied to the probe
+max_centroid_distance_px: 200 # per-axis cap on the centroid-distance term

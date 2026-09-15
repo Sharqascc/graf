@@ -7,6 +7,7 @@ previously broken because frames_since_update was never incremented.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -229,3 +230,212 @@ def test_script_help():
         "--min_box_area",
     ):
         assert flag in r.stdout
+
+
+# ------------------------------------------------------------------
+# motion-aware prediction
+# ------------------------------------------------------------------
+
+
+def _const_velocity_seq(
+    dx_per_frame: float,
+    n_frames: int,
+    stride: int = 1,
+    box_size: float = 40.0,
+    start: tuple[float, float] = (100.0, 100.0),
+) -> list[dict]:
+    """One actor moving at (dx_per_frame, 0) px/frame, processed at `stride`."""
+    rows = []
+    for f in range(0, n_frames, stride):
+        x = start[0] + dx_per_frame * f
+        y = start[1]
+        rows.append(
+            _det(
+                frame=f,
+                cls="car",
+                conf=0.9,
+                bbox=(x, y, x + box_size, y + box_size),
+            )
+        )
+    return rows
+
+
+def test_motion_prediction_keeps_fast_mover_one_track():
+    # 30 px/frame at stride 2 -> 60 px displacement between matched frames.
+    # With box_size 40, IoU between unshifted bboxes at 60 px separation
+    # is 0; with motion prediction the shifted probe should match.
+    dets = _const_velocity_seq(dx_per_frame=30.0, n_frames=10, stride=2)
+    tracks = script_mod.track(
+        dets,
+        track_thresh=0.5,
+        iou_threshold=0.3,
+        track_buffer=30,
+        min_box_area=10.0,
+        use_motion_prediction=True,
+        velocity_smoothing=1.0,
+        max_prediction_offset_px=500.0,
+    )
+    tids = {t["track_id"] for t in tracks}
+    assert len(tids) == 1, f"expected 1 track, got {len(tids)}"
+
+
+def test_iou_only_reproduces_stride_artifact():
+    # Explicitly turn off both prediction and centroid fallback to
+    # reproduce the original stride artifact: fast mover at stride 2
+    # splits into many tracks because IoU between unshifted bboxes is 0.
+    dets = _const_velocity_seq(dx_per_frame=30.0, n_frames=10, stride=2)
+    tracks = script_mod.track(
+        dets,
+        track_thresh=0.5,
+        iou_threshold=0.3,
+        track_buffer=30,
+        min_box_area=10.0,
+        use_motion_prediction=False,
+        max_centroid_distance_px=0.0,
+    )
+    tids = {t["track_id"] for t in tracks}
+    assert len(tids) > 1, "expected the stride artifact in IoU-only mode"
+
+
+def test_prediction_offset_capped():
+    # Very fast mover with a small cap should NOT match far-away detections.
+    dets = _const_velocity_seq(dx_per_frame=200.0, n_frames=6, stride=2)
+    tracks = script_mod.track(
+        dets,
+        track_thresh=0.5,
+        iou_threshold=0.3,
+        track_buffer=30,
+        min_box_area=10.0,
+        use_motion_prediction=True,
+        velocity_smoothing=1.0,
+        max_prediction_offset_px=30.0,
+    )
+    tids = {t["track_id"] for t in tracks}
+    # Cap too small -> cannot keep up -> multiple tracks.
+    assert len(tids) > 1
+
+
+def test_stationary_actor_stays_one_track_either_way():
+    dets = _const_velocity_seq(dx_per_frame=0.0, n_frames=8, stride=2)
+    for flag in (True, False):
+        tracks = script_mod.track(
+            dets,
+            track_thresh=0.5,
+            iou_threshold=0.3,
+            track_buffer=30,
+            min_box_area=10.0,
+            use_motion_prediction=flag,
+        )
+        assert len({t["track_id"] for t in tracks}) == 1
+
+
+def test_velocity_smoothing_out_of_range_raises():
+    with pytest.raises(ValueError):
+        script_mod.track(
+            [],
+            track_thresh=0.5,
+            iou_threshold=0.3,
+            track_buffer=30,
+            min_box_area=10.0,
+            velocity_smoothing=0.0,
+        )
+    with pytest.raises(ValueError):
+        script_mod.track(
+            [],
+            track_thresh=0.5,
+            iou_threshold=0.3,
+            track_buffer=30,
+            min_box_area=10.0,
+            velocity_smoothing=1.5,
+        )
+
+
+def test_negative_cap_raises():
+    with pytest.raises(ValueError):
+        script_mod.track(
+            [],
+            track_thresh=0.5,
+            iou_threshold=0.3,
+            track_buffer=30,
+            min_box_area=10.0,
+            max_prediction_offset_px=-1.0,
+        )
+
+
+def test_centroid_fallback_bootstraps_velocity():
+    # First match has IoU=0 (stride 2, 30 px/frame => 60 px displacement,
+    # box size 40). Without centroid fallback, the track dies before
+    # gaining velocity. With it, one track should survive.
+    dets = _const_velocity_seq(dx_per_frame=30.0, n_frames=10, stride=2)
+    tracks = script_mod.track(
+        dets,
+        track_thresh=0.5,
+        iou_threshold=0.3,
+        track_buffer=30,
+        min_box_area=10.0,
+        use_motion_prediction=True,
+        velocity_smoothing=1.0,
+        max_prediction_offset_px=500.0,
+        max_centroid_distance_px=200.0,
+    )
+    assert len({t["track_id"] for t in tracks}) == 1
+
+
+def test_centroid_fallback_disabled_when_zero():
+    dets = _const_velocity_seq(dx_per_frame=30.0, n_frames=10, stride=2)
+    tracks = script_mod.track(
+        dets,
+        track_thresh=0.5,
+        iou_threshold=0.3,
+        track_buffer=30,
+        min_box_area=10.0,
+        use_motion_prediction=True,
+        velocity_smoothing=1.0,
+        max_prediction_offset_px=500.0,
+        max_centroid_distance_px=0.0,
+    )
+    # No centroid fallback -> fast mover splits into multiple tracks
+    assert len({t["track_id"] for t in tracks}) > 1
+
+
+def test_negative_centroid_distance_raises():
+    with pytest.raises(ValueError):
+        script_mod.track(
+            [],
+            track_thresh=0.5,
+            iou_threshold=0.3,
+            track_buffer=30,
+            min_box_area=10.0,
+            max_centroid_distance_px=-1.0,
+        )
+
+
+def test_cli_couples_motion_off_with_centroid_off(tmp_path):
+    """--no_motion_prediction implies max_centroid_distance_px=0."""
+    dets = _const_velocity_seq(dx_per_frame=30.0, n_frames=10, stride=2)
+    det_path = tmp_path / "dets.jsonl"
+    with det_path.open("w") as f:
+        for d in dets:
+            f.write(json.dumps(d) + "\n")
+
+    out_dir = tmp_path / "out"
+    r = subprocess.run(
+        [
+            sys.executable,
+            str(REPO / "scripts" / "run_tracking.py"),
+            "--detections",
+            str(det_path),
+            "--output_dir",
+            str(out_dir),
+            "--no_motion_prediction",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+    )
+    assert r.returncode == 0, r.stderr
+    rows = [
+        json.loads(line) for line in (out_dir / "tracks.jsonl").read_text().splitlines()
+    ]
+    tids = {r["track_id"] for r in rows}
+    assert len(tids) > 1, "expected stride artifact when --no_motion_prediction"

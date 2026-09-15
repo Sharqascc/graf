@@ -89,3 +89,23 @@ address this properly.
    dataset) to get auto-rickshaw / tempo-traveller classes.
 4. Re-run the pipeline end-to-end at `--stride 1` and replace this file
    with a validation report.
+
+## Addendum — motion-aware tracking
+
+The median-track-length = 1 finding above was addressed by adding
+motion-aware prediction to `scripts/run_tracking.py`.
+
+Three tracker configurations, same MRC detections:
+
+| config | unique tracks | median length | max length |
+|---|---|---|---|
+| IoU only (baseline behavior) | 117 | 1 | 25 |
+| Motion prediction, no centroid fallback | 99 | 1 | 25 |
+| Motion prediction + centroid fallback | 46 | 4 | 25 |
+
+The centroid fallback is what lets a track bootstrap velocity on its
+first match — plain IoU cannot match a stride-2 fast mover before a
+velocity exists to predict with.
+
+The original numbers and explanation above are kept as the record of
+what the first-pass run actually produced.
