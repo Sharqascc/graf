@@ -5,3 +5,4 @@ ruff
 mypy
 pre-commit
 hypothesis
+deptry

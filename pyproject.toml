@@ -31,11 +31,7 @@ dependencies = [
   "scikit-learn",
   "opencv-python",
   "pyyaml",
-  "tqdm",
-  "networkx",
   "matplotlib",
-  "seaborn",
-  "jupyter",
 ]
 
 [project.optional-dependencies]
@@ -46,12 +42,16 @@ dev = [
   "mypy",
   "pre-commit",
   "hypothesis",
+  "deptry",
 ]
 gpu = [
   "torch",
   "torchvision",
   "torchaudio",
   "torch-geometric",
+]
+detection = [
+  "ultralytics",
 ]
 
 [project.urls]
@@ -103,3 +103,34 @@ warn_return_any = false
 warn_unused_configs = true
 ignore_missing_imports = true
 exclude = ["tests/"]
+
+[tool.deptry]
+extend_exclude = ["notebooks", "docs", "data", ".github"]
+known_first_party = ["graf"]
+
+[tool.deptry.per_rule_ignores]
+# Installed but never `import`-ed directly by project code:
+#   ruff / mypy / pre-commit  -> CLI tools
+#   pytest / pytest-cov       -> invoked via pytest, not imported as modules
+#   torchvision / torchaudio  -> pulled alongside torch; used indirectly
+#   jupyter                   -> notebook runtime, no module-level import
+DEP002 = [
+  "ruff",
+  "mypy",
+  "pre-commit",
+  "deptry",
+  "pytest",
+  "pytest-cov",
+  "torchvision",
+  "torchaudio",
+  "jupyter",
+]
+
+[tool.deptry.package_module_name_map]
+# Map PyPI distribution name -> import module name for packages
+# whose names differ. Without this, deptry wrongly flags DEP001
+# when the package isn't installed in the scanning environment
+# (which is the case in CI job 1, where only ruff + deptry are).
+pyyaml = "yaml"
+opencv-python = "cv2"
+scikit-learn = "sklearn"

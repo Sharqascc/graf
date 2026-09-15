@@ -3,9 +3,5 @@ pandas
 scipy
 opencv-python
 pyyaml
-tqdm
-networkx
 matplotlib
-seaborn
-jupyter
 scikit-learn
