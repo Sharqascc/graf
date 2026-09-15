@@ -184,3 +184,215 @@ def test_drac_result_dataclass_defaults():
 
 def test_drac_critical_threshold_constant():
     assert CRITICAL_DRAC_MPS2 == 3.35
+
+
+# ------------------------------------------------------------------
+# Event mining
+# ------------------------------------------------------------------
+
+from graf.ssm.event_mining import mine_events
+
+
+def _ssm_df(rows):
+    """Build a minimal ssm_frame_values DataFrame."""
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "video_id",
+            "frame_idx",
+            "track_id_a",
+            "track_id_b",
+            "metric_name",
+            "value",
+        ],
+    )
+
+
+def test_mine_events_empty_input():
+    assert mine_events(_ssm_df([]), thresholds={"TTC": 1.5}) == []
+
+
+def test_mine_events_no_thresholds_returns_empty():
+    df = _ssm_df([("v", 0, "a", "b", "TTC", 0.5)])
+    assert mine_events(df, thresholds={}) == []
+
+
+def test_mine_events_missing_columns_raises():
+    df = pd.DataFrame({"video_id": ["v"], "frame_idx": [0]})
+    with pytest.raises(ValueError, match="missing required columns"):
+        mine_events(df, thresholds={"TTC": 1.5})
+
+
+def test_mine_events_single_contiguous_run():
+    df = _ssm_df(
+        [
+            ("v", 0, "a", "b", "TTC", 3.0),
+            ("v", 1, "a", "b", "TTC", 1.2),
+            ("v", 2, "a", "b", "TTC", 0.8),
+            ("v", 3, "a", "b", "TTC", 1.0),
+            ("v", 4, "a", "b", "TTC", 2.5),
+        ]
+    )
+    events = mine_events(df, thresholds={"TTC": 1.5})
+    assert len(events) == 1
+    e = events[0]
+    assert e.metric_name == "TTC"
+    assert e.start_frame == 1
+    assert e.end_frame == 3
+    assert e.min_value == pytest.approx(0.8)
+    assert e.threshold == 1.5
+    assert e.severity == "critical"
+    assert e.metadata["num_frames"] == 3
+    assert e.metadata["metric_direction"] == "below"
+    e.validate()
+
+
+def test_mine_events_short_run_filtered():
+    df = _ssm_df(
+        [
+            ("v", 0, "a", "b", "TTC", 3.0),
+            ("v", 1, "a", "b", "TTC", 1.0),
+            ("v", 2, "a", "b", "TTC", 3.0),
+        ]
+    )
+    assert mine_events(df, thresholds={"TTC": 1.5}) == []
+
+
+def test_mine_events_min_duration_1_allows_single_frame():
+    df = _ssm_df(
+        [
+            ("v", 0, "a", "b", "TTC", 3.0),
+            ("v", 1, "a", "b", "TTC", 1.0),
+        ]
+    )
+    events = mine_events(df, thresholds={"TTC": 1.5}, min_duration_frames=1)
+    assert len(events) == 1
+    assert events[0].start_frame == 1
+    assert events[0].end_frame == 1
+
+
+def test_mine_events_drac_uses_above_direction():
+    df = _ssm_df(
+        [
+            ("v", 0, "a", "b", "DRAC", 1.0),
+            ("v", 1, "a", "b", "DRAC", 4.0),
+            ("v", 2, "a", "b", "DRAC", 5.5),
+            ("v", 3, "a", "b", "DRAC", 2.0),
+        ]
+    )
+    events = mine_events(df, thresholds={"DRAC": 3.35})
+    assert len(events) == 1
+    e = events[0]
+    assert e.start_frame == 1
+    assert e.end_frame == 2
+    assert e.min_value == pytest.approx(5.5)
+    assert e.metadata["metric_direction"] == "above"
+
+
+def test_mine_events_two_separate_runs():
+    df = _ssm_df(
+        [
+            ("v", 0, "a", "b", "TTC", 1.0),
+            ("v", 1, "a", "b", "TTC", 0.8),
+            ("v", 2, "a", "b", "TTC", 3.0),
+            ("v", 3, "a", "b", "TTC", 1.2),
+            ("v", 4, "a", "b", "TTC", 1.0),
+        ]
+    )
+    events = mine_events(df, thresholds={"TTC": 1.5})
+    assert len(events) == 2
+    assert events[0].start_frame == 0
+    assert events[0].end_frame == 1
+    assert events[1].start_frame == 3
+    assert events[1].end_frame == 4
+
+
+def test_mine_events_gap_splits_run_by_default():
+    df = _ssm_df(
+        [
+            ("v", 0, "a", "b", "TTC", 1.0),
+            ("v", 1, "a", "b", "TTC", 0.8),
+            ("v", 3, "a", "b", "TTC", 1.0),
+            ("v", 4, "a", "b", "TTC", 0.9),
+        ]
+    )
+    events = mine_events(df, thresholds={"TTC": 1.5})
+    assert len(events) == 2
+
+
+def test_mine_events_gap_tolerated_when_allowed():
+    df = _ssm_df(
+        [
+            ("v", 0, "a", "b", "TTC", 1.0),
+            ("v", 1, "a", "b", "TTC", 0.8),
+            ("v", 3, "a", "b", "TTC", 1.0),
+            ("v", 4, "a", "b", "TTC", 0.9),
+        ]
+    )
+    events = mine_events(df, thresholds={"TTC": 1.5}, max_frame_gap=2)
+    assert len(events) == 1
+    assert events[0].start_frame == 0
+    assert events[0].end_frame == 4
+
+
+def test_mine_events_multiple_pairs_grouped_separately():
+    df = _ssm_df(
+        [
+            ("v", 0, "a", "b", "TTC", 1.0),
+            ("v", 1, "a", "b", "TTC", 0.8),
+            ("v", 0, "a", "c", "TTC", 1.2),
+            ("v", 1, "a", "c", "TTC", 1.1),
+        ]
+    )
+    events = mine_events(df, thresholds={"TTC": 1.5})
+    assert len(events) == 2
+    pairs = {(e.track_id_a, e.track_id_b) for e in events}
+    assert pairs == {("a", "b"), ("a", "c")}
+
+
+def test_mine_events_ignores_metrics_not_in_thresholds():
+    df = _ssm_df(
+        [
+            ("v", 0, "a", "b", "TTC", 0.5),
+            ("v", 1, "a", "b", "TTC", 0.4),
+            ("v", 0, "a", "b", "PET", 0.5),
+            ("v", 1, "a", "b", "PET", 0.4),
+        ]
+    )
+    events = mine_events(df, thresholds={"TTC": 1.5})
+    assert len(events) == 1
+    assert events[0].metric_name == "TTC"
+
+
+def test_mine_events_nan_values_are_not_events():
+    df = _ssm_df(
+        [
+            ("v", 0, "a", "b", "TTC", float("nan")),
+            ("v", 1, "a", "b", "TTC", 1.0),
+            ("v", 2, "a", "b", "TTC", 1.0),
+        ]
+    )
+    events = mine_events(df, thresholds={"TTC": 1.5})
+    assert len(events) == 1
+    assert events[0].start_frame == 1
+
+
+def test_mine_events_event_id_format():
+    df = _ssm_df(
+        [
+            ("v", 0, "a", "b", "TTC", 1.0),
+            ("v", 1, "a", "b", "TTC", 0.9),
+        ]
+    )
+    events = mine_events(df, thresholds={"TTC": 1.5})
+    assert events[0].event_id == "TTC_a_b_0"
+
+
+def test_mine_events_min_duration_zero_raises():
+    with pytest.raises(ValueError, match="min_duration_frames"):
+        mine_events(_ssm_df([]), thresholds={"TTC": 1.5}, min_duration_frames=0)
+
+
+def test_mine_events_max_frame_gap_zero_raises():
+    with pytest.raises(ValueError, match="max_frame_gap"):
+        mine_events(_ssm_df([]), thresholds={"TTC": 1.5}, max_frame_gap=0)
