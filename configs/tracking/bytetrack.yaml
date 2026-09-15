@@ -1,5 +1,12 @@
+# Tracking config for scripts/run_tracking.py.
+#
+# The file is named bytetrack.yaml for future compatibility, but the
+# script implements a simple greedy IoU associator, not the real ByteTrack
+# algorithm. Parameters below drive that script; keys marked "reserved"
+# are placeholders for a future real-ByteTrack integration.
 tracker_name: bytetrack
-track_thresh: 0.5
-match_thresh: 0.8
-track_buffer: 30
-min_box_area: 10
+track_thresh: 0.5       # minimum detection confidence to consider
+iou_threshold: 0.3      # greedy IoU association threshold
+track_buffer: 30        # frames without a match before a track is dropped
+min_box_area: 10        # drop detections with box area (px^2) below this
+match_thresh: 0.8       # reserved: second-stage IoU in real ByteTrack

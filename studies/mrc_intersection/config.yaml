@@ -1,0 +1,27 @@
+site_id: mrc_intersection
+status: smoke_test_only
+notes: >
+  Stand-in clip for pipeline smoke testing. The target site is NSC.
+  Video lives outside the repo (Google Drive); only derived artifacts
+  are committed. No homography; any SSM computed from this clip would
+  be pixel-space, not metric.
+
+video:
+  path: /content/drive/MyDrive/MRC_Intersection.mp4   # not committed
+  resolution: [1920, 1080]
+  source_fps: 30.0
+  duration_s: 173.0
+
+run:
+  window_start_s: 40
+  window_end_s:   50
+  extract_fps:    5      # ffmpeg -vf fps=5
+  detection_stride: 2    # --stride 2 in run_detection.py
+  effective_fps:  2.5    # extract_fps / detection_stride
+
+homography: null
+pixels_per_meter: null
+ground_truth: null
+
+detection_config: configs/detection/yolov8.yaml
+tracking_config:  configs/tracking/bytetrack.yaml
