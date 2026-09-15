@@ -30,7 +30,7 @@ GRAF transforms traffic video into graph-based representations for surrogate saf
    Modules: `graf.trajectories`.
 
 7. **Surrogate safety measures**
-   `scripts/compute_ssm.py` computes TTC, PET, and DRAC. `graf.ssm.event_mining` turns per-frame values into discrete SSM events.
+   `scripts/compute_ssm.py` computes per-frame TTC and DRAC for nearby track pairs and writes `ssm_values.jsonl`. `scripts/mine_ssm_events.py` calls `graf.ssm.event_mining.mine_events` to turn those values into discrete events. PET (zone-based, not pair-based) will be added with the real-data pipeline.
    Modules: `graf.ssm`.
 
 8. **Graph construction**
