@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 
 import numpy as np
@@ -754,3 +755,133 @@ def test_drac_is_critical_iff_finite_and_above_threshold(p1, v1, p2, v2):
     r = _drac(p1, v1, p2, v2)
     expected = math.isfinite(r.drac_mps2) and r.drac_mps2 >= drac_mod.CRITICAL_DRAC_MPS2
     assert r.is_critical == expected
+
+
+# ------------------------------------------------------------------
+# Event mining — invariants of mine_events
+# ------------------------------------------------------------------
+
+mining_mod = pytest.importorskip("graf.ssm.event_mining")
+
+_thresholds_map = {"TTC": 1.5, "PET": 2.0, "DRAC": 3.35}
+
+
+@st.composite
+def _ssm_dataframe(draw, max_frames=15, max_pairs=2):
+    """Build a plausible ssm_frame_values DataFrame."""
+    n_pairs = draw(st.integers(1, max_pairs))
+    pairs = [(f"a{i}", f"b{i}") for i in range(n_pairs)]
+    n_frames = draw(st.integers(1, max_frames))
+    metric = draw(st.sampled_from(list(_thresholds_map.keys())))
+    rows = []
+    for ta, tb in pairs:
+        for f in range(n_frames):
+            v = draw(st.floats(0.0, 10.0, allow_nan=False, allow_infinity=False))
+            rows.append(("v", f, ta, tb, metric, v))
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "video_id",
+            "frame_idx",
+            "track_id_a",
+            "track_id_b",
+            "metric_name",
+            "value",
+        ],
+    )
+
+
+@pytest.mark.hypothesis
+@given(df=_ssm_dataframe())
+@settings(max_examples=25, deadline=None)
+def test_event_mining_records_validate(df):
+    """Every returned record validates and has the required fields."""
+    events = mining_mod.mine_events(df, thresholds=_thresholds_map)
+    for e in events:
+        e.validate()
+        assert e.metric_name in _thresholds_map
+        assert e.start_frame <= e.end_frame
+        assert e.metadata["num_frames"] >= 1
+        assert e.metadata["metric_direction"] in {"below", "above"}
+
+
+@pytest.mark.hypothesis
+@given(df=_ssm_dataframe(), mdf=st.integers(1, 5))
+@settings(max_examples=25, deadline=None)
+def test_event_mining_respects_min_duration(df, mdf):
+    """Every event has at least min_duration_frames rows."""
+    events = mining_mod.mine_events(
+        df, thresholds=_thresholds_map, min_duration_frames=mdf
+    )
+    for e in events:
+        assert e.metadata["num_frames"] >= mdf
+
+
+@pytest.mark.hypothesis
+@given(df=_ssm_dataframe(), mdf=st.integers(1, 4))
+@settings(max_examples=20, deadline=None)
+def test_event_mining_events_within_group_disjoint(df, mdf):
+    """For a fixed group, event intervals do not overlap."""
+    events = mining_mod.mine_events(
+        df, thresholds=_thresholds_map, min_duration_frames=mdf
+    )
+    groups = {}
+    for e in events:
+        key = (e.video_id, e.track_id_a, e.track_id_b, e.metric_name)
+        groups.setdefault(key, []).append(e)
+    for group_events in groups.values():
+        group_events.sort(key=lambda e: e.start_frame)
+        for a, b in itertools.pairwise(group_events):
+            assert b.start_frame > a.end_frame
+
+
+@pytest.mark.hypothesis
+@given(df=_ssm_dataframe())
+@settings(max_examples=25, deadline=None)
+def test_event_mining_extreme_crosses_threshold(df):
+    """min_value crosses the threshold in the metric direction."""
+    events = mining_mod.mine_events(df, thresholds=_thresholds_map)
+    for e in events:
+        threshold = _thresholds_map[e.metric_name]
+        direction = e.metadata["metric_direction"]
+        if direction == "below":
+            assert e.min_value <= threshold
+        else:
+            assert e.min_value >= threshold
+
+
+@pytest.mark.hypothesis
+@given(df=_ssm_dataframe())
+@settings(max_examples=20, deadline=None)
+def test_event_mining_deterministic(df):
+    """Same input -> same output."""
+    a = mining_mod.mine_events(df, thresholds=_thresholds_map)
+    b = mining_mod.mine_events(df, thresholds=_thresholds_map)
+    assert [e.to_dict() for e in a] == [e.to_dict() for e in b]
+
+
+@pytest.mark.hypothesis
+@given(df=_ssm_dataframe(), gap=st.integers(1, 3))
+@settings(max_examples=20, deadline=None)
+def test_event_mining_frame_gaps_respected(df, gap):
+    """No internal frame_idx gap within an event exceeds max_frame_gap."""
+    events = mining_mod.mine_events(df, thresholds=_thresholds_map, max_frame_gap=gap)
+    for e in events:
+        mask = (
+            (df["video_id"] == e.video_id)
+            & (df["track_id_a"] == e.track_id_a)
+            & (df["track_id_b"] == e.track_id_b)
+            & (df["metric_name"] == e.metric_name)
+            & (df["frame_idx"] >= e.start_frame)
+            & (df["frame_idx"] <= e.end_frame)
+        )
+        frames = sorted(df.loc[mask, "frame_idx"].tolist())
+        for a, b in itertools.pairwise(frames):
+            assert b - a <= gap
+
+
+@pytest.mark.hypothesis
+@given(df=_ssm_dataframe())
+@settings(max_examples=15, deadline=None)
+def test_event_mining_empty_thresholds_returns_empty(df):
+    assert mining_mod.mine_events(df, thresholds={}) == []
