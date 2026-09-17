@@ -19,6 +19,7 @@ Reads the VNTraffic clip's MOT-format ground truth and writes:
 Usage:
     python scripts/prepare_vntraffic.py --dataset-root data/external/vntraffic
 """
+
 from __future__ import annotations
 
 import argparse
@@ -48,22 +49,30 @@ def convert_tracks(gt_txt: Path, out_jsonl: Path) -> dict:
                 continue
             frame_idx = int(parts[0])
             track_id = int(parts[1])
-            x, y, bw, bh = (float(parts[2]), float(parts[3]),
-                            float(parts[4]), float(parts[5]))
+            x, y, bw, bh = (
+                float(parts[2]),
+                float(parts[3]),
+                float(parts[4]),
+                float(parts[5]),
+            )
             conf = float(parts[6]) if len(parts) > 6 else 1.0
-            fo.write(json.dumps({
-                "frame_idx": frame_idx,
-                "track_id": track_id,
-                "bbox_xyxy": [x, y, x + bw, y + bh],
-                "confidence": conf,
-                "actor_class": "other",
-                "class_name": "other",
-            }) + "\n")
+            fo.write(
+                json.dumps(
+                    {
+                        "frame_idx": frame_idx,
+                        "track_id": track_id,
+                        "bbox_xyxy": [x, y, x + bw, y + bh],
+                        "confidence": conf,
+                        "actor_class": "other",
+                        "class_name": "other",
+                    }
+                )
+                + "\n"
+            )
             n_rows += 1
             track_ids.add(track_id)
             max_frame = max(max_frame, frame_idx)
-    return {"rows": n_rows, "tracks": len(track_ids),
-            "frames": max_frame + 1}
+    return {"rows": n_rows, "tracks": len(track_ids), "frames": max_frame + 1}
 
 
 def write_homography(out_yaml: Path, ppm: float) -> None:
@@ -76,8 +85,7 @@ def write_homography(out_yaml: Path, ppm: float) -> None:
     out_yaml.write_text(yaml.safe_dump({"H": H}))
 
 
-def write_trajectories(gt_txt: Path, out_json: Path,
-                       ppm: float, video_id: str) -> dict:
+def write_trajectories(gt_txt: Path, out_json: Path, ppm: float, video_id: str) -> dict:
     tracks = defaultdict(list)
     with gt_txt.open() as fi:
         for line in fi:
@@ -89,8 +97,12 @@ def write_trajectories(gt_txt: Path, out_json: Path,
                 continue
             frame_idx = int(parts[0])
             track_id = int(parts[1])
-            x, y, bw, bh = (float(parts[2]), float(parts[3]),
-                            float(parts[4]), float(parts[5]))
+            x, y, bw, bh = (
+                float(parts[2]),
+                float(parts[3]),
+                float(parts[4]),
+                float(parts[5]),
+            )
             cx = x + bw / 2.0
             cy = y + bh
             tracks[track_id].append((frame_idx, cx, cy))
@@ -98,19 +110,19 @@ def write_trajectories(gt_txt: Path, out_json: Path,
     payload = []
     for tid, rows in sorted(tracks.items()):
         rows.sort()
-        payload.append({
-            "track_id": tid,
-            "class_name": "other",
-            "video_id": video_id,
-            "frames": [
-                {"frame_id": f, "x": cx / ppm, "y": cy / ppm}
-                for f, cx, cy in rows
-            ],
-        })
+        payload.append(
+            {
+                "track_id": tid,
+                "class_name": "other",
+                "video_id": video_id,
+                "frames": [
+                    {"frame_id": f, "x": cx / ppm, "y": cy / ppm} for f, cx, cy in rows
+                ],
+            }
+        )
     out_json.parent.mkdir(parents=True, exist_ok=True)
     out_json.write_text(json.dumps(payload))
-    return {"tracks": len(payload),
-            "rows": sum(len(t["frames"]) for t in payload)}
+    return {"tracks": len(payload), "rows": sum(len(t["frames"]) for t in payload)}
 
 
 def main(argv=None) -> int:
@@ -123,8 +135,10 @@ def main(argv=None) -> int:
     dataset_root = Path(args.dataset_root)
     gt_txt = dataset_root / "VNTraffic" / "VNTraffic_GroundTruth.txt"
     if not gt_txt.exists():
-        print(f"ERROR: {gt_txt} not found. "
-              f"Run scripts/fetch_vntraffic.py first.", file=sys.stderr)
+        print(
+            f"ERROR: {gt_txt} not found. Run scripts/fetch_vntraffic.py first.",
+            file=sys.stderr,
+        )
         return 1
 
     tracks_out = Path("data/raw/vntraffic_tracks.jsonl")
@@ -132,16 +146,20 @@ def main(argv=None) -> int:
     traj_out = Path("data/interim/trajectories/vntraffic.json")
 
     stats = convert_tracks(gt_txt, tracks_out)
-    print(f"tracks.jsonl   -> {tracks_out}  "
-          f"({stats['rows']} rows, {stats['tracks']} tracks, "
-          f"{stats['frames']} frames)")
+    print(
+        f"tracks.jsonl   -> {tracks_out}  "
+        f"({stats['rows']} rows, {stats['tracks']} tracks, "
+        f"{stats['frames']} frames)"
+    )
 
     write_homography(homog_out, args.ppm)
     print(f"homography     -> {homog_out}  (PPM={args.ppm})")
 
     tstats = write_trajectories(gt_txt, traj_out, args.ppm, args.video_id)
-    print(f"trajectories   -> {traj_out}  "
-          f"({tstats['tracks']} tracks, {tstats['rows']} rows)")
+    print(
+        f"trajectories   -> {traj_out}  "
+        f"({tstats['tracks']} tracks, {tstats['rows']} rows)"
+    )
     return 0
 
 

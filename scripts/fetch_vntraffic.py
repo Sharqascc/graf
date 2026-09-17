@@ -10,6 +10,7 @@ Usage:
 By default the archive is removed after extraction; rerunning is a no-op
 if the extracted files already exist.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -18,10 +19,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-ZENODO_URL = (
-    "https://zenodo.org/records/18195750/files/Vehicle_Tracking.zip"
-    "?download=1"
-)
+ZENODO_URL = "https://zenodo.org/records/18195750/files/Vehicle_Tracking.zip?download=1"
 
 
 def download(url: str, dest: Path) -> None:

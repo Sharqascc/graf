@@ -1,0 +1,50 @@
+{
+  "dataset": "VNTraffic (Zenodo 18195750), top-10 longest tracks",
+  "tracks_used": 10,
+  "frames": 501,
+  "homography_ppm": 100.0,
+  "window_size": 5,
+  "stride": 2,
+  "label_definition": "window contains TTC <= 1.5s event",
+  "ttc_threshold_seconds": 1.5,
+  "num_windows": 249,
+  "num_positive": 86,
+  "num_negative": 163,
+  "majority_baseline": 0.654618501663208,
+  "num_folds": 5,
+  "epochs": 100,
+  "learning_rate": 0.001,
+  "pos_weight": 2.0,
+  "seed": 42,
+  "batch_size": 16,
+  "fold_accuracy": [
+    0.5918367346938775,
+    0.6122448979591837,
+    0.46938775510204084,
+    0.5714285714285714,
+    0.4897959183673469
+  ],
+  "fold_f1": [
+    0.47368421052631576,
+    0.45714285714285713,
+    0.5185185185185185,
+    0.5714285714285714,
+    0.5454545454545454
+  ],
+  "fold_auc": [
+    0.6036036036036035,
+    0.7052631578947368,
+    0.6725490196078432,
+    0.6341911764705883,
+    0.4747474747474747
+  ],
+  "mean_accuracy": 0.5469387755102042,
+  "std_accuracy": 0.05685056439666988,
+  "mean_f1": 0.5132457406141616,
+  "std_f1": 0.04280910953135825,
+  "mean_auc": 0.6180708864648494,
+  "std_auc": 0.07947468220435165,
+  "pooled_auc": 0.6108823529411764,
+  "device": "cuda",
+  "runtime_seconds": 49.88917255401611
+}

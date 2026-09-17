@@ -18,7 +18,7 @@ python scripts/fetch_vntraffic.py --data-root data/external/vntraffic
 # 2. convert to GRAF inputs
 python scripts/prepare_vntraffic.py --dataset-root data/external/vntraffic
 
-# 3. build per-frame graphs
+# 3. build per-frame graphs (top-10 longest tracks recommended; see below)
 python scripts/build_graphs.py \
     --tracks data/raw/vntraffic_tracks.jsonl \
     --output_dir data/processed/graphs/vntraffic \
