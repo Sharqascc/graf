@@ -31,3 +31,9 @@ data/synthetic/
 *.onnx
 runs/
 *.cache
+# Derived data -- regenerable via scripts/
+data/external/
+data/raw/*.jsonl
+data/raw/*.yaml
+data/interim/
+data/processed/
