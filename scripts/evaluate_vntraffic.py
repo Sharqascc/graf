@@ -4,6 +4,18 @@ Recreates the setup in docs/real_data_evaluation.md and
 docs/real_data_metrics.json: windowed SSM labels, GCN risk model,
 k-fold CV with configurable batch size and class weighting.
 
+Label sources
+-------------
+--label-source ttc (default): a window is positive if any frame in it
+contains a TTC event with 0 < ttc <= --ttc-threshold-seconds (default
+1.5). This matches the label_definition recorded in
+docs/real_data_metrics.json.
+
+--label-source proximity: a window is positive if any frame in it is
+part of a proximity-based conflict pair (compute_conflict_pairs). This is
+a different, weaker label definition and does not reproduce the original
+metrics.
+
 Differences from graf.training.conflict_pairs.run_cross_validation:
 
   * --split blocked (default) or random. Blocked assigns contiguous
@@ -114,6 +126,49 @@ def _binomial_vs_majority(correct: int, total: int, majority_rate: float) -> flo
     return float(0.5 * math.erfc(z / math.sqrt(2.0)))
 
 
+def build_ttc_positive_frames(
+    df,
+    *,
+    ttc_threshold_seconds: float = 1.5,
+    distance_threshold: float = 3.0,
+    closing_rate_threshold: float = 0.5,
+):
+    """Return the set of frames where any pair has a critical TTC.
+
+    Matches the label definition in docs/real_data_metrics.json:
+    a frame is "positive" if it contains a TTC event with
+    0 < ttc <= ttc_threshold_seconds, computed with the same formula as
+    scripts/train_gcn_risk.compute_ttc_events.
+    """
+    positive: set[int] = set()
+    for frame_idx, frame_df in df.groupby("frame_idx"):
+        records = frame_df.to_dict("records")
+        for i in range(len(records)):
+            for j in range(i + 1, len(records)):
+                a, b = records[i], records[j]
+                pos_a = np.array([a["x_m"], a["y_m"]])
+                pos_b = np.array([b["x_m"], b["y_m"]])
+                vel_a = np.array([a["vx"], a["vy"]])
+                vel_b = np.array([b["vx"], b["vy"]])
+                rel_pos = pos_b - pos_a
+                rel_vel = vel_b - vel_a
+                dist = float(np.linalg.norm(rel_pos))
+                if dist >= distance_threshold:
+                    continue
+                closing_rate = -float(np.dot(rel_pos, rel_vel))
+                rel_speed_sq = float(np.dot(rel_vel, rel_vel))
+                if rel_speed_sq <= 1e-9 or closing_rate <= closing_rate_threshold:
+                    continue
+                ttc = closing_rate / rel_speed_sq
+                if np.isfinite(ttc) and 0 < ttc <= ttc_threshold_seconds:
+                    positive.add(int(frame_idx))
+                    break
+            else:
+                continue
+            break
+    return positive
+
+
 def build_labels(
     tracks_path,
     graphs_dir,
@@ -123,6 +178,10 @@ def build_labels(
     distance_threshold,
     min_interaction_frames,
     fps,
+    label_source: str = "ttc",
+    ttc_threshold_seconds: float = 1.5,
+    ttc_distance_threshold: float = 3.0,
+    ttc_closing_rate_threshold: float = 0.5,
 ):
     with open(homography_config) as f:
         H = np.array(yaml.safe_load(f)["H"], dtype=np.float64)
@@ -138,15 +197,28 @@ def build_labels(
         min_interaction_frames=min_interaction_frames,
         distance_threshold=distance_threshold,
     )
-    conflict_frames: set = set()
-    for cp in conflicts:
-        conflict_frames.update(cp.frame_indices)
     window_ds = SpatioTemporalWindowDataset(
         graph_dir=graphs_dir, window_size=window_size, stride=stride
     )
+
+    if label_source == "ttc":
+        positive_frames = build_ttc_positive_frames(
+            df,
+            ttc_threshold_seconds=ttc_threshold_seconds,
+            distance_threshold=ttc_distance_threshold,
+            closing_rate_threshold=ttc_closing_rate_threshold,
+        )
+    elif label_source == "proximity":
+        conflict_frames: set = set()
+        for cp in conflicts:
+            conflict_frames.update(cp.frame_indices)
+        positive_frames = {int(f) for f in conflict_frames}
+    else:
+        raise ValueError(f"Unknown label_source: {label_source!r}")
+
     labels = [
         1
-        if any(fid in conflict_frames for fid in window_ds[i].frame_ids.tolist())
+        if any(int(fid) in positive_frames for fid in window_ds[i].frame_ids.tolist())
         else 0
         for i in range(len(window_ds))
     ]
@@ -245,6 +317,29 @@ def parse_args(argv=None):
     p.add_argument("--pos_weight", type=float, default=2.0)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--split", choices=["blocked", "random"], default="blocked")
+    p.add_argument(
+        "--label-source",
+        choices=["ttc", "proximity"],
+        default="ttc",
+        help="ttc: window contains a TTC event <= threshold (matches "
+        "docs/real_data_metrics.json). proximity: window contains a "
+        "conflict-pair frame (distance-based).",
+    )
+    p.add_argument(
+        "--ttc-threshold-seconds",
+        type=float,
+        default=1.5,
+    )
+    p.add_argument(
+        "--ttc-distance-threshold",
+        type=float,
+        default=3.0,
+    )
+    p.add_argument(
+        "--ttc-closing-rate-threshold",
+        type=float,
+        default=0.5,
+    )
     return p.parse_args(argv)
 
 
@@ -260,6 +355,10 @@ def main(argv=None):
         args.distance_threshold,
         args.min_interaction_frames,
         args.fps,
+        label_source=args.label_source,
+        ttc_threshold_seconds=args.ttc_threshold_seconds,
+        ttc_distance_threshold=args.ttc_distance_threshold,
+        ttc_closing_rate_threshold=args.ttc_closing_rate_threshold,
     )
     n = len(window_ds)
     if n == 0:
@@ -335,6 +434,10 @@ def main(argv=None):
         "lr": args.lr,
         "pos_weight": args.pos_weight,
         "split": args.split,
+        "label_source": args.label_source,
+        "ttc_threshold_seconds": args.ttc_threshold_seconds,
+        "ttc_distance_threshold": args.ttc_distance_threshold,
+        "ttc_closing_rate_threshold": args.ttc_closing_rate_threshold,
         "seed": args.seed,
         "fold_acc": fold_acc,
         "fold_f1": fold_f1,

@@ -150,3 +150,89 @@ def test_binomial_beats_majority_clearly():
 
 def test_binomial_empty_returns_one():
     assert script_mod._binomial_vs_majority(0, 0, 0.5) == 1.0
+
+
+# --- TTC positive frames -------------------------------------------
+
+
+def _make_ttc_df(rows):
+    import pandas as pd
+
+    return pd.DataFrame(
+        rows,
+        columns=["frame_idx", "track_id", "x_m", "y_m", "vx", "vy"],
+    )
+
+
+def test_build_ttc_positive_frames_empty_df():
+    import pandas as pd
+
+    empty = pd.DataFrame(columns=["frame_idx", "track_id", "x_m", "y_m", "vx", "vy"])
+    assert script_mod.build_ttc_positive_frames(empty) == set()
+
+
+def test_build_ttc_positive_frames_head_on_collision():
+    # Two actors, 10 m apart, closing at 3 + 3 = 6 m/s head-on.
+    # closing_rate = 30, rel_speed_sq = 36, ttc = 30/36 ≈ 0.833 s
+    # distance = 10 m < 3 m threshold? NO, 10 > 3, so no event.
+    df = _make_ttc_df(
+        [
+            (0, "a", 0.0, 0.0, 3.0, 0.0),
+            (0, "b", 10.0, 0.0, -3.0, 0.0),
+        ]
+    )
+    assert script_mod.build_ttc_positive_frames(df) == set()
+
+
+def test_build_ttc_positive_frames_close_pair():
+    # Actors 2 m apart, closing head-on. Well within distance threshold.
+    df = _make_ttc_df(
+        [
+            (0, "a", 0.0, 0.0, 1.0, 0.0),
+            (0, "b", 2.0, 0.0, -1.0, 0.0),
+        ]
+    )
+    # rel_pos = (2, 0), rel_vel = (-2, 0)
+    # dist = 2, closing_rate = -dot((2,0),(-2,0)) = 4
+    # rel_speed_sq = 4, ttc = 4/4 = 1.0 s <= 1.5 -> positive
+    frames = script_mod.build_ttc_positive_frames(df)
+    assert frames == {0}
+
+
+def test_build_ttc_positive_frames_diverge_no_event():
+    # Actors close but diverging.
+    df = _make_ttc_df(
+        [
+            (0, "a", 0.0, 0.0, -1.0, 0.0),
+            (0, "b", 2.0, 0.0, 1.0, 0.0),
+        ]
+    )
+    assert script_mod.build_ttc_positive_frames(df) == set()
+
+
+def test_build_ttc_threshold_boundary():
+    # ttc exactly at threshold -> positive (<=)
+    df = _make_ttc_df(
+        [
+            (0, "a", 0.0, 0.0, 1.0, 0.0),
+            (0, "b", 2.0, 0.0, -1.0, 0.0),
+        ]
+    )
+    # ttc = 1.0; threshold 1.0 -> positive
+    assert script_mod.build_ttc_positive_frames(df, ttc_threshold_seconds=1.0) == {0}
+    # threshold 0.99 -> not positive
+    assert script_mod.build_ttc_positive_frames(df, ttc_threshold_seconds=0.99) == set()
+
+
+def test_build_ttc_multiple_frames_picks_positive_ones():
+    df = _make_ttc_df(
+        [
+            # frame 0: far apart -> no event
+            (0, "a", 0.0, 0.0, 1.0, 0.0),
+            (0, "b", 10.0, 0.0, -1.0, 0.0),
+            # frame 1: close, closing -> event
+            (1, "a", 0.0, 0.0, 1.0, 0.0),
+            (1, "b", 2.0, 0.0, -1.0, 0.0),
+        ]
+    )
+    assert script_mod.build_ttc_positive_frames(df) == {1}
