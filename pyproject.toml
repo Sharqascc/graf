@@ -44,6 +44,7 @@ dev = [
   "hypothesis",
   "deptry",
   "tox",
+  "import-linter",
 ]
 gpu = [
   "torch",
@@ -121,6 +122,7 @@ DEP002 = [
   "pre-commit",
   "deptry",
   "tox",
+  "import-linter",
   "pytest",
   "pytest-cov",
   "torchvision",
@@ -136,3 +138,44 @@ DEP002 = [
 pyyaml = "yaml"
 opencv-python = "cv2"
 scikit-learn = "sklearn"
+
+[tool.importlinter]
+root_packages = ["graf"]
+
+[[tool.importlinter.contracts]]
+name = "data.schema is a leaf module"
+type = "forbidden"
+source_modules = ["graf.data.schema"]
+forbidden_modules = [
+  "graf.calibration",
+  "graf.graph",
+  "graf.models",
+  "graf.ssm",
+  "graf.training",
+  "graf.trajectories",
+  "graf.detection",
+  "graf.tracking",
+  "graf.visualization",
+  "graf.evaluation",
+]
+
+[[tool.importlinter.contracts]]
+name = "ssm is a primitive layer"
+type = "forbidden"
+source_modules = ["graf.ssm"]
+forbidden_modules = [
+  "graf.graph",
+  "graf.models",
+  "graf.training",
+]
+
+[[tool.importlinter.contracts]]
+name = "calibration is a primitive layer"
+type = "forbidden"
+source_modules = ["graf.calibration"]
+forbidden_modules = [
+  "graf.graph",
+  "graf.models",
+  "graf.ssm",
+  "graf.training",
+]
