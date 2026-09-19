@@ -42,12 +42,25 @@ def compute_ttc_constant_velocity(
     rel_pos = pos2 - pos1
     rel_vel = vel2 - vel1
 
+    # If the actors are already inside the collision radius at t=0, TTC is
+    # zero. Without this check the quadratic below returns the *exit*
+    # root (when they separate), which is not time-to-collision.
+    if float(np.linalg.norm(rel_pos)) <= min_distance:
+        return TTCResult(0.0, None, True, "already_in_collision")
+
     rel_speed_sq = float(np.dot(rel_vel, rel_vel))
     if rel_speed_sq < 1e-12:
         return TTCResult(float("inf"), None, False, "zero_relative_speed")
 
     closing_rate = -float(np.dot(rel_pos, rel_vel))
-    if closing_rate <= 0:
+    # Perpendicular or near-perpendicular pairs have closing_rate ~ 0; the
+    # sign of dot(rel_pos, rel_vel) is then float64 noise and flips under
+    # rotation. Reject on a tolerance proportional to the magnitude scale
+    # so the status is rotation-invariant.
+    noise_floor = (
+        1e-9 * float(np.linalg.norm(rel_pos)) * float(np.sqrt(rel_speed_sq)) + 1e-12
+    )
+    if closing_rate <= noise_floor:
         return TTCResult(float("inf"), None, False, "diverging_or_parallel")
 
     a = rel_speed_sq
