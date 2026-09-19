@@ -23,10 +23,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m pip install --upgrade pip ruff==0.16.4 deptry
-      - run: ruff check --output-format=github .
-      - run: ruff format --check .
-      - run: deptry .
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - run: python -m pip install --upgrade pip pre-commit
+      # CI runs the same pre-commit hooks a developer runs locally. This
+      # is deliberate: mypy results depend on which packages are
+      # installed (an isolated env resolves numpy/pandas to Any; an env
+      # with those packages installed sees real stubs and reports
+      # different errors). Replicating pre-commit's per-hook isolated
+      # environments with raw CLI invocations would drift; running
+      # pre-commit itself cannot.
+      - run: pre-commit run --all-files --show-diff-on-failure
 
   unit-tests:
     name: "2 · Unit tests"
