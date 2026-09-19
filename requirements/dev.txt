@@ -7,3 +7,4 @@ pre-commit
 hypothesis
 deptry
 tox
+import-linter

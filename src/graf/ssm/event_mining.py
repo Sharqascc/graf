@@ -79,25 +79,27 @@ def _emit_event(
     end_frame = int(run_frames[-1])
     extreme = float(run_values.min() if direction == "below" else run_values.max())
 
-    events.append(
-        SSMEventRecord(
-            video_id=str(video_id),
-            event_id=f"{metric}_{track_a}_{track_b}_{start_frame}",
-            metric_name=str(metric),
-            track_id_a=str(track_a),
-            track_id_b=str(track_b),
-            start_frame=start_frame,
-            end_frame=end_frame,
-            min_value=extreme,
-            threshold=float(threshold),
-            severity="critical",
-            metadata={
-                "metric_direction": direction,
-                "num_frames": int(len(run_frames)),
-                "mean_value": float(run_values.mean()),
-            },
-        )
+    record = SSMEventRecord(
+        video_id=str(video_id),
+        event_id=f"{metric}_{track_a}_{track_b}_{start_frame}",
+        metric_name=str(metric),
+        track_id_a=str(track_a),
+        track_id_b=str(track_b),
+        start_frame=start_frame,
+        end_frame=end_frame,
+        min_value=extreme,
+        threshold=float(threshold),
+        severity="critical",
+        metadata={
+            "metric_direction": direction,
+            "num_frames": int(len(run_frames)),
+            "mean_value": float(run_values.mean()),
+        },
     )
+    # Validate at the boundary so malformed records fail here, not
+    # three pipeline stages downstream.
+    record.validate()
+    events.append(record)
 
 
 def load_ssm_thresholds(config_dir: str | Path) -> dict[str, float]:

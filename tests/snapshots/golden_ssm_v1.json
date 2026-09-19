@@ -1,0 +1,26 @@
+{
+  "drac_max": 80.0,
+  "drac_mean": 3.484114,
+  "drac_min": 0.0,
+  "events": [
+    {
+      "end_frame": 65,
+      "metric_name": "DRAC",
+      "min_value": 80.0,
+      "start_frame": 51
+    },
+    {
+      "end_frame": 84,
+      "metric_name": "TTC",
+      "min_value": 0.0,
+      "start_frame": 0
+    }
+  ],
+  "num_drac_rows": 81,
+  "num_events": 2,
+  "num_ttc_rows": 85,
+  "num_value_rows": 166,
+  "ttc_max": 2.625,
+  "ttc_mean": 1.028824,
+  "ttc_min": 0.0
+}

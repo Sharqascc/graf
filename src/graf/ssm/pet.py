@@ -169,4 +169,5 @@ class PETCalculator:
                 "enters_first": pet_result.enters_first,
             },
         )
+        event.validate()
         return event
