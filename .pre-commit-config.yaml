@@ -30,7 +30,12 @@ repos:
     hooks:
       - id: deptry
         name: deptry (dependency hygiene)
+        # language: python with additional_dependencies makes pre-commit
+        # install deptry into an isolated env. language: system would
+        # require deptry on PATH, which is true on a developer machine
+        # after `pip install -e .[dev]` but not in a bare CI runner.
         entry: deptry .
-        language: system
+        language: python
+        additional_dependencies: [deptry]
         pass_filenames: false
         always_run: true
