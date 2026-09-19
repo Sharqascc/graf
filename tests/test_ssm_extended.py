@@ -158,10 +158,12 @@ def test_ttc_result_severity():
 # compute_ttc_constant_velocity
 # ---------------------------------------------------------------------------
 def test_compute_ttc_zero_relative_speed():
+    # Actors 5 m apart (well outside the default min_distance=1.5) with
+    # identical velocities — no closing at all.
     result = compute_ttc_constant_velocity(
         np.array([0.0, 0.0]),
         np.array([0.0, 0.0]),
-        np.array([1.0, 0.0]),
+        np.array([5.0, 0.0]),
         np.array([0.0, 0.0]),
     )
     assert result.ttc_seconds == float("inf")
@@ -170,21 +172,15 @@ def test_compute_ttc_zero_relative_speed():
 
 
 def test_compute_ttc_diverging():
-    result = compute_ttc_constant_velocity(
-        np.array([0.0, 0.0]),
-        np.array([1.0, 0.0]),
-        np.array([1.0, 0.0]),
-        np.array([1.0, 0.0]),  # same velocity -> zero relative actually
-    )
-    # Use different velocities that move apart
+    # Actors 5 m apart, moving away from each other (not stationary).
     result = compute_ttc_constant_velocity(
         np.array([0.0, 0.0]),
         np.array([-1.0, 0.0]),
-        np.array([1.0, 0.0]),
+        np.array([5.0, 0.0]),
         np.array([1.0, 0.0]),
     )
     assert result.ttc_seconds == float("inf")
-    assert result.status in {"diverging_or_parallel", "zero_relative_speed"}
+    assert result.status == "diverging_or_parallel"
     assert not result.is_approaching
 
 
@@ -212,3 +208,43 @@ def test_compute_ttc_collision_predicted():
     assert result.status == "collision_predicted"
     assert result.is_approaching is True
     assert result.collision_point is not None
+
+
+def test_compute_ttc_already_in_collision_pair():
+    """Two actors inside min_distance at t=0 give TTC=0."""
+    result = compute_ttc_constant_velocity(
+        np.array([0.0, 0.0]),
+        np.array([0.0, 0.0]),
+        np.array([1.0, 0.0]),
+        np.array([0.0, 0.0]),
+        min_distance=1.5,
+    )
+    assert result.ttc_seconds == 0.0
+    assert result.status == "already_in_collision"
+    assert result.is_approaching is True
+
+
+def test_compute_ttc_already_in_collision_boundary():
+    """Exactly at min_distance counts as in collision (<=)."""
+    result = compute_ttc_constant_velocity(
+        np.array([0.0, 0.0]),
+        np.array([0.0, 0.0]),
+        np.array([1.5, 0.0]),
+        np.array([0.0, 0.0]),
+        min_distance=1.5,
+    )
+    assert result.status == "already_in_collision"
+    assert result.ttc_seconds == 0.0
+
+
+def test_compute_ttc_just_outside_min_distance():
+    """Just outside min_distance should NOT trigger already_in_collision."""
+    result = compute_ttc_constant_velocity(
+        np.array([0.0, 0.0]),
+        np.array([0.0, 0.0]),
+        np.array([1.51, 0.0]),
+        np.array([0.0, 0.0]),
+        min_distance=1.5,
+    )
+    assert result.status != "already_in_collision"
+    assert result.ttc_seconds != 0.0

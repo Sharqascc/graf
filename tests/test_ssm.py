@@ -396,3 +396,30 @@ def test_mine_events_min_duration_zero_raises():
 def test_mine_events_max_frame_gap_zero_raises():
     with pytest.raises(ValueError, match="max_frame_gap"):
         mine_events(_ssm_df([]), thresholds={"TTC": 1.5}, max_frame_gap=0)
+
+
+def test_ttc_already_in_collision():
+    """Actors inside the collision radius at t=0 give TTC=0."""
+    r = compute_ttc_constant_velocity(
+        pos1=(0.0, 0.0),
+        vel1=(0.0, 0.0),
+        pos2=(1.0, 0.0),
+        vel2=(-1.0, 0.0),
+        min_distance=1.5,
+    )
+    assert r.status == "already_in_collision"
+    assert r.ttc_seconds == 0.0
+    assert r.is_approaching is True
+
+
+def test_ttc_already_in_collision_stationary():
+    """Two stationary actors at the same point are already in collision."""
+    r = compute_ttc_constant_velocity(
+        pos1=(0.0, 0.0),
+        vel1=(0.0, 0.0),
+        pos2=(0.0, 0.0),
+        vel2=(0.0, 0.0),
+        min_distance=1.5,
+    )
+    assert r.status == "already_in_collision"
+    assert r.ttc_seconds == 0.0

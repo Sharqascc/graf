@@ -122,10 +122,19 @@ def compute_drac_constant_velocity(
             status="zero_relative_speed",
         )
 
-    if actual_distance <= 1e-12 or raw_gap <= 1e-12:
+    # Already-in-collision is a geometric fact (gap <= 0), not a
+    # kinematic one. Deciding it *after* the closing-speed dispatch made
+    # the status flip between "diverging_or_parallel" and
+    # "already_in_collision" under rotation, because closing_speed for
+    # a perpendicular pair is a signed float64 epsilon — sometimes +,
+    # sometimes -. Check geometry first so the status is rotation-
+    # invariant.
+    if actual_distance <= 1e-12 or gap <= 0.0:
+        unit = rel_pos / actual_distance if actual_distance > 1e-12 else np.zeros(2)
+        closing_speed = -float(np.dot(unit, rel_vel))
         return DRACResult(
             drac_mps2=float("inf"),
-            closing_speed_mps=float(np.sqrt(rel_speed_sq)),
+            closing_speed_mps=closing_speed,
             gap_m=0.0,
             status="already_in_collision",
         )
@@ -133,20 +142,15 @@ def compute_drac_constant_velocity(
     unit = rel_pos / actual_distance
     closing_speed = -float(np.dot(unit, rel_vel))
 
-    if closing_speed <= 0.0:
+    # Same noise floor as TTC: perpendicular pairs have closing_speed ~ 0
+    # whose sign is float64 noise and flips under rotation.
+    noise_floor = 1e-9 * float(np.sqrt(rel_speed_sq)) + 1e-12
+    if closing_speed <= noise_floor:
         return DRACResult(
             drac_mps2=0.0,
             closing_speed_mps=closing_speed,
-            gap_m=max(gap, 0.0),
+            gap_m=gap,
             status="diverging_or_parallel",
-        )
-
-    if gap <= 0.0:
-        return DRACResult(
-            drac_mps2=float("inf"),
-            closing_speed_mps=closing_speed,
-            gap_m=0.0,
-            status="already_in_collision",
         )
 
     drac = (closing_speed * closing_speed) / (2.0 * gap)
