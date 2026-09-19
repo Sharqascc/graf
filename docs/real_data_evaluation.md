@@ -36,3 +36,27 @@ python scripts/mine_ssm_events.py \
     --values-path data/processed/ssm_values/vntraffic/ssm_values.jsonl \
     --outdir data/processed/ssm_events/vntraffic \
     --config-dir configs/ssm --min-duration-frames 3
+
+## Reproducibility caveat (label definition)
+
+The label definition recorded above (`ttc_threshold_seconds: 1.5`)
+does **not** reproduce `num_positive: 86` from `real_data_metrics.json`.
+
+A parameter sweep over distance thresholds (1.0-5.0 m), TTC
+thresholds (0.5-2.0 s), source fps (23.98 and 30.0), track sets
+(top-10 and all-85), and both window rules (any-frame and
+center-frame) produces positive counts between 59 and 239. The
+target 86 appears only as an isolated point at
+`(distance=3.0, ttc=0.75, window=center)` with no plateau around it,
+so it is a numerical coincidence, not a recovered definition.
+
+The ad-hoc script that produced the original `0.547 / 0.611` numbers
+was never committed and is no longer available. Those numbers are
+retained here as a historical record, not as a baseline.
+
+`scripts/evaluate_vntraffic.py` supports `--label-source ttc` with
+configurable thresholds (`--ttc-threshold-seconds`,
+`--ttc-distance-threshold`, `--ttc-closing-rate-threshold`) so that
+an explicit, declared setup can be run and reported. Reproducing the
+exact prior number is not achievable; running a declared setup and
+reporting its honest result is.
