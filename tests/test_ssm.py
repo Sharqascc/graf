@@ -423,3 +423,38 @@ def test_ttc_already_in_collision_stationary():
     )
     assert r.status == "already_in_collision"
     assert r.ttc_seconds == 0.0
+
+
+# ------------------------------------------------------------------
+# Boundary schema validation
+# ------------------------------------------------------------------
+
+
+def test_mine_events_validates_emitted_records(monkeypatch):
+    """If SSMEventRecord.validate raises, mine_events propagates it."""
+    import graf.ssm.event_mining as em
+    from graf.data.schema import SSMEventRecord as Rec
+
+    original_validate = Rec.validate
+
+    def boom(self):
+        raise ValueError("forced validation failure")
+
+    monkeypatch.setattr(Rec, "validate", boom)
+
+    # Build a small input that WOULD produce an event
+    df = pd.DataFrame(
+        [("v", 0, "a", "b", "TTC", 0.8), ("v", 1, "a", "b", "TTC", 0.9)],
+        columns=[
+            "video_id",
+            "frame_idx",
+            "track_id_a",
+            "track_id_b",
+            "metric_name",
+            "value",
+        ],
+    )
+    with pytest.raises(ValueError, match="forced validation failure"):
+        em.mine_events(df, thresholds={"TTC": 1.5})
+
+    monkeypatch.setattr(Rec, "validate", original_validate)
