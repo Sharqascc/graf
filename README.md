@@ -46,6 +46,18 @@ graf train-conflict-pairs --tracks <tracks.jsonl> --graphs_dir <graphs> \
     --epochs 50 --num_folds 5 --seed 42
 ```
 
+
+### Test staging
+
+Three tiers, by cost:
+
+| Tier | When | What | Runtime |
+|---|---|---|---|
+| pre-commit | every `git commit` | hygiene, ruff, mypy, deptry | ~5-15 s |
+| pre-push | every `git push` | + determinism, data-leakage, metamorphic, differential | +~10 s |
+| CI | every push / PR | full suite (429 unit, 44 property) | ~2 min |
+
+Skip the pre-push gate once with `git push --no-verify`.
 ### Local CI reproduction (tox)
 
 Run the same checks CI runs, inside a fresh venv:
