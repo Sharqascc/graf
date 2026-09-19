@@ -60,3 +60,71 @@ configurable thresholds (`--ttc-threshold-seconds`,
 an explicit, declared setup can be run and reported. Reproducing the
 exact prior number is not achievable; running a declared setup and
 reporting its honest result is.
+
+## Declared-setup run (this repo, current main)
+
+The original metrics above are unreproducible (see caveat). The
+declared setup below is what this repo *can* run reproducibly:
+
+| Parameter | Value |
+|---|---|
+| label source | ttc (window positive if any frame contains a TTC event) |
+| ttc threshold | 1.5 s |
+| ttc distance threshold | 3.0 m |
+| ttc closing-rate threshold | 0.5 m/s |
+| tracks | top-10 longest of 85 |
+| fps | 30.0 (clip metadata) |
+| window / stride | 5 / 2 |
+| CV folds / epochs | 5 / 25 |
+| device | cpu |
+
+### Label distribution
+
+249 windows: **220 positive** / **29 negative**, majority baseline **0.884**.
+
+### Results
+
+| metric | blocked CV | random CV |
+|---|---|---|
+| mean accuracy | 0.882 ± 0.068 | 0.884 ± 0.048 |
+| mean F1 | 0.936 | 0.938 |
+| mean AUC | 0.664 | 0.556 |
+| pooled accuracy | 0.884 | 0.884 |
+| pooled AUC | 0.390 | 0.492 |
+| p vs majority | 0.5493 | 0.5493 |
+| beats majority at p<0.05 | False | False |
+| leakage per fold (val windows sharing frames with train) | [2, 4, 4, 4, 2] | [50, 50, 50, 50, 49] |
+
+### Reading
+
+1. **Neither split beats majority.** Pooled accuracy equals the
+   majority baseline exactly; p = 0.55 in both cases.
+2. **Leakage is not the explanation.** Blocked and random produce
+   nearly identical mean accuracy (0.882 vs 0.884). The blocked
+   split leaks only 2-4 windows per fold (fold-boundary effects),
+   while the random split leaks 49-50 out of 50 val windows per
+   fold. If leakage were inflating the model, the random split
+   would be materially better — it is not.
+3. **The declared setup is not the same task as the original run.**
+   The original metrics record 86 positive / 163 negative (majority
+   0.655). The declared TTC setup produces 220 positive / 29
+   negative (majority 0.884). An 88/12 split with 29 negatives is
+   nearly degenerate for binary classification; a model can get 88%
+   accuracy by predicting positive for every window. AUC estimates
+   on 29 negatives are correspondingly noisy.
+
+### What would move this forward
+
+The original label rule is unknown, but the shape of the label
+distribution (65/35) suggests it produced many more negatives than
+the current `ttc <= 1.5 in any frame` rule. Candidate explanations:
+a stricter aggregation over the window (e.g. minimum TTC across
+all frames, not any), a different definition of "event", or a
+different track-selection rule. Without the original script this
+is speculation; the current declared setup is what this repo
+actually runs, and its honest result is the table above.
+
+The leakage question, however, is now settled: on real sliding-
+window data with the declared setup, blocking the CV split does
+not change the result, so the original negative result is not a
+leakage artifact.
