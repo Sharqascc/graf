@@ -1,0 +1,58 @@
+{
+  "setup": {
+    "label_source": "ttc",
+    "ttc_threshold_seconds": 1.5,
+    "ttc_distance_threshold": 3.0,
+    "ttc_closing_rate_threshold": 0.5,
+    "tracks": "top-10 longest (VNTraffic)",
+    "fps": 30.0,
+    "window_size": 5,
+    "stride": 2,
+    "epochs": 25,
+    "num_folds": 5,
+    "batch_size": 16,
+    "lr": 0.001,
+    "pos_weight": 2.0,
+    "device": "cpu"
+  },
+  "labels": {
+    "num_windows": 249,
+    "num_positive": 220,
+    "num_negative": 29,
+    "majority_baseline": 0.8835341365461847
+  },
+  "blocked": {
+    "mean_accuracy": 0.8822487485560263,
+    "std_accuracy": 0.06827767310475003,
+    "mean_f1": 0.9360202344085021,
+    "mean_auc": 0.6639423303354536,
+    "pooled_accuracy": 0.8835341365461847,
+    "pooled_auc": 0.3904388714733542,
+    "p_value_vs_majority": 0.5492653002541626,
+    "beats_majority_p05": false,
+    "leakage_per_fold": [
+      2,
+      4,
+      4,
+      4,
+      2
+    ]
+  },
+  "random": {
+    "mean_accuracy": 0.883673469387755,
+    "std_accuracy": 0.04775893931905628,
+    "mean_f1": 0.9375713569125541,
+    "mean_auc": 0.5558259505352529,
+    "pooled_accuracy": 0.8835341365461847,
+    "pooled_auc": 0.49231974921630095,
+    "p_value_vs_majority": 0.5492653002541626,
+    "beats_majority_p05": false,
+    "leakage_per_fold": [
+      50,
+      50,
+      50,
+      50,
+      49
+    ]
+  }
+}
