@@ -27,6 +27,7 @@ import json
 import sys
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -107,7 +108,7 @@ def write_trajectories(gt_txt: Path, out_json: Path, ppm: float, video_id: str) 
             cy = y + bh
             tracks[track_id].append((frame_idx, cx, cy))
 
-    payload = []
+    payload: list[dict[str, Any]] = []
     for tid, rows in sorted(tracks.items()):
         rows.sort()
         payload.append(
