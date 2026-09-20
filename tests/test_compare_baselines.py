@@ -375,3 +375,28 @@ def test_choose_threshold_inverted_scores_picks_boundary():
     # high scorers (which are negatives) -> bad. t near 0.1 predicts all
     # positives. Verify the returned t is not blindly 0.5.
     assert t != 0.5
+
+
+# ------------------------------------------------------------------
+# AUC note
+# ------------------------------------------------------------------
+
+
+def test_format_auc_note_reflects_fold_count():
+    """The AUC note must interpolate the actual fold count and drop the
+    power caveat once the minimum two-sided Wilcoxon p falls below 0.05.
+
+    The minimum two-sided Wilcoxon signed-rank p-value, when all folds
+    land on the same side of 0.5, is 2**(1 - n_folds). At n=5 that is
+    0.0625 (> 0.05), so the caveat applies; at n=10 it is ~0.00195
+    (< 0.05), so it does not.
+    """
+    note5 = cb._format_auc_note(5)
+    assert "n=5 folds" in note5
+    assert "0.0625" in note5
+    assert "not evidence of no signal" in note5
+
+    note10 = cb._format_auc_note(10)
+    assert "n=10 folds" in note10
+    assert "0.001" in note10
+    assert "not evidence of no signal" not in note10
