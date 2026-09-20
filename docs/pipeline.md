@@ -26,8 +26,12 @@ GRAF transforms traffic video into graph-based representations for surrogate saf
    Modules: `graf.calibration.homography`, `world_coords`.
 
 6. **Trajectory construction**
-   `scripts/build_trajectories.py` creates smooth world-space trajectories.
-   Modules: `graf.trajectories`.
+   `scripts/build_trajectories.py` converts tracked bounding boxes into
+   world-space trajectories. Three projection modes, in priority order:
+   a homography from `--homography_config` (YAML with an `H:` matrix),
+   a scale factor from `--pixels_per_meter`, or pixel-passthrough when
+   neither is given (the output records `source: "pixel"` so downstream
+   consumers know). Modules: `graf.trajectories`.
 
 7. **Surrogate safety measures**
    `scripts/compute_ssm.py` computes per-frame TTC and DRAC for nearby track pairs and writes `ssm_values.jsonl`. `scripts/mine_ssm_events.py` calls `graf.ssm.event_mining.mine_events` to turn those values into discrete events. PET (zone-based, not pair-based) will be added with the real-data pipeline.
