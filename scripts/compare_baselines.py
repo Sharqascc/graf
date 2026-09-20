@@ -123,13 +123,41 @@ def _negative_count(labels) -> int:
     return int((arr == 0).sum())
 
 
+def _format_auc_note(num_folds: int) -> str:
+    """Return the AUC caveat printed after the comparison table.
+
+    The minimum two-sided Wilcoxon signed-rank p-value, when all folds
+    fall on the same side of 0.5, is 2^(1 - num_folds). When that floor
+    exceeds 0.05, a non-significant result reflects the fold count
+    rather than absence of signal; once the floor drops below 0.05 the
+    caveat no longer applies.
+    """
+    min_p = 2.0 ** (1 - num_folds) if num_folds > 1 else 1.0
+    if min_p > 0.05:
+        tail = (
+            ", so a non-significant result here is a limit of the "
+            "fold count, not evidence of no signal"
+        )
+    else:
+        tail = " (significance is achievable at this fold count)"
+    return (
+        f"Note on AUC: pooled AUC is intentionally not reported. "
+        f"With n={num_folds} folds the minimum achievable two-sided "
+        f"Wilcoxon signed-rank p vs AUC=0.5 is ~{min_p:.4g}{tail}. "
+        f"Per-fold negatives are shown so a reader can see the label "
+        f"distribution behind the variance."
+    )
+
+
 def _fold_auc_summary(fold_auc: list[float]) -> dict:
     """Summarise per-fold AUCs against a null of 0.5.
 
     Reports mean, std, and a one-sample two-sided Wilcoxon signed-rank
-    p-value against the majority-AUC null (0.5). With n=5 folds the
-    minimum achievable p is ~0.0625, so a non-significant result here
-    is a limit of the fold count, not evidence of no signal.
+    p-value against the majority-AUC null (0.5). The minimum achievable
+    two-sided p, when every fold falls on the same side of 0.5, is
+    2^(1 - n_folds); at n=5 that is ~0.0625, so a non-significant result
+    is a limit of the fold count rather than evidence of no signal. See
+    _format_auc_note for the note printed after the comparison table.
     """
     valid = [a for a in fold_auc if a == a]
     n = len(valid)
@@ -579,12 +607,7 @@ def main(argv=None) -> int:
             f"{r['runtime_seconds']} |"
         )
     print()
-    print("Note on AUC: pooled AUC is intentionally not reported. With")
-    print("n=5 folds the minimum achievable Wilcoxon p vs AUC=0.5 is")
-    print("~0.0625, so a non-significant result here is a limit of the")
-    print("fold count, not evidence of no signal. Per-fold negatives are")
-    print("shown so a reader can see the label distribution behind the")
-    print("variance.")
+    print(_format_auc_note(args.num_folds))
 
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
