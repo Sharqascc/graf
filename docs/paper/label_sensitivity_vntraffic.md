@@ -94,4 +94,3 @@ features, not further tuning of the label definition.
 See `label_sensitivity_vntraffic.json` for all 80 configs
 including their label distributions and (for balanced ones)
 model metrics.
-

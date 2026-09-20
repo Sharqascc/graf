@@ -145,8 +145,10 @@ def _evaluate_tabular(
     """Run 5-fold CV with a sklearn baseline; return accuracy + AUC."""
     labels_arr = np.asarray(labels, dtype=np.int64)
     features = np.asarray(
-        [GraphFeatureExtractor.transform(window_ds[i]).reshape(-1)
-         for i in range(len(window_ds))],
+        [
+            GraphFeatureExtractor.transform(window_ds[i]).reshape(-1)
+            for i in range(len(window_ds))
+        ],
         dtype=np.float32,
     )
 
@@ -174,7 +176,11 @@ def _evaluate_tabular(
 
         try:
             proba = model.predict_proba(X_val)
-            scores = proba[:, 1] if proba.ndim == 2 and proba.shape[1] == 2 else proba.reshape(-1)
+            scores = (
+                proba[:, 1]
+                if proba.ndim == 2 and proba.shape[1] == 2
+                else proba.reshape(-1)
+            )
         except Exception:
             scores = np.asarray(model.predict(X_val), dtype=np.float64)
         scores = np.asarray(scores, dtype=np.float64)
@@ -292,11 +298,15 @@ def parse_args(argv=None):
         help="Comma-separated distance thresholds in metres.",
     )
     p.add_argument(
-        "--balance-lo", type=float, default=0.55,
+        "--balance-lo",
+        type=float,
+        default=0.55,
         help="Minimum majority rate to run models on (Stage 2).",
     )
     p.add_argument(
-        "--balance-hi", type=float, default=0.80,
+        "--balance-hi",
+        type=float,
+        default=0.80,
         help="Maximum majority rate to run models on (Stage 2).",
     )
     return p.parse_args(argv)
@@ -318,6 +328,7 @@ def main(argv=None) -> int:
 
     # Build windows once (label-independent)
     from graf.data.graph_dataset import SpatioTemporalWindowDataset
+
     window_ds = SpatioTemporalWindowDataset(
         graph_dir=args.graphs_dir,
         window_size=args.window_size,
@@ -334,22 +345,22 @@ def main(argv=None) -> int:
     grid: list[dict] = []
     per_distance_ttc: dict[float, dict[int, float]] = {}
     for dist in dist_grid:
-        per_distance_ttc[dist] = _compute_frame_ttc(
-            df, distance_threshold=dist
+        per_distance_ttc[dist] = _compute_frame_ttc(df, distance_threshold=dist)
+        print(
+            f"  computed frame TTC for dist<={dist} m: "
+            f"{len(per_distance_ttc[dist])} frames with a TTC event"
         )
-        print(f"  computed frame TTC for dist<={dist} m: "
-              f"{len(per_distance_ttc[dist])} frames with a TTC event")
 
     for ttc in ttc_grid:
         for dist in dist_grid:
             frame_ttc = per_distance_ttc[dist]
             positive_frames = {f for f, v in frame_ttc.items() if v <= ttc}
             for rule in WINDOW_RULES:
-                labels = _apply_window_rule(window_ds, positive_frames, rule)
+                labels: list[int] = _apply_window_rule(window_ds, positive_frames, rule)
                 n_pos = sum(labels)
                 n_neg = n_windows - n_pos
                 majority = max(n_pos, n_neg) / n_windows if n_windows else 0.0
-                row = {
+                row: dict[str, Any] = {
                     "ttc_threshold_seconds": ttc,
                     "distance_threshold": dist,
                     "window_rule": rule,
@@ -362,28 +373,31 @@ def main(argv=None) -> int:
                 grid.append(row)
 
     # Stage 2: model sweep on balanced configs
-    balanced = [
-        r for r in grid
-        if args.balance_lo <= r["majority"] <= args.balance_hi
-    ]
-    print(f"\nStage 2 — {len(balanced)} configs in majority range "
-          f"[{args.balance_lo}, {args.balance_hi}]")
+    balanced = [r for r in grid if args.balance_lo <= r["majority"] <= args.balance_hi]
+    print(
+        f"\nStage 2 — {len(balanced)} configs in majority range "
+        f"[{args.balance_lo}, {args.balance_hi}]"
+    )
 
     for row in balanced:
-        print(f"\n  ttc<={row['ttc_threshold_seconds']} "
-              f"dist<={row['distance_threshold']} "
-              f"rule={row['window_rule']}  "
-              f"pos={row['num_positive']} neg={row['num_negative']} "
-              f"maj={row['majority']:.3f}")
+        print(
+            f"\n  ttc<={row['ttc_threshold_seconds']} "
+            f"dist<={row['distance_threshold']} "
+            f"rule={row['window_rule']}  "
+            f"pos={row['num_positive']} neg={row['num_negative']} "
+            f"maj={row['majority']:.3f}"
+        )
         for model_name in ("logreg", "rf"):
             m = _evaluate_tabular(
                 model_name, window_ds, row["labels"], folds, seed=args.seed
             )
             row["models"].append(m)
-            print(f"    {model_name:8s}  "
-                  f"acc={m['mean_accuracy']:.3f}±{m['std_accuracy']:.3f}  "
-                  f"auc={m['mean_auc']:.3f}±{m['std_auc']:.3f}  "
-                  f"({m['n_valid_folds']} valid folds)")
+            print(
+                f"    {model_name:8s}  "
+                f"acc={m['mean_accuracy']:.3f}±{m['std_accuracy']:.3f}  "
+                f"auc={m['mean_auc']:.3f}±{m['std_auc']:.3f}  "
+                f"({m['n_valid_folds']} valid folds)"
+            )
 
     # Strip labels from the JSON (they're big and derivable)
     for row in grid:
