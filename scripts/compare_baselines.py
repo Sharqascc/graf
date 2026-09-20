@@ -110,6 +110,48 @@ def train_tabular_fold(
     return np.asarray(scores, dtype=np.float64), np.asarray(y_train)  # placeholder
 
 
+def _negative_count(labels) -> int:
+    """Count negatives (label == 0) in a val fold's label set."""
+    arr = np.asarray(labels)
+    return int((arr == 0).sum())
+
+
+def _fold_auc_summary(fold_auc: list[float]) -> dict:
+    """Summarise per-fold AUCs against a null of 0.5.
+
+    Reports mean, std, and a one-sample two-sided Wilcoxon signed-rank
+    p-value against the majority-AUC null (0.5). With n=5 folds the
+    minimum achievable p is ~0.0625, so a non-significant result here
+    is a limit of the fold count, not evidence of no signal.
+    """
+    valid = [a for a in fold_auc if a == a]
+    n = len(valid)
+    if n == 0:
+        return {
+            "n_valid_folds": 0,
+            "mean_auc": float("nan"),
+            "std_auc": float("nan"),
+            "wilcoxon_p_vs_0_5": None,
+        }
+    mean = float(np.mean(valid))
+    std = float(np.std(valid))
+    p_val = None
+    if n >= 5 and any(a != 0.5 for a in valid):
+        try:
+            from scipy.stats import wilcoxon
+
+            _, p = wilcoxon(np.asarray(valid) - 0.5, alternative="two-sided")
+            p_val = float(p)
+        except Exception:
+            p_val = None
+    return {
+        "n_valid_folds": n,
+        "mean_auc": mean,
+        "std_auc": std,
+        "wilcoxon_p_vs_0_5": p_val,
+    }
+
+
 def evaluate_model(
     name: str,
     window_ds,
@@ -125,6 +167,7 @@ def evaluate_model(
     """Train and evaluate one model across all folds. Returns metrics + per-fold arrays."""
     labels_arr = np.asarray(labels, dtype=np.int64)
     fold_acc, fold_f1, fold_auc, fold_maj = [], [], [], []
+    fold_neg_count: list[int] = []
     pooled_scores: list[float] = []
     pooled_labels: list[int] = []
 
@@ -147,6 +190,7 @@ def evaluate_model(
             fold_f1.append(_f1(preds, val_labels))
             fold_auc.append(_auc(scores, val_labels))
             fold_maj.append(float(max(val_labels.mean(), 1 - val_labels.mean())))
+            fold_neg_count.append(_negative_count(val_labels))
             pooled_scores.extend(scores.tolist())
             pooled_labels.extend(val_labels.tolist())
     else:
@@ -176,6 +220,7 @@ def evaluate_model(
             fold_f1.append(_f1(preds, y_val))
             fold_auc.append(_auc(scores, y_val))
             fold_maj.append(float(max(y_val.mean(), 1 - y_val.mean())))
+            fold_neg_count.append(_negative_count(y_val))
             pooled_scores.extend(scores.tolist())
             pooled_labels.extend(y_val.tolist())
 
@@ -184,18 +229,29 @@ def evaluate_model(
     pooled_preds = (pooled_scores_arr > 0.5).astype(int)
     pooled_acc = float((pooled_preds == pooled_labels_arr).mean())
 
+    auc_stats = _fold_auc_summary(fold_auc)
+
     return {
         "model": name,
         "fold_acc": fold_acc,
         "fold_f1": fold_f1,
         "fold_auc": fold_auc,
         "fold_majority": fold_maj,
+        "fold_negative_count": fold_neg_count,
         "mean_accuracy": float(np.mean(fold_acc)),
         "std_accuracy": float(np.std(fold_acc)),
         "mean_f1": float(np.mean(fold_f1)),
-        "mean_auc": float(np.nanmean(fold_auc)),
+        "mean_auc": auc_stats["mean_auc"],
+        "std_auc": auc_stats["std_auc"],
+        "n_valid_folds_auc": auc_stats["n_valid_folds"],
+        "wilcoxon_p_vs_0_5": auc_stats["wilcoxon_p_vs_0_5"],
         "pooled_accuracy": pooled_acc,
-        "pooled_auc": float(_auc(pooled_scores_arr, pooled_labels_arr)),
+        # Retained only for debugging. Pooling scores across folds trained
+        # on different data is not a valid AUC: each model produces
+        # scores on its own calibration scale. Do not report this.
+        "pooled_auc_DEBUG_DO_NOT_REPORT": float(
+            _auc(pooled_scores_arr, pooled_labels_arr)
+        ),
     }
 
 
@@ -281,28 +337,36 @@ def main(argv=None) -> int:
             f"  {name:10s}  "
             f"acc={r['mean_accuracy']:.3f}±{r['std_accuracy']:.3f}  "
             f"f1={r['mean_f1']:.3f}  "
-            f"auc={r['mean_auc']:.3f}  "
-            f"pooled_acc={r['pooled_accuracy']:.3f}  "
-            f"pooled_auc={r['pooled_auc']:.3f}  "
+            f"auc={r['mean_auc']:.3f}±{r['std_auc']:.3f}  "
+            f"neg/fold={r['fold_negative_count']}  "
             f"({r['runtime_seconds']}s)"
         )
 
     # Markdown table
     print()
     print(
-        "| model | mean acc ± std | mean F1 | mean AUC | pooled acc | pooled AUC | runtime (s) |"
+        "| model | mean acc ± std | mean F1 | mean AUC ± std "
+        "| neg/fold | pooled acc | runtime (s) |"
     )
     print("|---|---|---|---|---|---|---|")
     for r in results:
+        neg_per_fold = "/".join(str(n) for n in r["fold_negative_count"])
         print(
             f"| {r['model']} | "
             f"{r['mean_accuracy']:.3f} ± {r['std_accuracy']:.3f} | "
             f"{r['mean_f1']:.3f} | "
-            f"{r['mean_auc']:.3f} | "
+            f"{r['mean_auc']:.3f} ± {r['std_auc']:.3f} | "
+            f"{neg_per_fold} | "
             f"{r['pooled_accuracy']:.3f} | "
-            f"{r['pooled_auc']:.3f} | "
             f"{r['runtime_seconds']} |"
         )
+    print()
+    print("Note on AUC: pooled AUC is intentionally not reported. With")
+    print("n=5 folds the minimum achievable Wilcoxon p vs AUC=0.5 is")
+    print("~0.0625, so a non-significant result here is a limit of the")
+    print("fold count, not evidence of no signal. Per-fold negatives are")
+    print("shown so a reader can see the label distribution behind the")
+    print("variance.")
 
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
