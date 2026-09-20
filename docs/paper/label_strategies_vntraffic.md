@@ -113,4 +113,3 @@ decision threshold on the training folds (not the test folds)
 and report whether accuracy beats majority under that
 calibration. That is a legitimate follow-up; it is not a
 replacement for this result.
-
