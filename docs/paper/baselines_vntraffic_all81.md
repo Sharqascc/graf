@@ -63,4 +63,3 @@ Discussion as the honest limitations of this work:
 ## Data
 
 See `baselines_vntraffic_all81.json` for the raw label counts.
-
