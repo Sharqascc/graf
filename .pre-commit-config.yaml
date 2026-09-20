@@ -54,11 +54,12 @@ repos:
         always_run: true
 
       - id: pytest-fast
-        name: pytest (determinism + data-leakage)
-        # ~0.4 s. Determinism and data-leakage invariants are cheap and
-        # catch the class of bug that hides behind randomness. Running
-        # on every push, not every commit, keeps commit latency low.
-        entry: python -m pytest -q tests/test_determinism.py tests/test_data_leakage.py
+        name: pytest (determinism + data-leakage + input-boundaries)
+        # ~1 s. Determinism, data-leakage, and input-boundary invariants
+        # are cheap and catch the class of bug that hides behind
+        # randomness or malformed inputs. Running on every push, not
+        # every commit, keeps commit latency low.
+        entry: python -m pytest -q tests/test_determinism.py tests/test_data_leakage.py tests/test_input_boundaries.py
         language: system
         pass_filenames: false
         always_run: true
