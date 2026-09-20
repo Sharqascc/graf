@@ -39,6 +39,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 import numpy as np
+import yaml
 
 from graf.models.baselines import (
     GraphFeatureExtractor,
@@ -46,6 +47,11 @@ from graf.models.baselines import (
     MajorityClassBaseline,
     MLPBaseline,
     RandomForestBaseline,
+)
+from graf.training.conflict_pairs import (
+    add_world_coords,
+    filter_tracks,
+    load_tracks,
 )
 from scripts.evaluate_vntraffic import (
     _auc,
@@ -55,6 +61,7 @@ from scripts.evaluate_vntraffic import (
     random_folds,
     train_one_fold,
 )
+from scripts.label_strategies import STRATEGIES, apply_strategy
 
 ALL_MODELS = ("majority", "logreg", "rf", "mlp", "gcn")
 
@@ -277,6 +284,28 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--ttc-threshold-seconds", type=float, default=1.5)
     p.add_argument("--ttc-distance-threshold", type=float, default=3.0)
     p.add_argument(
+        "--label-strategy",
+        choices=list(STRATEGIES),
+        default="any",
+        help=(
+            "Window-level label rule. 'any' is the declared-setup default; "
+            "the others target the scale-saturation problem documented in "
+            "docs/paper/baselines_vntraffic_all81.md."
+        ),
+    )
+    p.add_argument(
+        "--fraction-threshold",
+        type=float,
+        default=0.2,
+        help="pair_fraction strategy: minimum critical-pair fraction.",
+    )
+    p.add_argument(
+        "--run-length",
+        type=int,
+        default=3,
+        help="sustained strategy: minimum consecutive-frame run.",
+    )
+    p.add_argument(
         "--models",
         default=",".join(ALL_MODELS),
         help="Comma-separated subset of: " + ", ".join(ALL_MODELS),
@@ -304,6 +333,23 @@ def main(argv=None) -> int:
         ttc_threshold_seconds=args.ttc_threshold_seconds,
         ttc_distance_threshold=args.ttc_distance_threshold,
     )
+
+    # Non-default label strategies recompute labels from the raw tracks.
+    if args.label_strategy != "any":
+        print(f"Recomputing labels with strategy={args.label_strategy}")
+        tracks_df = filter_tracks(load_tracks(args.tracks))
+        with open(args.homography_config) as _f:
+            H = np.array(yaml.safe_load(_f)["H"], dtype=np.float64)
+        tracks_df = add_world_coords(tracks_df, H, fps=args.fps)
+        labels = apply_strategy(
+            args.label_strategy,
+            tracks_df,
+            window_ds,
+            ttc_threshold_seconds=args.ttc_threshold_seconds,
+            distance_threshold=args.ttc_distance_threshold,
+            fraction_threshold=args.fraction_threshold,
+            run_length=args.run_length,
+        )
     n = len(window_ds)
     if n == 0:
         raise SystemExit("No windows found — check graphs_dir.")
@@ -329,6 +375,7 @@ def main(argv=None) -> int:
                 "graphs_dir": args.graphs_dir,
                 "num_windows": n,
                 "label_source": args.label_source,
+                "label_strategy": args.label_strategy,
                 "ttc_threshold_seconds": args.ttc_threshold_seconds,
                 "ttc_distance_threshold": args.ttc_distance_threshold,
                 "split": args.split,
