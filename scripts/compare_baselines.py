@@ -285,13 +285,9 @@ def evaluate_model(
                     inner_train = train_idx[perm[:n_inner]]
                     inner_calib = train_idx[perm[n_inner:]]
                     inner_model = _make_model(name, seed + k)
-                    inner_model.fit(
-                        all_features[inner_train], labels_arr[inner_train]
-                    )
+                    inner_model.fit(all_features[inner_train], labels_arr[inner_train])
                     try:
-                        p_calib = inner_model.predict_proba(
-                            all_features[inner_calib]
-                        )
+                        p_calib = inner_model.predict_proba(all_features[inner_calib])
                         calib_scores = (
                             p_calib[:, 1]
                             if p_calib.ndim == 2 and p_calib.shape[1] == 2
@@ -357,12 +353,10 @@ def evaluate_model(
         "pooled_accuracy": pooled_acc,
         "fold_calibrated_acc": fold_calibrated_acc,
         "mean_calibrated_accuracy": (
-            float(np.mean(fold_calibrated_acc))
-            if fold_calibrated_acc else None
+            float(np.mean(fold_calibrated_acc)) if fold_calibrated_acc else None
         ),
         "std_calibrated_accuracy": (
-            float(np.std(fold_calibrated_acc))
-            if fold_calibrated_acc else None
+            float(np.std(fold_calibrated_acc)) if fold_calibrated_acc else None
         ),
         "fold_thresholds": fold_thresholds,
         "calibrate_threshold": calibrate_threshold,
@@ -515,8 +509,8 @@ def main(argv=None) -> int:
                 "ttc_threshold_seconds": args.ttc_threshold_seconds,
                 "ttc_distance_threshold": args.ttc_distance_threshold,
                 "split": args.split,
-        "calibrate_threshold": args.calibrate_threshold,
-        "calibration_objective": args.calibration_objective,
+                "calibrate_threshold": args.calibrate_threshold,
+                "calibration_objective": args.calibration_objective,
             },
             "labels": {
                 "num_windows": n,

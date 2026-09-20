@@ -338,6 +338,7 @@ def test_fold_auc_summary_fewer_than_five_folds():
     assert s["n_valid_folds"] == 3
     assert s["wilcoxon_p_vs_0_5"] is None
 
+
 # ------------------------------------------------------------------
 # Threshold calibration
 # ------------------------------------------------------------------
@@ -374,4 +375,3 @@ def test_choose_threshold_inverted_scores_picks_boundary():
     # high scorers (which are negatives) -> bad. t near 0.1 predicts all
     # positives. Verify the returned t is not blindly 0.5.
     assert t != 0.5
-
