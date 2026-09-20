@@ -45,7 +45,13 @@ def compute_ttc_constant_velocity(
     # If the actors are already inside the collision radius at t=0, TTC is
     # zero. Without this check the quadratic below returns the *exit*
     # root (when they separate), which is not time-to-collision.
-    if float(np.linalg.norm(rel_pos)) <= min_distance:
+    #
+    # Snap the comparison with a scale-aware epsilon: distance exactly
+    # equal to min_distance can round to ±1e-15 under rotation, flipping
+    # this <= nondeterministically. See test_ttc_rotation_invariant.
+    _d = float(np.linalg.norm(rel_pos))
+    _tol = 1e-9 * max(1.0, _d, min_distance)
+    if _d <= min_distance + _tol:
         return TTCResult(0.0, None, True, "already_in_collision")
 
     rel_speed_sq = float(np.dot(rel_vel, rel_vel))
@@ -68,7 +74,14 @@ def compute_ttc_constant_velocity(
     c = float(np.dot(rel_pos, rel_pos) - min_distance**2)
 
     discriminant = b**2 - 4.0 * a * c
-    if discriminant < 0:
+    # Near-zero discriminant is a tangent approach: the two actors just
+    # graze the collision radius. Tiny float64 error flips the sign
+    # between +0 and -0, which then picks the "collision" vs
+    # "no_collision" branch non-deterministically. Snap |disc| within a
+    # scale-aware epsilon to zero so the result is rotation-invariant
+    # (see tests/test_metamorphic.py::test_ttc_rotation_invariant).
+    _eps = 1e-12 * max(1.0, b * b, 4.0 * a * abs(c))
+    if discriminant < -_eps:
         t_near = closing_rate / rel_speed_sq
         closest_sep = np.linalg.norm(rel_pos + t_near * rel_vel)
         return TTCResult(
@@ -77,6 +90,8 @@ def compute_ttc_constant_velocity(
             True,
             f"no_collision_min_sep_{closest_sep:.3f}",
         )
+    if discriminant < 0.0:
+        discriminant = 0.0
 
     sqrt_disc = float(np.sqrt(discriminant))
     roots = [(-b - sqrt_disc) / (2.0 * a), (-b + sqrt_disc) / (2.0 * a)]
