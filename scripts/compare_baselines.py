@@ -1,0 +1,340 @@
+"""Compare the GCN risk model against tabular baselines on identical folds.
+
+Runs 5-fold cross-validation with the same label definition, window
+construction, and fold assignment across a menu of models:
+
+    majority   majority-class predictor (lower bound)
+    logreg     logistic regression on GraphFeatureExtractor features
+    rf         random forest on the same features
+    mlp        scikit-learn MLP on the same features
+    gcn        the GNN risk model used elsewhere in the pipeline
+
+Reports per-fold and pooled accuracy / F1 / AUC for each model, plus
+the majority baseline rate as a reference. Output is JSON plus a
+markdown-style summary table suitable for the paper's results section.
+
+The point is not to make any one model look good; it is to answer the
+research question: does the GNN architecture add anything over a
+classical classifier given the same input features?
+
+Reuses build_labels / blocked_folds / random_folds / train_one_fold /
+_auc / _f1 from scripts.evaluate_vntraffic so the GCN path here is the
+same one used in evaluate_vntraffic.py.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+# Make both `graf.*` and `scripts.*` importable when this file is
+# run as a subprocess (CI, pipeline_status.py). pytest.ini's
+# pythonpath setting does not affect subprocesses.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO_ROOT))
+sys.path.insert(0, str(_REPO_ROOT / "src"))
+
+import numpy as np
+
+from graf.models.baselines import (
+    GraphFeatureExtractor,
+    LogisticRegressionBaseline,
+    MajorityClassBaseline,
+    MLPBaseline,
+    RandomForestBaseline,
+)
+from scripts.evaluate_vntraffic import (
+    _auc,
+    _f1,
+    blocked_folds,
+    build_labels,
+    random_folds,
+    train_one_fold,
+)
+
+ALL_MODELS = ("majority", "logreg", "rf", "mlp", "gcn")
+
+
+def _make_model(name: str, seed: int) -> Any:
+    if name == "majority":
+        return MajorityClassBaseline()
+    if name == "logreg":
+        return LogisticRegressionBaseline(random_state=seed)
+    if name == "rf":
+        return RandomForestBaseline(random_state=seed)
+    if name == "mlp":
+        return MLPBaseline(random_state=seed)
+    raise ValueError(f"unknown tabular model: {name!r}")
+
+
+def _features_for_windows(window_ds, indices) -> np.ndarray:
+    """Flatten a list of PyG window Data objects to a (N, D) matrix."""
+    rows: list[np.ndarray] = []
+    for i in indices:
+        v = GraphFeatureExtractor.transform(window_ds[int(i)])
+        if v.ndim == 2 and v.shape[0] == 1:
+            rows.append(v[0])
+        else:
+            rows.append(v.reshape(-1))
+    return np.asarray(rows, dtype=np.float32)
+
+
+def train_tabular_fold(
+    name: str,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Fit one sklearn-compatible baseline, return (val_scores, val_labels)."""
+    model = _make_model(name, seed)
+    model.fit(X_train, y_train)
+
+    # sklearn models return (N, 2) proba with column 1 = positive class
+    try:
+        proba = model.predict_proba(X_val)
+        if proba.ndim == 2 and proba.shape[1] == 2:
+            scores = proba[:, 1]
+        elif proba.ndim == 2 and proba.shape[1] == 1:
+            scores = proba[:, 0]
+        else:
+            scores = proba.reshape(-1)
+    except Exception:
+        # Fallback: hard predictions as 0/1 scores
+        scores = np.asarray(model.predict(X_val), dtype=np.float32)
+
+    return np.asarray(scores, dtype=np.float64), np.asarray(y_train)  # placeholder
+
+
+def evaluate_model(
+    name: str,
+    window_ds,
+    labels: list[int],
+    folds: list[np.ndarray],
+    *,
+    epochs: int,
+    batch_size: int,
+    lr: float,
+    pos_weight: float | None,
+    seed: int,
+) -> dict[str, Any]:
+    """Train and evaluate one model across all folds. Returns metrics + per-fold arrays."""
+    labels_arr = np.asarray(labels, dtype=np.int64)
+    fold_acc, fold_f1, fold_auc, fold_maj = [], [], [], []
+    pooled_scores: list[float] = []
+    pooled_labels: list[int] = []
+
+    if name == "gcn":
+        for k, val_idx in enumerate(folds):
+            train_idx = np.concatenate([folds[j] for j in range(len(folds)) if j != k])
+            scores, val_labels = train_one_fold(
+                window_ds,
+                labels,
+                train_idx,
+                val_idx,
+                epochs,
+                batch_size,
+                lr,
+                pos_weight,
+                seed + k,
+            )
+            preds = (scores > 0.5).astype(int)
+            fold_acc.append(float((preds == val_labels).mean()))
+            fold_f1.append(_f1(preds, val_labels))
+            fold_auc.append(_auc(scores, val_labels))
+            fold_maj.append(float(max(val_labels.mean(), 1 - val_labels.mean())))
+            pooled_scores.extend(scores.tolist())
+            pooled_labels.extend(val_labels.tolist())
+    else:
+        # Tabular path: flatten features once
+        all_features = _features_for_windows(window_ds, list(range(len(window_ds))))
+        for k, val_idx in enumerate(folds):
+            train_idx = np.concatenate([folds[j] for j in range(len(folds)) if j != k])
+            X_train = all_features[train_idx]
+            y_train = labels_arr[train_idx]
+            X_val = all_features[val_idx]
+            y_val = labels_arr[val_idx]
+
+            model = _make_model(name, seed + k)
+            model.fit(X_train, y_train)
+            try:
+                proba = model.predict_proba(X_val)
+                if proba.ndim == 2 and proba.shape[1] == 2:
+                    scores = proba[:, 1]
+                else:
+                    scores = proba.reshape(-1)
+            except Exception:
+                scores = np.asarray(model.predict(X_val), dtype=np.float64)
+            scores = np.asarray(scores, dtype=np.float64)
+
+            preds = (scores > 0.5).astype(int)
+            fold_acc.append(float((preds == y_val).mean()))
+            fold_f1.append(_f1(preds, y_val))
+            fold_auc.append(_auc(scores, y_val))
+            fold_maj.append(float(max(y_val.mean(), 1 - y_val.mean())))
+            pooled_scores.extend(scores.tolist())
+            pooled_labels.extend(y_val.tolist())
+
+    pooled_scores_arr = np.asarray(pooled_scores)
+    pooled_labels_arr = np.asarray(pooled_labels)
+    pooled_preds = (pooled_scores_arr > 0.5).astype(int)
+    pooled_acc = float((pooled_preds == pooled_labels_arr).mean())
+
+    return {
+        "model": name,
+        "fold_acc": fold_acc,
+        "fold_f1": fold_f1,
+        "fold_auc": fold_auc,
+        "fold_majority": fold_maj,
+        "mean_accuracy": float(np.mean(fold_acc)),
+        "std_accuracy": float(np.std(fold_acc)),
+        "mean_f1": float(np.mean(fold_f1)),
+        "mean_auc": float(np.nanmean(fold_auc)),
+        "pooled_accuracy": pooled_acc,
+        "pooled_auc": float(_auc(pooled_scores_arr, pooled_labels_arr)),
+    }
+
+
+def parse_args(argv=None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--tracks", required=True)
+    p.add_argument("--graphs_dir", required=True)
+    p.add_argument("--homography_config", required=True)
+    p.add_argument("--output_dir", default="outputs/baseline_comparison")
+    p.add_argument("--window_size", type=int, default=5)
+    p.add_argument("--stride", type=int, default=2)
+    p.add_argument("--distance_threshold", type=float, default=5.0)
+    p.add_argument("--min_interaction_frames", type=int, default=3)
+    p.add_argument("--fps", type=float, default=30.0)
+    p.add_argument("--epochs", type=int, default=25)
+    p.add_argument("--num_folds", type=int, default=5)
+    p.add_argument("--batch_size", type=int, default=16)
+    p.add_argument("--lr", type=float, default=0.001)
+    p.add_argument("--pos_weight", type=float, default=2.0)
+    p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--split", choices=["blocked", "random"], default="blocked")
+    p.add_argument("--label-source", choices=["ttc", "proximity"], default="ttc")
+    p.add_argument("--ttc-threshold-seconds", type=float, default=1.5)
+    p.add_argument("--ttc-distance-threshold", type=float, default=3.0)
+    p.add_argument(
+        "--models",
+        default=",".join(ALL_MODELS),
+        help="Comma-separated subset of: " + ", ".join(ALL_MODELS),
+    )
+    return p.parse_args(argv)
+
+
+def main(argv=None) -> int:
+    args = parse_args(argv)
+    requested = [m.strip() for m in args.models.split(",") if m.strip()]
+    for m in requested:
+        if m not in ALL_MODELS:
+            raise SystemExit(f"unknown model: {m!r} (choose from {ALL_MODELS})")
+
+    window_ds, labels = build_labels(
+        args.tracks,
+        args.graphs_dir,
+        args.homography_config,
+        args.window_size,
+        args.stride,
+        args.distance_threshold,
+        args.min_interaction_frames,
+        args.fps,
+        label_source=args.label_source,
+        ttc_threshold_seconds=args.ttc_threshold_seconds,
+        ttc_distance_threshold=args.ttc_distance_threshold,
+    )
+    n = len(window_ds)
+    if n == 0:
+        raise SystemExit("No windows found — check graphs_dir.")
+    n_pos = int(sum(labels))
+    majority = max(n_pos, n - n_pos) / n
+    print(f"Windows: {n}  positives: {n_pos}  majority: {majority:.3f}")
+
+    frame_ids_per_window = [window_ds[i].frame_ids.tolist() for i in range(n)]
+    if args.split == "blocked":
+        folds = blocked_folds(frame_ids_per_window, args.num_folds)
+    else:
+        folds = random_folds(n, args.num_folds, args.seed)
+
+    results = []
+    for name in requested:
+        t0 = time.time()
+        r = evaluate_model(
+            name,
+            window_ds,
+            labels,
+            folds,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            lr=args.lr,
+            pos_weight=args.pos_weight,
+            seed=args.seed,
+        )
+        r["runtime_seconds"] = round(time.time() - t0, 2)
+        results.append(r)
+        print(
+            f"  {name:10s}  "
+            f"acc={r['mean_accuracy']:.3f}±{r['std_accuracy']:.3f}  "
+            f"f1={r['mean_f1']:.3f}  "
+            f"auc={r['mean_auc']:.3f}  "
+            f"pooled_acc={r['pooled_accuracy']:.3f}  "
+            f"pooled_auc={r['pooled_auc']:.3f}  "
+            f"({r['runtime_seconds']}s)"
+        )
+
+    # Markdown table
+    print()
+    print(
+        "| model | mean acc ± std | mean F1 | mean AUC | pooled acc | pooled AUC | runtime (s) |"
+    )
+    print("|---|---|---|---|---|---|---|")
+    for r in results:
+        print(
+            f"| {r['model']} | "
+            f"{r['mean_accuracy']:.3f} ± {r['std_accuracy']:.3f} | "
+            f"{r['mean_f1']:.3f} | "
+            f"{r['mean_auc']:.3f} | "
+            f"{r['pooled_accuracy']:.3f} | "
+            f"{r['pooled_auc']:.3f} | "
+            f"{r['runtime_seconds']} |"
+        )
+
+    out = Path(args.output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "setup": {
+            "tracks": args.tracks,
+            "graphs_dir": args.graphs_dir,
+            "window_size": args.window_size,
+            "stride": args.stride,
+            "label_source": args.label_source,
+            "ttc_threshold_seconds": args.ttc_threshold_seconds,
+            "ttc_distance_threshold": args.ttc_distance_threshold,
+            "split": args.split,
+            "num_folds": args.num_folds,
+            "epochs": args.epochs,
+            "batch_size": args.batch_size,
+            "lr": args.lr,
+            "pos_weight": args.pos_weight,
+            "seed": args.seed,
+        },
+        "labels": {
+            "num_windows": n,
+            "num_positive": n_pos,
+            "num_negative": n - n_pos,
+            "majority_baseline": majority,
+        },
+        "results": results,
+    }
+    (out / "comparison.json").write_text(json.dumps(payload, indent=2))
+    print(f"\nWrote {out / 'comparison.json'}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
