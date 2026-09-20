@@ -311,6 +311,43 @@ def main(argv=None) -> int:
     majority = max(n_pos, n - n_pos) / n
     print(f"Windows: {n}  positives: {n_pos}  majority: {majority:.3f}")
 
+    # A single-class label set makes every model trivially 100% or 0%;
+    # sklearn also raises inside logistic-regression fit. Report the
+    # degenerate distribution and exit cleanly rather than crashing.
+    if n_pos == 0 or n_pos == n:
+        print(
+            f"\nLabel set is degenerate: {n_pos}/{n} positives. "
+            "No model can be trained or evaluated. This is itself a "
+            "finding worth recording — widen the threshold, tighten "
+            "the window rule, or add negatives before rerunning."
+        )
+        out_dir = Path(args.output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        degenerate_payload = {
+            "setup": {
+                "tracks": args.tracks,
+                "graphs_dir": args.graphs_dir,
+                "num_windows": n,
+                "label_source": args.label_source,
+                "ttc_threshold_seconds": args.ttc_threshold_seconds,
+                "ttc_distance_threshold": args.ttc_distance_threshold,
+                "split": args.split,
+            },
+            "labels": {
+                "num_windows": n,
+                "num_positive": n_pos,
+                "num_negative": n - n_pos,
+                "majority_baseline": majority,
+            },
+            "results": [],
+            "degenerate": True,
+        }
+        (out_dir / "comparison.json").write_text(
+            json.dumps(degenerate_payload, indent=2) + "\n"
+        )
+        print(f"Wrote {out_dir / 'comparison.json'}")
+        return 0
+
     frame_ids_per_window = [window_ds[i].frame_ids.tolist() for i in range(n)]
     if args.split == "blocked":
         folds = blocked_folds(frame_ids_per_window, args.num_folds)

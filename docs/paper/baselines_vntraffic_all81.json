@@ -1,0 +1,19 @@
+{
+  "setup": {
+    "tracks": "data/interim/vntraffic_tracks_all85_min20.jsonl",
+    "graphs_dir": "data/processed/graphs/vntraffic_all85",
+    "num_windows": 249,
+    "label_source": "ttc",
+    "ttc_threshold_seconds": 1.5,
+    "ttc_distance_threshold": 3.0,
+    "split": "blocked"
+  },
+  "labels": {
+    "num_windows": 249,
+    "num_positive": 249,
+    "num_negative": 0,
+    "majority_baseline": 1.0
+  },
+  "results": [],
+  "degenerate": true
+}
