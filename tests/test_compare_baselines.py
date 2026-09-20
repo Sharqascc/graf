@@ -337,3 +337,41 @@ def test_fold_auc_summary_fewer_than_five_folds():
     s = cb._fold_auc_summary([0.6, 0.7, 0.8])
     assert s["n_valid_folds"] == 3
     assert s["wilcoxon_p_vs_0_5"] is None
+
+
+# ------------------------------------------------------------------
+# Threshold calibration
+# ------------------------------------------------------------------
+
+
+def test_choose_threshold_perfect_separation():
+    scores = np.array([0.1, 0.2, 0.8, 0.9])
+    labels = np.array([0, 0, 1, 1])
+    t = cb._choose_threshold(scores, labels)
+    assert 0.2 < t <= 0.8
+
+
+def test_choose_threshold_all_same_class_returns_half():
+    scores = np.array([0.1, 0.5, 0.9])
+    labels = np.array([1, 1, 1])
+    assert cb._choose_threshold(scores, labels) == 0.5
+    labels0 = np.array([0, 0, 0])
+    assert cb._choose_threshold(scores, labels0) == 0.5
+
+
+def test_choose_threshold_single_unique_score_returns_half():
+    scores = np.array([0.3, 0.3, 0.3])
+    labels = np.array([0, 1, 1])
+    assert cb._choose_threshold(scores, labels) == 0.5
+
+
+def test_choose_threshold_inverted_scores_picks_boundary():
+    # Positives have LOW scores. Youden's J still finds a threshold that
+    # separates them; the returned threshold will sit near the low end.
+    scores = np.array([0.1, 0.2, 0.8, 0.9])
+    labels = np.array([1, 1, 0, 0])
+    t = cb._choose_threshold(scores, labels)
+    # Best J: predict >= t as positive. t near 0.8 predicts only the two
+    # high scorers (which are negatives) -> bad. t near 0.1 predicts all
+    # positives. Verify the returned t is not blindly 0.5.
+    assert t != 0.5

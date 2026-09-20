@@ -159,6 +159,62 @@ def _fold_auc_summary(fold_auc: list[float]) -> dict:
     }
 
 
+def _choose_threshold(scores, labels, objective: str = "accuracy") -> float:
+    """Choose the decision threshold on an inner calibration split.
+
+    Two objectives:
+
+    * ``"accuracy"`` (default) — pick the threshold that maximizes
+      accuracy on the calibration split. This is prior-aware: it
+      accounts for the class distribution we actually report on.
+    * ``"youden"`` — pick the threshold maximizing Youden's J = TPR -
+      FPR. This is imbalance-agnostic and is the standard choice in
+      clinical screening but can systematically pick thresholds above
+      0.5 for imbalanced data, reducing accuracy relative to the
+      majority baseline.
+
+    Returns 0.5 if the calibration set has a single class or fewer than
+    two distinct scores.
+    """
+    scores = np.asarray(scores, dtype=float)
+    labels = np.asarray(labels, dtype=int)
+    if len(np.unique(labels)) < 2:
+        return 0.5
+    candidates = np.unique(scores)
+    if len(candidates) < 2:
+        return 0.5
+
+    if objective == "accuracy":
+        best_score = -1.0
+        best_t = 0.5
+        for t in candidates:
+            preds = (scores >= t).astype(int)
+            acc = float((preds == labels).mean())
+            if acc > best_score:
+                best_score = acc
+                best_t = float(t)
+        return best_t
+
+    if objective == "youden":
+        P = int((labels == 1).sum())
+        N = int((labels == 0).sum())
+        best_j = -1.0
+        best_t = 0.5
+        for t in candidates:
+            preds = (scores >= t).astype(int)
+            tp = int(((preds == 1) & (labels == 1)).sum())
+            fp = int(((preds == 1) & (labels == 0)).sum())
+            tpr = tp / P if P else 0.0
+            fpr = fp / N if N else 0.0
+            j = tpr - fpr
+            if j > best_j:
+                best_j = j
+                best_t = float(t)
+        return best_t
+
+    raise ValueError(f"unknown calibration objective: {objective!r}")
+
+
 def evaluate_model(
     name: str,
     window_ds,
@@ -170,11 +226,15 @@ def evaluate_model(
     lr: float,
     pos_weight: float | None,
     seed: int,
+    calibrate_threshold: bool = False,
+    calibration_objective: str = "accuracy",
 ) -> dict[str, Any]:
     """Train and evaluate one model across all folds. Returns metrics + per-fold arrays."""
     labels_arr = np.asarray(labels, dtype=np.int64)
     fold_acc, fold_f1, fold_auc, fold_maj = [], [], [], []
     fold_neg_count: list[int] = []
+    fold_calibrated_acc: list[float] = []
+    fold_thresholds: list[float] = []
     pooled_scores: list[float] = []
     pooled_labels: list[int] = []
 
@@ -210,6 +270,40 @@ def evaluate_model(
             X_val = all_features[val_idx]
             y_val = labels_arr[val_idx]
 
+            # Optional nested-CV threshold calibration: fit a throwaway
+            # model on an inner-train split, choose the threshold on an
+            # inner-calibration split, then fit the reporting model on
+            # the full train fold. The threshold is never chosen on the
+            # validation fold.
+            threshold = 0.5
+            if calibrate_threshold:
+                rng = np.random.default_rng(seed + k)
+                n_train = len(train_idx)
+                perm = rng.permutation(n_train)
+                n_inner = max(int(0.7 * n_train), 1)
+                if n_inner < n_train:
+                    inner_train = train_idx[perm[:n_inner]]
+                    inner_calib = train_idx[perm[n_inner:]]
+                    inner_model = _make_model(name, seed + k)
+                    inner_model.fit(all_features[inner_train], labels_arr[inner_train])
+                    try:
+                        p_calib = inner_model.predict_proba(all_features[inner_calib])
+                        calib_scores = (
+                            p_calib[:, 1]
+                            if p_calib.ndim == 2 and p_calib.shape[1] == 2
+                            else p_calib.reshape(-1)
+                        )
+                    except Exception:
+                        calib_scores = np.asarray(
+                            inner_model.predict(all_features[inner_calib]),
+                            dtype=np.float64,
+                        )
+                    threshold = _choose_threshold(
+                        calib_scores,
+                        labels_arr[inner_calib],
+                        objective=calibration_objective,
+                    )
+
             model = _make_model(name, seed + k)
             model.fit(X_train, y_train)
             try:
@@ -228,6 +322,10 @@ def evaluate_model(
             fold_auc.append(_auc(scores, y_val))
             fold_maj.append(float(max(y_val.mean(), 1 - y_val.mean())))
             fold_neg_count.append(_negative_count(y_val))
+            fold_thresholds.append(threshold)
+            if calibrate_threshold:
+                cal_preds = (scores >= threshold).astype(int)
+                fold_calibrated_acc.append(float((cal_preds == y_val).mean()))
             pooled_scores.extend(scores.tolist())
             pooled_labels.extend(y_val.tolist())
 
@@ -253,6 +351,15 @@ def evaluate_model(
         "n_valid_folds_auc": auc_stats["n_valid_folds"],
         "wilcoxon_p_vs_0_5": auc_stats["wilcoxon_p_vs_0_5"],
         "pooled_accuracy": pooled_acc,
+        "fold_calibrated_acc": fold_calibrated_acc,
+        "mean_calibrated_accuracy": (
+            float(np.mean(fold_calibrated_acc)) if fold_calibrated_acc else None
+        ),
+        "std_calibrated_accuracy": (
+            float(np.std(fold_calibrated_acc)) if fold_calibrated_acc else None
+        ),
+        "fold_thresholds": fold_thresholds,
+        "calibrate_threshold": calibrate_threshold,
         # Retained only for debugging. Pooling scores across folds trained
         # on different data is not a valid AUC: each model produces
         # scores on its own calibration scale. Do not report this.
@@ -280,6 +387,29 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--pos_weight", type=float, default=2.0)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--split", choices=["blocked", "random"], default="blocked")
+    p.add_argument(
+        "--calibration-objective",
+        choices=["accuracy", "youden"],
+        default="accuracy",
+        help=(
+            "Objective to optimize on the inner calibration split. "
+            "'accuracy' is prior-aware (matches the class distribution "
+            "we report on); 'youden' maximizes TPR - FPR and can pick "
+            "thresholds above 0.5 on imbalanced data."
+        ),
+    )
+    p.add_argument(
+        "--calibrate-threshold",
+        action="store_true",
+        help=(
+            "Enable nested-CV threshold calibration for the tabular path. "
+            "For each fold, fit a throwaway model on an inner-train split, "
+            "choose the decision threshold on an inner-calibration split "
+            "by Youden's J, then fit the reporting model on the full "
+            "training fold and apply that threshold to validation. GCN is "
+            "not calibrated (its training is one-shot per fold)."
+        ),
+    )
     p.add_argument("--label-source", choices=["ttc", "proximity"], default="ttc")
     p.add_argument("--ttc-threshold-seconds", type=float, default=1.5)
     p.add_argument("--ttc-distance-threshold", type=float, default=3.0)
@@ -379,6 +509,8 @@ def main(argv=None) -> int:
                 "ttc_threshold_seconds": args.ttc_threshold_seconds,
                 "ttc_distance_threshold": args.ttc_distance_threshold,
                 "split": args.split,
+                "calibrate_threshold": args.calibrate_threshold,
+                "calibration_objective": args.calibration_objective,
             },
             "labels": {
                 "num_windows": n,
@@ -414,6 +546,8 @@ def main(argv=None) -> int:
             lr=args.lr,
             pos_weight=args.pos_weight,
             seed=args.seed,
+            calibrate_threshold=args.calibrate_threshold,
+            calibration_objective=args.calibration_objective,
         )
         r["runtime_seconds"] = round(time.time() - t0, 2)
         results.append(r)
