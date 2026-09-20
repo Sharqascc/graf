@@ -1,0 +1,118 @@
+{
+  "setup": {
+    "tracks": "all 81 with >=20 frames of 85 (VNTraffic)",
+    "graphs_dir": "data/processed/graphs/vntraffic_all85",
+    "num_windows": 249,
+    "window_size": 5,
+    "stride": 2,
+    "num_folds": 5,
+    "split": "blocked",
+    "ttc_threshold_seconds": 1.5,
+    "distance_threshold": 3.0,
+    "closing_rate_threshold": 0.5
+  },
+  "strategies_tested": [
+    {
+      "name": "any",
+      "params": {},
+      "num_positive": 249,
+      "num_negative": 0,
+      "majority": 1.0,
+      "evaluated": false
+    },
+    {
+      "name": "pair_fraction",
+      "params": {
+        "fraction_threshold": 0.2
+      },
+      "num_positive": 248,
+      "num_negative": 1,
+      "majority": 0.996,
+      "evaluated": false
+    },
+    {
+      "name": "pair_fraction",
+      "params": {
+        "fraction_threshold": 0.5
+      },
+      "num_positive": 0,
+      "num_negative": 249,
+      "majority": 1.0,
+      "evaluated": false
+    },
+    {
+      "name": "pair_fraction",
+      "params": {
+        "fraction_threshold": 0.8
+      },
+      "num_positive": 0,
+      "num_negative": 249,
+      "majority": 1.0,
+      "evaluated": false
+    },
+    {
+      "name": "sustained",
+      "params": {
+        "run_length": 2
+      },
+      "num_positive": 249,
+      "num_negative": 0,
+      "majority": 1.0,
+      "evaluated": false
+    },
+    {
+      "name": "sustained",
+      "params": {
+        "run_length": 3
+      },
+      "num_positive": 249,
+      "num_negative": 0,
+      "majority": 1.0,
+      "evaluated": false
+    },
+    {
+      "name": "sustained",
+      "params": {
+        "run_length": 5
+      },
+      "num_positive": 194,
+      "num_negative": 55,
+      "majority": 0.779,
+      "evaluated": true,
+      "logreg": {
+        "mean_acc": 0.598,
+        "std_acc": 0.109,
+        "mean_auc": 0.614,
+        "std_auc": 0.071,
+        "neg_per_fold": [
+          9,
+          14,
+          10,
+          11,
+          11
+        ]
+      },
+      "rf": {
+        "mean_acc": 0.722,
+        "std_acc": 0.085,
+        "mean_auc": 0.738,
+        "std_auc": 0.094,
+        "neg_per_fold": [
+          9,
+          14,
+          10,
+          11,
+          11
+        ]
+      }
+    },
+    {
+      "name": "min_ttc",
+      "params": {},
+      "num_positive": 249,
+      "num_negative": 0,
+      "majority": 1.0,
+      "evaluated": false
+    }
+  ]
+}
