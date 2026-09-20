@@ -297,3 +297,43 @@ def test_cli_help():
         "--ttc-threshold-seconds",
     ):
         assert flag in r.stdout
+
+
+# ------------------------------------------------------------------
+# Fold summary helpers
+# ------------------------------------------------------------------
+
+
+def test_negative_count_basic():
+    assert cb._negative_count(np.array([1, 1, 0, 0, 0])) == 3
+    assert cb._negative_count(np.array([1, 1, 1])) == 0
+    assert cb._negative_count([0, 0]) == 2
+
+
+def test_fold_auc_summary_all_nan():
+    s = cb._fold_auc_summary([float("nan"), float("nan")])
+    assert s["n_valid_folds"] == 0
+    assert s["mean_auc"] != s["mean_auc"]  # NaN
+    assert s["wilcoxon_p_vs_0_5"] is None
+
+
+def test_fold_auc_summary_basic():
+    s = cb._fold_auc_summary([0.6, 0.7, 0.8, 0.9, 1.0])
+    assert s["n_valid_folds"] == 5
+    assert abs(s["mean_auc"] - 0.8) < 1e-9
+    # With 5 folds, minimum two-sided Wilcoxon p is ~0.0625.
+    assert s["wilcoxon_p_vs_0_5"] is not None
+    assert s["wilcoxon_p_vs_0_5"] >= 0.05
+
+
+def test_fold_auc_summary_mixed_around_half():
+    s = cb._fold_auc_summary([0.5, 0.5, 0.5, 0.5, 0.5])
+    # No variation -> wilcoxon undefined.
+    assert s["wilcoxon_p_vs_0_5"] is None
+
+
+def test_fold_auc_summary_fewer_than_five_folds():
+    # n<5 -> no wilcoxon attempted.
+    s = cb._fold_auc_summary([0.6, 0.7, 0.8])
+    assert s["n_valid_folds"] == 3
+    assert s["wilcoxon_p_vs_0_5"] is None
