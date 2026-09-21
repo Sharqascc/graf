@@ -269,9 +269,9 @@ Tracks each confirmed finding against the PR that addresses it. Reviewed
 | 3 | `train_tabular_fold` returns `y_train` as `y_val` | **open** — pinned as xfail in `tests/test_pipeline_invariants.py` |
 | 4 | `comparison.json` setup omits config keys | **fixed** in PR #39 — `label_strategy`, `run_length`, `fraction_threshold`, `calibrate_threshold`, `calibration_objective`, `purge_gap_frames` now recorded |
 | 5 | "5.7 SEs above chance" claim contradicts the harness | **retracted** in the docs PR that added this log |
-| 6 | `fold_majority = max(p, 1-p)` is oracle, not trained majority | **open** |
-| 7 | `>` vs `>=` inconsistency at 0.5 | **open** |
-| 8 | `--calibrate-threshold` help says "by Youden's J" | **open** |
+| 6 | `fold_majority = max(p, 1-p)` is oracle, not trained majority | **fixed** in PR #42 — `_majority_baseline_accuracy` fits on the train fold and predicts the train majority on val |
+| 7 | `>` vs `>=` inconsistency at 0.5 | **fixed** in PR #42 — all three paths use `>= 0.5`; invariant test forbids `> 0.5` in the prediction paths |
+| 8 | `--calibrate-threshold` help says "by Youden's J" | **fixed** in PR #42 — help now references `--calibration-objective` |
 | 9 | `sustained` does not require same (track_a, track_b) pair | **open** (optional) |
 | 10 | `ea_nonzero_frac` alone reaches AUC 0.803 | **reproducible** via [PR #40](https://github.com/Sharqascc/graf/pull/40) (`73aa855`) — `--models single_feature --single-feature-name edge_attr_nonzero_frac`; RF without it: `--exclude-features edge_attr_nonzero_frac` |
 | 11 | `rel_heading_sin` (edge col 9) always 0 | **open** |
