@@ -214,3 +214,76 @@ def test_purge_train_indices_empty_frame_windows_kept() -> None:
     out = cb.purge_train_indices(train, val, frame_ids, gap=0)
     assert 1 in out.tolist(), "empty-frames window must be kept"
     assert 0 not in out.tolist(), "overlapping window must be dropped"
+
+
+# ------------------------------------------------------------------
+# GraphFeatureExtractor feature naming and single-feature baseline
+# ------------------------------------------------------------------
+
+
+def test_feature_names_match_vector_width() -> None:
+    """feature_names() must align with transform() output width."""
+    import torch
+    from torch_geometric.data import Data
+
+    from graf.models.baselines import GraphFeatureExtractor
+
+    g = Data(
+        x=torch.zeros((3, 4), dtype=torch.float32),
+        edge_index=torch.tensor([[0, 1], [1, 2]], dtype=torch.long),
+        edge_attr=torch.zeros((2, 15), dtype=torch.float32),
+        pos=torch.zeros((3, 2), dtype=torch.float32),
+    )
+    vec = GraphFeatureExtractor.transform(g)
+    names = GraphFeatureExtractor.feature_names()
+    assert vec.shape[1] == len(names), (
+        f"vector width {vec.shape[1]} != feature_names length {len(names)}"
+    )
+    assert "edge_attr_nonzero_frac" in names
+
+
+def test_transform_excluding_drops_named_columns() -> None:
+    import torch
+    from torch_geometric.data import Data
+
+    from graf.models.baselines import GraphFeatureExtractor
+
+    g = Data(
+        x=torch.zeros((3, 4)),
+        edge_index=torch.tensor([[0, 1], [1, 2]], dtype=torch.long),
+        edge_attr=torch.zeros((2, 15)),
+        pos=torch.zeros((3, 2)),
+    )
+    full = GraphFeatureExtractor.transform(g)
+    reduced = GraphFeatureExtractor.transform_excluding(g, {"edge_attr_nonzero_frac"})
+    assert reduced.shape[1] == full.shape[1] - 1
+
+    with pytest.raises(ValueError):
+        GraphFeatureExtractor.transform_excluding(g, {"not_a_feature"})
+
+
+def test_single_feature_baseline_auc_matches_feature() -> None:
+    """SingleFeatureBaseline AUC equals AUC of the chosen column."""
+    from graf.models.baselines import GraphFeatureExtractor, SingleFeatureBaseline
+    from scripts.evaluate_vntraffic import _auc
+
+    rng = np.random.default_rng(0)
+    n = 40
+    names = GraphFeatureExtractor.feature_names()
+    X = np.zeros((n, len(names)), dtype=np.float32)
+    y = (rng.random(n) < 0.5).astype(int)
+    X[:, names.index("edge_attr_nonzero_frac")] = y.astype(float) + rng.normal(
+        scale=0.3, size=n
+    )
+    for j in range(X.shape[1]):
+        if names[j] != "edge_attr_nonzero_frac":
+            X[:, j] = rng.normal(size=n)
+
+    clf = SingleFeatureBaseline("edge_attr_nonzero_frac").fit(X, y)
+    scores = clf.predict_proba(X)[:, 1]
+    auc_baseline = _auc(scores, y)
+    auc_feature = _auc(X[:, names.index("edge_attr_nonzero_frac")], y)
+    assert abs(auc_baseline - auc_feature) < 1e-9, (
+        f"baseline AUC {auc_baseline:.6f} != feature AUC {auc_feature:.6f}"
+    )
+    assert auc_baseline > 0.7

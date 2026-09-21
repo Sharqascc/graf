@@ -52,6 +52,57 @@ def _safe_stats(arr: np.ndarray) -> list[float]:
     ]
 
 
+# Ordered names for the 42-dim vector emitted by GraphFeatureExtractor.
+# INVARIANT: len(_FEATURE_NAMES) == GraphFeatureExtractor.transform(sample).shape[1]
+# and _FEATURE_NAMES[i] names column i. If a feature is added or removed
+# in _graph_to_vector, this list must be updated in lockstep; the
+# test_feature_names_match_vector_width invariant test enforces it.
+_FEATURE_NAMES: list[str] = [
+    "num_nodes",
+    "num_edges",
+    "density",
+    "node_feat_dim",
+    "edge_feat_dim",
+    "pos_feat_dim",
+    "x_mean",
+    "x_std",
+    "x_min",
+    "x_max",
+    "x_row_l2_mean",
+    "x_row_l2_std",
+    "x_row_l2_min",
+    "x_row_l2_max",
+    "x_nonzero_frac",
+    "edge_attr_mean",
+    "edge_attr_std",
+    "edge_attr_min",
+    "edge_attr_max",
+    "edge_row_l2_mean",
+    "edge_row_l2_std",
+    "edge_row_l2_min",
+    "edge_row_l2_max",
+    "edge_attr_nonzero_frac",
+    "pos_mean",
+    "pos_std",
+    "pos_min",
+    "pos_max",
+    "y_mean",
+    "y_std",
+    "y_min",
+    "y_max",
+    "frame_id_mean",
+    "frame_id_unique",
+    "video_id_mean",
+    "video_id_unique",
+    "track_id_mean",
+    "track_id_unique",
+    "node_frame_index_mean",
+    "node_frame_index_unique",
+    "actor_class_index_mean",
+    "actor_class_index_unique",
+]
+
+
 class GraphFeatureExtractor:
     """Convert PyG graph objects into fixed-width tabular feature vectors."""
 
@@ -88,6 +139,30 @@ class GraphFeatureExtractor:
                 return True
 
         return False
+
+    @classmethod
+    def feature_names(cls) -> list[str]:
+        """Ordered column names for the vector returned by transform().
+
+        Length invariant is checked by tests/test_pipeline_invariants.py.
+        Column ``i`` of transform(...) is named by feature_names()[i].
+        """
+        return list(_FEATURE_NAMES)
+
+    @classmethod
+    def transform_excluding(
+        cls, data: Any, exclude_names: set[str] | None = None
+    ) -> np.ndarray:
+        """transform(), then drop the named columns. Order preserved."""
+        arr = cls.transform(data)
+        if not exclude_names or arr.size == 0:
+            return arr
+        names = cls.feature_names()
+        unknown = exclude_names - set(names)
+        if unknown:
+            raise ValueError(f"unknown feature names: {sorted(unknown)}")
+        keep = [i for i, n in enumerate(names) if n not in exclude_names]
+        return arr[:, keep]
 
     @classmethod
     def _normalize_graphs(cls, data: Any) -> list[Any]:
@@ -507,6 +582,57 @@ BASELINE_REGISTRY = {
     "random_forest": RandomForestBaseline,
     "mlp": MLPBaseline,
 }
+
+
+class SingleFeatureBaseline(BaselineClassifierMixin, BaseEstimator, ClassifierMixin):
+    """Trivial baseline: score by a single named feature column.
+
+    AUC of this baseline equals AUC of the chosen column (monotone
+    transform preserves ranking). Used to quantify how much of a model's
+    signal is captured by one scalar — e.g. edge_attr_nonzero_frac.
+    """
+
+    def __init__(self, feature_name: str = "edge_attr_nonzero_frac") -> None:
+        self.feature_name = feature_name
+        self._idx: int | None = None
+        self._sign: float = 1.0
+        self._lo: float = 0.0
+        self._rng: float = 1.0
+        self.classes_ = np.array([0, 1])
+
+    def _column(self, X: Any) -> np.ndarray:
+        arr = GraphFeatureExtractor.transform(X).astype(np.float32)
+        if self._idx is None:
+            raise RuntimeError("Model must be fitted before calling predict().")
+        return arr[:, self._idx].astype(np.float64)
+
+    def fit(self, X: Any, y: Any) -> SingleFeatureBaseline:
+        names = GraphFeatureExtractor.feature_names()
+        if self.feature_name not in names:
+            raise ValueError(f"unknown feature {self.feature_name!r}; valid: {names}")
+        self._idx = names.index(self.feature_name)
+        col = self._column(X)
+        y_arr = _to_numpy(y).reshape(-1).astype(np.int64)
+        if col.std() == 0 or len(col) < 2:
+            self._sign = 1.0
+        else:
+            r = float(np.corrcoef(col, y_arr)[0, 1])
+            self._sign = 1.0 if (np.isnan(r) or r >= 0) else -1.0
+        self._lo = float(col.min())
+        hi = float(col.max())
+        self._rng = hi - self._lo if hi > self._lo else 1.0
+        self.classes_ = np.array([0, 1])
+        return self
+
+    def predict_proba(self, X: Any) -> np.ndarray:
+        col = self._column(X)
+        s = (col - self._lo) / self._rng
+        if self._sign < 0:
+            s = 1.0 - s
+        return np.stack([1.0 - s, s], axis=1)
+
+    def predict(self, X: Any) -> np.ndarray:
+        return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
 
 
 def get_baseline(name: str, **kwargs: Any) -> BaseEstimator:
