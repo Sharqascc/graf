@@ -287,3 +287,52 @@ def test_single_feature_baseline_auc_matches_feature() -> None:
         f"baseline AUC {auc_baseline:.6f} != feature AUC {auc_feature:.6f}"
     )
     assert auc_baseline > 0.7
+
+
+# ------------------------------------------------------------------
+# Harness hygiene: majority baseline (#6), threshold boundary (#7)
+# ------------------------------------------------------------------
+
+
+def test_majority_baseline_accuracy_uses_train_majority() -> None:
+    """The majority baseline predicts the TRAIN fold's majority class.
+
+    When train and val have different majorities, accuracy drops below
+    1.0 — unlike the oracle max(p, 1-p) this replaced.
+    """
+    train = np.array([1, 1, 1, 1, 0])  # 80% positive
+    val = np.array([0, 0, 0, 1, 1])  # 60% negative
+    acc = cb._majority_baseline_accuracy(train, val)
+    # Predicts positive on val → matches at positions 3, 4 → 2/5
+    assert acc == 0.4
+
+
+def test_majority_baseline_matches_val_majority_when_consistent() -> None:
+    """When train majority applies to val, the baseline gets val accuracy."""
+    train = np.array([1, 1, 1, 0])
+    val = np.array([1, 1, 0, 0])
+    acc = cb._majority_baseline_accuracy(train, val)
+    assert acc == 0.5
+
+
+def test_majority_baseline_empty_inputs_return_zero() -> None:
+    assert cb._majority_baseline_accuracy(np.array([]), np.array([1, 0])) == 0.0
+    assert cb._majority_baseline_accuracy(np.array([1, 0]), np.array([])) == 0.0
+
+
+def test_no_strict_greater_than_0_5_in_prediction_path() -> None:
+    """Threshold convention is >= 0.5 everywhere.
+
+    _choose_threshold and calibrated accuracy use >=; the headline and
+    pooled accuracy must not use > or a score of exactly 0.5 lands in
+    different classes depending on the code path.
+    """
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[1] / "scripts" / "compare_baselines.py"
+    text = src.read_text()
+    forbidden = ["(scores > 0.5)", "(pooled_scores_arr > 0.5)"]
+    for pat in forbidden:
+        assert pat not in text, (
+            f"{pat!r} found; use >= 0.5 for consistency with _choose_threshold"
+        )

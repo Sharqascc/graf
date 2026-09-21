@@ -125,6 +125,24 @@ def train_tabular_fold(
     return np.asarray(scores, dtype=np.float64), np.asarray(y_train)  # placeholder
 
 
+def _majority_baseline_accuracy(train_labels, val_labels) -> float:
+    """Accuracy of a majority-class predictor fitted on train_labels.
+
+    Predicts the single most-common class in the TRAIN fold on the val
+    fold. Differs from the oracle ``max(p, 1-p)`` whenever the train and
+    val folds have different majority classes or different prevalence —
+    which is the case for balanced-ish blocked splits on small folds.
+    Returns 0.0 for empty inputs.
+    """
+    train_labels = np.asarray(train_labels)
+    val_labels = np.asarray(val_labels)
+    if len(train_labels) == 0 or len(val_labels) == 0:
+        return 0.0
+    counts = np.bincount(train_labels.astype(int))
+    majority_class = int(counts.argmax())
+    return float((val_labels == majority_class).mean())
+
+
 def _negative_count(labels) -> int:
     """Count negatives (label == 0) in a val fold's label set."""
     arr = np.asarray(labels)
@@ -305,11 +323,13 @@ def evaluate_model(
                 pos_weight,
                 seed + k,
             )
-            preds = (scores > 0.5).astype(int)
+            preds = (scores >= 0.5).astype(int)
             fold_acc.append(float((preds == val_labels).mean()))
             fold_f1.append(_f1(preds, val_labels))
             fold_auc.append(_auc(scores, val_labels))
-            fold_maj.append(float(max(val_labels.mean(), 1 - val_labels.mean())))
+            fold_maj.append(
+                _majority_baseline_accuracy(labels_arr[train_idx], val_labels)
+            )
             fold_neg_count.append(_negative_count(val_labels))
             pooled_scores.extend(scores.tolist())
             pooled_labels.extend(val_labels.tolist())
@@ -407,11 +427,11 @@ def evaluate_model(
                 scores = np.asarray(model.predict(X_val), dtype=np.float64)
             scores = np.asarray(scores, dtype=np.float64)
 
-            preds = (scores > 0.5).astype(int)
+            preds = (scores >= 0.5).astype(int)
             fold_acc.append(float((preds == y_val).mean()))
             fold_f1.append(_f1(preds, y_val))
             fold_auc.append(_auc(scores, y_val))
-            fold_maj.append(float(max(y_val.mean(), 1 - y_val.mean())))
+            fold_maj.append(_majority_baseline_accuracy(labels_arr[train_idx], y_val))
             fold_neg_count.append(_negative_count(y_val))
             fold_thresholds.append(threshold)
             if calibrate_threshold:
@@ -422,7 +442,7 @@ def evaluate_model(
 
     pooled_scores_arr = np.asarray(pooled_scores)
     pooled_labels_arr = np.asarray(pooled_labels)
-    pooled_preds = (pooled_scores_arr > 0.5).astype(int)
+    pooled_preds = (pooled_scores_arr >= 0.5).astype(int)
     pooled_acc = float((pooled_preds == pooled_labels_arr).mean())
 
     auc_stats = _fold_auc_summary(fold_auc)
@@ -496,9 +516,10 @@ def parse_args(argv=None) -> argparse.Namespace:
             "Enable nested-CV threshold calibration for the tabular path. "
             "For each fold, fit a throwaway model on an inner-train split, "
             "choose the decision threshold on an inner-calibration split "
-            "by Youden's J, then fit the reporting model on the full "
-            "training fold and apply that threshold to validation. GCN is "
-            "not calibrated (its training is one-shot per fold)."
+            "using --calibration-objective (default: 'accuracy'), then fit "
+            "the reporting model on the full training fold and apply that "
+            "threshold to validation. GCN is not calibrated (its training "
+            "is one-shot per fold)."
         ),
     )
     p.add_argument("--label-source", choices=["ttc", "proximity"], default="ttc")
