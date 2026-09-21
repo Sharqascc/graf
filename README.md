@@ -25,6 +25,52 @@ The 87.5% cross-validation accuracy in `docs/experiment_results.md` was produced
 from local data that is not committed. See the reproducibility note there for
 how to run a self-contained smoke test instead.
 
+## Known issues and caveats
+
+Two results in `docs/paper/` predate the cross-validation boundary-leak fix
+in [PR #39](https://github.com/Sharqascc/graf/pull/39) (commit `79a937e`):
+
+- **RF AUC 0.782** on the sustained `run_length=5` label — the *pre-purge*
+  number. The post-purge number requires regenerating the input tracks.
+- **"5.7 SEs above chance"** in
+  [`docs/paper/label_strategies_vntraffic.md`](docs/paper/label_strategies_vntraffic.md)
+  — **retracted**. The standard-error calculation assumes independent folds,
+  which boundary-leaked folds violate.
+
+The full audit and its resolution log is in
+[`docs/external_review_2026_09.md`](docs/external_review_2026_09.md).
+
+### Data availability
+
+The real-video results depend on three gitignored, generated artifacts:
+
+- `data/raw/vntraffic_homography.yaml`
+- `data/interim/vntraffic_tracks_all85_min20.jsonl`
+- `data/processed/graphs/vntraffic_all85/`
+
+These were generated on an ephemeral Colab VM that has since been recycled.
+The pipeline is unchanged; the numbers can be reproduced once the source
+videos are re-ingested.
+
+### Trivial-cue baseline
+
+The paper's central comparison — RF on all 42 features vs a single scalar
+(`edge_attr_nonzero_frac`) — is reproducible from the CLI as of
+[PR #40](https://github.com/Sharqascc/graf/pull/40):
+
+```bash
+# RF on all features
+python scripts/compare_baselines.py ... --models rf
+
+# The trivial cue alone
+python scripts/compare_baselines.py ... --models single_feature \
+    --single-feature-name edge_attr_nonzero_frac
+
+# RF without the trivial cue
+python scripts/compare_baselines.py ... --models rf \
+    --exclude-features edge_attr_nonzero_frac
+```
+
 ## Features
 
 - **Detection & Tracking** – interfaces for YOLOv8, RT‑DETR, ByteTrack, BotSORT
