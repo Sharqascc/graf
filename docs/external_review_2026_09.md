@@ -255,3 +255,31 @@ correctness, not pipeline invariants.
 8. rel_heading_sin: investigate and either populate or remove.
 
 Items 1 and 2 change the result. Items 3-8 are harness and docs hygiene.
+
+
+## Resolution log
+
+Tracks each confirmed finding against the PR that addresses it. Reviewed
+2026-09; last updated after PR #39 and PR #40 merged to `main`.
+
+| # | finding | status |
+|---|---------|--------|
+| 1 | Fold-boundary leakage in `blocked_folds` | **fixed** in [PR #39](https://github.com/Sharqascc/graf/pull/39) (`79a937e`) — `purge_train_indices` + `leakage_report` helpers; `evaluate_model` purges both gcn and tabular train folds; `comparison.json` records `leakage_raw` and `leakage_after_purge` |
+| 2 | Inner calibration split is not blocked | **fixed** in PR #39 — inner split ordered by frame position (70/30) and purged with same gap |
+| 3 | `train_tabular_fold` returns `y_train` as `y_val` | **open** — pinned as xfail in `tests/test_pipeline_invariants.py` |
+| 4 | `comparison.json` setup omits config keys | **fixed** in PR #39 — `label_strategy`, `run_length`, `fraction_threshold`, `calibrate_threshold`, `calibration_objective`, `purge_gap_frames` now recorded |
+| 5 | "5.7 SEs above chance" claim contradicts the harness | **retracted** in the docs PR that added this log |
+| 6 | `fold_majority = max(p, 1-p)` is oracle, not trained majority | **open** |
+| 7 | `>` vs `>=` inconsistency at 0.5 | **open** |
+| 8 | `--calibrate-threshold` help says "by Youden's J" | **open** |
+| 9 | `sustained` does not require same (track_a, track_b) pair | **open** (optional) |
+| 10 | `ea_nonzero_frac` alone reaches AUC 0.803 | **reproducible** via [PR #40](https://github.com/Sharqascc/graf/pull/40) (`73aa855`) — `--models single_feature --single-feature-name edge_attr_nonzero_frac`; RF without it: `--exclude-features edge_attr_nonzero_frac` |
+| 11 | `rel_heading_sin` (edge col 9) always 0 | **open** |
+
+### Effect on reported numbers
+
+The pre-purge RF AUC (0.782) and the "5.7 SEs" claim both predate PR #39.
+Finding #1 stands and is now closed in code; the *reported* number is kept
+in the paper with an explicit caveat (see README "Known issues and caveats")
+until input data is regenerated and the 10-fold purged run produces the
+honest number.

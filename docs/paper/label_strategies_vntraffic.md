@@ -41,11 +41,20 @@ majority 0.779.
 
 ## Reading
 
+> **Erratum (2026-09):** the "5.7 SEs above chance" claim below was
+> retracted. The standard error assumes independent folds, which the
+> boundary-leaked `blocked_folds` split violates (see
+> [finding #1](external_review_2026_09.md) of the external review). The
+> point estimate (AUC 0.738 ± 0.094) is retained; the significance
+> framing is withdrawn. A proper post-purge rerun is pending regeneration
+> of the input data.
+
 **The random forest has genuine ranking signal.** AUC
-0.738 ± 0.094 across 5 folds; standard error ≈ 0.042, so the
-effect is ~5.7 SEs above chance. This is the first time in this
-investigation that any model has produced AUC meaningfully
-above 0.5 on any VNTraffic label.
+0.738 ± 0.094 across 5 folds. This is the first time in this
+investigation that any model has produced AUC meaningfully above 0.5
+on any VNTraffic label. *(The original text reported "standard error
+≈ 0.042, so the effect is ~5.7 SEs above chance"; that inference is
+withdrawn — see the erratum above.)*
 
 **The random forest does not beat majority on accuracy.** 0.722
 vs majority 0.779. The model ranks positive windows above
