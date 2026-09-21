@@ -47,6 +47,7 @@ from graf.models.baselines import (
     MajorityClassBaseline,
     MLPBaseline,
     RandomForestBaseline,
+    SingleFeatureBaseline,
 )
 from graf.training.conflict_pairs import (
     add_world_coords,
@@ -65,10 +66,12 @@ from scripts.evaluate_vntraffic import (
 )
 from scripts.label_strategies import STRATEGIES, apply_strategy
 
-ALL_MODELS = ("majority", "logreg", "rf", "mlp", "gcn")
+ALL_MODELS = ("majority", "logreg", "rf", "mlp", "single_feature", "gcn")
 
 
-def _make_model(name: str, seed: int) -> Any:
+def _make_model(
+    name: str, seed: int, *, single_feature_name: str = "edge_attr_nonzero_frac"
+) -> Any:
     if name == "majority":
         return MajorityClassBaseline()
     if name == "logreg":
@@ -77,19 +80,22 @@ def _make_model(name: str, seed: int) -> Any:
         return RandomForestBaseline(random_state=seed)
     if name == "mlp":
         return MLPBaseline(random_state=seed)
+    if name == "single_feature":
+        return SingleFeatureBaseline(feature_name=single_feature_name)
     raise ValueError(f"unknown tabular model: {name!r}")
 
 
-def _features_for_windows(window_ds, indices) -> np.ndarray:
-    """Flatten a list of PyG window Data objects to a (N, D) matrix."""
-    rows: list[np.ndarray] = []
-    for i in indices:
-        v = GraphFeatureExtractor.transform(window_ds[int(i)])
-        if v.ndim == 2 and v.shape[0] == 1:
-            rows.append(v[0])
-        else:
-            rows.append(v.reshape(-1))
-    return np.asarray(rows, dtype=np.float32)
+def _features_for_windows(window_ds, indices, *, exclude_names=None) -> np.ndarray:
+    """Flatten a list of PyG window Data objects to a (N, D) matrix.
+
+    When ``exclude_names`` is given, named columns are dropped from the
+    vector before returning. Names must come from
+    ``GraphFeatureExtractor.feature_names()``.
+    """
+    graphs = [window_ds[int(i)] for i in indices]
+    if exclude_names:
+        return GraphFeatureExtractor.transform_excluding(graphs, exclude_names)
+    return GraphFeatureExtractor.transform(graphs)
 
 
 def train_tabular_fold(
@@ -260,6 +266,8 @@ def evaluate_model(
     calibration_objective: str = "accuracy",
     frame_sets: list[set[int]] | None = None,
     purge_gap_frames: int = 0,
+    exclude_features: set[str] | None = None,
+    single_feature_name: str = "edge_attr_nonzero_frac",
 ) -> dict[str, Any]:
     """Train and evaluate one model across all folds. Returns metrics + per-fold arrays.
 
@@ -307,7 +315,12 @@ def evaluate_model(
             pooled_labels.extend(val_labels.tolist())
     else:
         # Tabular path: flatten features once
-        all_features = _features_for_windows(window_ds, list(range(len(window_ds))))
+        # Exclusion applies to models that see the full feature matrix;
+        # SingleFeatureBaseline picks one column by name and must see it.
+        _excl = None if name == "single_feature" else exclude_features
+        all_features = _features_for_windows(
+            window_ds, list(range(len(window_ds))), exclude_names=_excl
+        )
         for k, val_idx in enumerate(folds):
             train_idx = np.concatenate([folds[j] for j in range(len(folds)) if j != k])
             if frame_sets is not None and purge_gap_frames > 0:
@@ -360,7 +373,9 @@ def evaluate_model(
                         perm = rng.permutation(n_train)
                         inner_train = train_idx[perm[:n_inner]]
                         inner_calib = train_idx[perm[n_inner:]]
-                    inner_model = _make_model(name, seed + k)
+                    inner_model = _make_model(
+                        name, seed + k, single_feature_name=single_feature_name
+                    )
                     inner_model.fit(all_features[inner_train], labels_arr[inner_train])
                     try:
                         p_calib = inner_model.predict_proba(all_features[inner_calib])
@@ -380,7 +395,7 @@ def evaluate_model(
                         objective=calibration_objective,
                     )
 
-            model = _make_model(name, seed + k)
+            model = _make_model(name, seed + k, single_feature_name=single_feature_name)
             model.fit(X_train, y_train)
             try:
                 proba = model.predict_proba(X_val)
@@ -516,6 +531,22 @@ def parse_args(argv=None) -> argparse.Namespace:
         default=",".join(ALL_MODELS),
         help="Comma-separated subset of: " + ", ".join(ALL_MODELS),
     )
+    p.add_argument(
+        "--exclude-features",
+        default="",
+        help=(
+            "Comma-separated GraphFeatureExtractor.feature_names() to drop "
+            "before fitting logreg/rf/mlp. Ignored for single_feature."
+        ),
+    )
+    p.add_argument(
+        "--single-feature-name",
+        default="edge_attr_nonzero_frac",
+        help=(
+            "Column name used by the single_feature baseline. "
+            "See GraphFeatureExtractor.feature_names()."
+        ),
+    )
     return p.parse_args(argv)
 
 
@@ -616,6 +647,10 @@ def main(argv=None) -> int:
     else:
         purge_gap_frames = 0
 
+    _exclude_set = {
+        s.strip() for s in getattr(args, "exclude_features", "").split(",") if s.strip()
+    } or None
+
     results = []
     for name in requested:
         t0 = time.time()
@@ -633,6 +668,8 @@ def main(argv=None) -> int:
             calibration_objective=args.calibration_objective,
             frame_sets=frame_sets,
             purge_gap_frames=purge_gap_frames,
+            exclude_features=_exclude_set,
+            single_feature_name=args.single_feature_name,
         )
         r["runtime_seconds"] = round(time.time() - t0, 2)
         r["purge_gap_frames"] = purge_gap_frames
