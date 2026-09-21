@@ -225,6 +225,109 @@ def build_labels(
     return window_ds, labels
 
 
+def frame_sets_for_windows(window_ds) -> list[set[int]]:
+    """Frame-id set for each window. Empty set when frames are absent."""
+    out: list[set[int]] = []
+    for i in range(len(window_ds)):
+        fid = getattr(window_ds[i], "frame_ids", None)
+        if fid is None:
+            out.append(set())
+        else:
+            out.append({int(f) for f in fid.tolist()})
+    return out
+
+
+def purge_train_indices(
+    train_idx,
+    val_idx,
+    frame_sets: list[set[int]],
+    *,
+    gap: int,
+    min_train_floor: int = 1,
+):
+    """Drop training windows whose frames lie within ``gap`` frames of the
+    validation window's frame range. Removes the adjacent-window boundary
+    leak that inflates blocked-split metrics on overlapping windows.
+
+    If purging would leave fewer than ``min_train_floor`` training windows,
+    the raw training set is returned unchanged.
+    """
+    import numpy as _np
+
+    train_idx = _np.asarray(train_idx, dtype=int)
+    val_idx = _np.asarray(val_idx, dtype=int)
+    val_frames: set[int] = set()
+    for i in val_idx:
+        val_frames |= frame_sets[int(i)]
+    if not val_frames:
+        return train_idx
+    val_lo = min(val_frames) - gap
+    val_hi = max(val_frames) + gap
+    keep: list[int] = []
+    for i in train_idx:
+        f = frame_sets[int(i)]
+        if not f:
+            keep.append(int(i))
+            continue
+        if max(f) < val_lo or min(f) > val_hi:
+            keep.append(int(i))
+    if len(keep) < min_train_floor:
+        return train_idx
+    return _np.asarray(keep, dtype=int)
+
+
+def leakage_report(
+    folds: list,
+    frame_sets: list[set[int]],
+    *,
+    gap: int = 0,
+) -> dict[str, object]:
+    """Count validation windows whose frames lie within ``gap`` frames of a
+    training window. ``gap=0`` reports raw overlap (frames literally shared).
+    ``gap=window_span`` reports what ``purge_train_indices`` leaves behind.
+    """
+    import numpy as _np
+
+    per_fold: list[int] = []
+    per_fold_train: list[int] = []
+    for k, val_idx in enumerate(folds):
+        raw_train = _np.concatenate([folds[j] for j in range(len(folds)) if j != k])
+        if gap > 0:
+            train_idx = purge_train_indices(
+                raw_train,
+                val_idx,
+                frame_sets,
+                gap=gap,
+            )
+        else:
+            train_idx = raw_train
+        train_frames: set[int] = set()
+        for i in train_idx:
+            train_frames |= frame_sets[int(i)]
+        leaked = 0
+        for i in val_idx:
+            f = frame_sets[int(i)]
+            if not f:
+                continue
+            if gap > 0:
+                lo = min(f) - gap
+                hi = max(f) + gap
+                if any(lo <= tf <= hi for tf in train_frames):
+                    leaked += 1
+            else:
+                if f & train_frames:
+                    leaked += 1
+        per_fold.append(int(leaked))
+        per_fold_train.append(int(len(train_idx)))
+    return {
+        "per_fold": per_fold,
+        "total": int(sum(per_fold)),
+        "num_val": int(sum(len(f) for f in folds)),
+        "train_size_per_fold": per_fold_train,
+        "gap": int(gap),
+    }
+
+
 def blocked_folds(frame_ids_per_window, num_folds: int):
     order = sorted(
         range(len(frame_ids_per_window)),
