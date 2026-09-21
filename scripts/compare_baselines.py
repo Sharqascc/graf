@@ -58,6 +58,8 @@ from scripts.evaluate_vntraffic import (
     _f1,
     blocked_folds,
     build_labels,
+    leakage_report,
+    purge_train_indices,
     random_folds,
     train_one_fold,
 )
@@ -256,8 +258,16 @@ def evaluate_model(
     seed: int,
     calibrate_threshold: bool = False,
     calibration_objective: str = "accuracy",
+    frame_sets: list[set[int]] | None = None,
+    purge_gap_frames: int = 0,
 ) -> dict[str, Any]:
-    """Train and evaluate one model across all folds. Returns metrics + per-fold arrays."""
+    """Train and evaluate one model across all folds. Returns metrics + per-fold arrays.
+
+    When ``frame_sets`` and ``purge_gap_frames > 0`` are supplied, each
+    fold's training set is purged of any window whose frames lie within
+    ``gap`` frames of the validation window. The inner calibration split,
+    if requested, is also blocked-by-frame and purged.
+    """
     labels_arr = np.asarray(labels, dtype=np.int64)
     fold_acc, fold_f1, fold_auc, fold_maj = [], [], [], []
     fold_neg_count: list[int] = []
@@ -269,6 +279,13 @@ def evaluate_model(
     if name == "gcn":
         for k, val_idx in enumerate(folds):
             train_idx = np.concatenate([folds[j] for j in range(len(folds)) if j != k])
+            if frame_sets is not None and purge_gap_frames > 0:
+                train_idx = purge_train_indices(
+                    train_idx,
+                    val_idx,
+                    frame_sets,
+                    gap=purge_gap_frames,
+                )
             scores, val_labels = train_one_fold(
                 window_ds,
                 labels,
@@ -293,6 +310,13 @@ def evaluate_model(
         all_features = _features_for_windows(window_ds, list(range(len(window_ds))))
         for k, val_idx in enumerate(folds):
             train_idx = np.concatenate([folds[j] for j in range(len(folds)) if j != k])
+            if frame_sets is not None and purge_gap_frames > 0:
+                train_idx = purge_train_indices(
+                    train_idx,
+                    val_idx,
+                    frame_sets,
+                    gap=purge_gap_frames,
+                )
             X_train = all_features[train_idx]
             y_train = labels_arr[train_idx]
             X_val = all_features[val_idx]
@@ -305,13 +329,37 @@ def evaluate_model(
             # validation fold.
             threshold = 0.5
             if calibrate_threshold:
-                rng = np.random.default_rng(seed + k)
                 n_train = len(train_idx)
-                perm = rng.permutation(n_train)
                 n_inner = max(int(0.7 * n_train), 1)
                 if n_inner < n_train:
-                    inner_train = train_idx[perm[:n_inner]]
-                    inner_calib = train_idx[perm[n_inner:]]
+                    if frame_sets is not None and purge_gap_frames > 0:
+                        # Blocked inner split: order by frame position,
+                        # cut 70/30, then purge. Random permutation would
+                        # leak adjacent-window frames across the inner
+                        # train/cal boundary.
+                        order = sorted(
+                            range(n_train),
+                            key=lambda i: (
+                                min(frame_sets[int(train_idx[i])])
+                                if frame_sets[int(train_idx[i])]
+                                else int(train_idx[i])
+                            ),
+                        )
+                        inner_train = train_idx[[order[i] for i in range(n_inner)]]
+                        inner_calib = train_idx[
+                            [order[i] for i in range(n_inner, n_train)]
+                        ]
+                        inner_train = purge_train_indices(
+                            inner_train,
+                            inner_calib,
+                            frame_sets,
+                            gap=purge_gap_frames,
+                        )
+                    else:
+                        rng = np.random.default_rng(seed + k)
+                        perm = rng.permutation(n_train)
+                        inner_train = train_idx[perm[:n_inner]]
+                        inner_calib = train_idx[perm[n_inner:]]
                     inner_model = _make_model(name, seed + k)
                     inner_model.fit(all_features[inner_train], labels_arr[inner_train])
                     try:
@@ -561,6 +609,13 @@ def main(argv=None) -> int:
     else:
         folds = random_folds(n, args.num_folds, args.seed)
 
+    frame_sets = [{int(f) for f in fw} for fw in frame_ids_per_window]
+    if args.split == "blocked":
+        _spans = [max(fs) - min(fs) + 1 for fs in frame_sets if fs]
+        purge_gap_frames = max(_spans) if _spans else 0
+    else:
+        purge_gap_frames = 0
+
     results = []
     for name in requested:
         t0 = time.time()
@@ -576,8 +631,17 @@ def main(argv=None) -> int:
             seed=args.seed,
             calibrate_threshold=args.calibrate_threshold,
             calibration_objective=args.calibration_objective,
+            frame_sets=frame_sets,
+            purge_gap_frames=purge_gap_frames,
         )
         r["runtime_seconds"] = round(time.time() - t0, 2)
+        r["purge_gap_frames"] = purge_gap_frames
+        r["leakage_raw"] = leakage_report(folds, frame_sets, gap=0)
+        r["leakage_after_purge"] = (
+            leakage_report(folds, frame_sets, gap=purge_gap_frames)
+            if purge_gap_frames > 0
+            else None
+        )
         results.append(r)
         print(
             f"  {name:10s}  "
@@ -618,10 +682,16 @@ def main(argv=None) -> int:
             "window_size": args.window_size,
             "stride": args.stride,
             "label_source": args.label_source,
+            "label_strategy": getattr(args, "label_strategy", None),
+            "run_length": getattr(args, "run_length", None),
+            "fraction_threshold": getattr(args, "fraction_threshold", None),
             "ttc_threshold_seconds": args.ttc_threshold_seconds,
             "ttc_distance_threshold": args.ttc_distance_threshold,
             "split": args.split,
             "num_folds": args.num_folds,
+            "purge_gap_frames": purge_gap_frames,
+            "calibrate_threshold": getattr(args, "calibrate_threshold", False),
+            "calibration_objective": getattr(args, "calibration_objective", None),
             "epochs": args.epochs,
             "batch_size": args.batch_size,
             "lr": args.lr,

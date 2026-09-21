@@ -163,3 +163,54 @@ def test_choose_threshold_unknown_objective_raises() -> None:
     labels = np.array([0, 1], dtype=np.int64)
     with pytest.raises(ValueError):
         cb._choose_threshold(scores, labels, objective="bogus")
+
+
+# ------------------------------------------------------------------
+# Purge-gap invariants (external review 2026-09.md #1)
+# ------------------------------------------------------------------
+
+
+def test_leakage_report_raw_split_is_positive() -> None:
+    """The raw blocked split leaks: adjacent windows share frames."""
+    frame_ids = _contiguous_layout(n_windows=249, window_size=5, stride=2)
+    folds = cb.blocked_folds(frame_ids, 10)
+    rep = cb.leakage_report(folds, frame_ids, gap=0)
+    assert rep["total"] == sum(rep["per_fold"])
+    assert rep["num_val"] == 249
+    assert rep["total"] > 0, "raw split unexpectedly leak-free"
+    assert rep["gap"] == 0
+
+
+def test_purge_train_indices_removes_leakage() -> None:
+    """After purging with gap=window_size, no val window shares frames
+    (or sits within ``gap`` frames) of any training window."""
+    window_size = 5
+    frame_ids = _contiguous_layout(n_windows=249, window_size=window_size, stride=2)
+    folds = cb.blocked_folds(frame_ids, 10)
+    rep = cb.leakage_report(folds, frame_ids, gap=window_size)
+    assert rep["total"] == 0, (
+        f"expected zero leakage after purge, got {rep['per_fold']}"
+    )
+    assert rep["gap"] == window_size
+    assert all(n > 0 for n in rep["train_size_per_fold"])
+
+
+def test_purge_train_indices_floor_guard() -> None:
+    """If purge would empty the train set, raw train is returned."""
+    frame_ids = [{0, 1, 2}, {1, 2, 3}, {100, 101, 102}]
+    train = np.array([0, 1], dtype=int)
+    val = np.array([2], dtype=int)
+    # gap huge -> everything overlaps -> fallback to raw train
+    out = cb.purge_train_indices(train, val, frame_ids, gap=10_000)
+    assert sorted(out.tolist()) == [0, 1]
+
+
+def test_purge_train_indices_empty_frame_windows_kept() -> None:
+    """Windows with no frame_ids are kept (cannot be purged)."""
+    # Window 0 shares frame 2 with the val window; window 1 has no frames.
+    frame_ids = [{0, 1, 2}, set(), {2, 3, 4}]
+    train = np.array([0, 1], dtype=int)
+    val = np.array([2], dtype=int)
+    out = cb.purge_train_indices(train, val, frame_ids, gap=0)
+    assert 1 in out.tolist(), "empty-frames window must be kept"
+    assert 0 not in out.tolist(), "overlapping window must be dropped"
