@@ -886,3 +886,83 @@ def test_event_mining_frame_gaps_respected(df, gap):
 @settings(max_examples=15, deadline=None)
 def test_event_mining_empty_thresholds_returns_empty(df):
     assert mining_mod.mine_events(df, thresholds={}) == []
+
+
+# ------------------------------------------------------------------
+# SSM invariants added after the mutation testing diagnostic
+# ------------------------------------------------------------------
+
+
+@given(
+    sep=st.floats(min_value=5.0, max_value=100.0, allow_nan=False),
+    closing=st.floats(min_value=0.5, max_value=10.0, allow_nan=False),
+)
+def test_ttc_monotone_in_initial_separation(sep, closing) -> None:
+    """All else equal, further initial separation -> TTC is weakly larger."""
+    from graf.ssm.ttc import compute_ttc_constant_velocity
+
+    pos1 = np.zeros(2)
+    vel1 = np.zeros(2)
+    # Actor 2 at +sep, closing along -x at `closing` m/s.
+    r_near = compute_ttc_constant_velocity(
+        pos1,
+        vel1,
+        np.array([sep, 0.0]),
+        np.array([-closing, 0.0]),
+        min_distance=1.5,
+    )
+    r_far = compute_ttc_constant_velocity(
+        pos1,
+        vel1,
+        np.array([sep + 5.0, 0.0]),
+        np.array([-closing, 0.0]),
+        min_distance=1.5,
+    )
+    assert r_far.ttc_seconds >= r_near.ttc_seconds, (
+        f"further separation gave smaller TTC: far={r_far.ttc_seconds}, "
+        f"near={r_near.ttc_seconds}"
+    )
+
+
+@given(
+    sep=st.floats(min_value=5.0, max_value=100.0, allow_nan=False),
+    v_slow=st.floats(min_value=0.5, max_value=2.0, allow_nan=False),
+    v_fast=st.floats(min_value=2.0, max_value=10.0, allow_nan=False),
+)
+def test_ttc_monotone_in_closing_speed(sep, v_slow, v_fast) -> None:
+    """All else equal, higher closing speed -> TTC is weakly smaller."""
+    from graf.ssm.ttc import compute_ttc_constant_velocity
+
+    pos1 = np.zeros(2)
+    vel1 = np.zeros(2)
+    r_slow = compute_ttc_constant_velocity(
+        pos1,
+        vel1,
+        np.array([sep, 0.0]),
+        np.array([-v_slow, 0.0]),
+        min_distance=1.5,
+    )
+    r_fast = compute_ttc_constant_velocity(
+        pos1,
+        vel1,
+        np.array([sep, 0.0]),
+        np.array([-v_fast, 0.0]),
+        min_distance=1.5,
+    )
+    assert r_fast.ttc_seconds <= r_slow.ttc_seconds, (
+        f"faster closing gave larger TTC: fast={r_fast.ttc_seconds}, "
+        f"slow={r_slow.ttc_seconds}"
+    )
+
+
+@given(drac=st.floats(min_value=0.0, max_value=20.0, allow_nan=False))
+def test_drac_critical_matches_threshold_constant(drac) -> None:
+    """DRACResult.is_critical is a property (no args) keyed to the module
+    constant CRITICAL_DRAC_MPS2."""
+    from graf.ssm.drac import CRITICAL_DRAC_MPS2, DRACResult
+
+    r = DRACResult(drac_mps2=float(drac))
+    if drac >= CRITICAL_DRAC_MPS2:
+        assert r.is_critical, f"drac={drac} >= threshold but not critical"
+    else:
+        assert not r.is_critical, f"drac={drac} < threshold but critical"

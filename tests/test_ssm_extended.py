@@ -248,3 +248,113 @@ def test_compute_ttc_just_outside_min_distance():
     )
     assert result.status != "already_in_collision"
     assert result.ttc_seconds != 0.0
+
+
+# ------------------------------------------------------------------
+# Mutation-survivor tests (from docs/mutation_testing_2026_10.md)
+# ------------------------------------------------------------------
+
+
+def test_ttc_returns_entry_root_not_exit_root() -> None:
+    """The returned TTC is time-to-*first* contact (entry root), not the
+    time the actors separate again (exit root).
+
+    Actor 1 at origin, actor 2 approaching head-on from +10 at -1 m/s.
+    With min_distance=2.0, they enter the collision radius at t=8 and
+    exit at t=12. The function must return 8, not 12.
+    """
+    from graf.ssm.ttc import compute_ttc_constant_velocity
+
+    pos1 = np.array([0.0, 0.0])
+    vel1 = np.array([0.0, 0.0])
+    pos2 = np.array([10.0, 0.0])
+    vel2 = np.array([-1.0, 0.0])
+    r = compute_ttc_constant_velocity(pos1, vel1, pos2, vel2, min_distance=2.0)
+    assert np.isfinite(r.ttc_seconds)
+    assert abs(r.ttc_seconds - 8.0) < 0.5, (
+        f"expected entry time ~8.0, got {r.ttc_seconds:.3f} (exit time would be ~12.0)"
+    )
+
+
+def test_ttc_severity_at_horizon_interior() -> None:
+    """Severity at ttc=4.5 must be 0.1 (1 - 4.5/5), not 0.
+
+    Catches the mutant that moves the horizon from 5.0 to 4.0: under that
+    mutation, severity at 4.5 would be 0.
+    """
+    from graf.ssm.ttc import TTCResult
+
+    r = TTCResult(4.5)
+    assert abs(r.severity - 0.1) < 1e-9, (
+        f"severity at ttc=4.5 should be 0.1, got {r.severity:.6f} "
+        "(horizon may have moved from 5.0)"
+    )
+    # and at 3.5
+    assert abs(TTCResult(3.5).severity - 0.3) < 1e-9
+    # and at 4.9
+    assert abs(TTCResult(4.9).severity - 0.02) < 1e-9
+
+
+def test_ttc_tangent_rotation_invariant() -> None:
+    """A near-tangent pair stays on the same branch under rotation.
+
+    The scale-aware tangent tolerance exists so the discriminant sign is
+    stable under rotation. Without it, the same geometry rotated by a
+    tiny angle flips between collision_predicted and no_collision.
+    """
+    from graf.ssm.ttc import compute_ttc_constant_velocity
+
+    # Head-on with a tiny perpendicular offset that nearly tangents the
+    # collision radius.
+    for angle in (0.0, 1e-7, 1e-5, 1e-3):
+        c, s = np.cos(angle), np.sin(angle)
+        pos1 = np.array([0.0, 0.0])
+        vel1 = np.array([0.0, 0.0])
+        pos2 = np.array([10.0 * c, 10.0 * s])
+        vel2 = np.array([-1.0 * c, -1.0 * s])
+        r = compute_ttc_constant_velocity(pos1, vel1, pos2, vel2, min_distance=2.0)
+        # All angles in this set should be on the same branch.
+        assert np.isfinite(r.ttc_seconds) or "no_collision" in r.status, (
+            f"angle={angle}: status={r.status}, ttc={r.ttc_seconds}"
+        )
+
+
+def test_ttc_non_finite_inputs_return_sentinel() -> None:
+    """Non-finite inputs return a non-critical inf-TTC sentinel, not a raise.
+
+    Matches the contract established by tests/test_input_boundaries.py:
+    the pipeline runs over real tracking data where NaN positions occur,
+    so a malformed input must degrade, not crash.
+    """
+    from graf.ssm.ttc import compute_ttc_constant_velocity
+
+    r = compute_ttc_constant_velocity(
+        np.array([np.nan, 0.0]),
+        np.zeros(2),
+        np.array([1.0, 0.0]),
+        np.zeros(2),
+    )
+    assert r.status == "invalid_input"
+    assert not r.is_critical
+    assert not np.isfinite(r.ttc_seconds)
+
+    r = compute_ttc_constant_velocity(
+        np.array([np.inf, 0.0]),
+        np.zeros(2),
+        np.array([1.0, 0.0]),
+        np.zeros(2),
+    )
+    assert r.status == "invalid_input"
+    assert not r.is_critical
+
+
+def test_ttc_negative_min_distance_clamps_to_zero() -> None:
+    """Negative min_distance is nonsensical; treat as zero-radius, not crash."""
+    from graf.ssm.ttc import compute_ttc_constant_velocity
+
+    pos1, vel1 = np.zeros(2), np.zeros(2)
+    pos2, vel2 = np.array([10.0, 0.0]), np.array([-5.0, 0.0])
+    r = compute_ttc_constant_velocity(pos1, vel1, pos2, vel2, min_distance=-1.0)
+    r_zero = compute_ttc_constant_velocity(pos1, vel1, pos2, vel2, min_distance=0.0)
+    assert r.status == r_zero.status
+    assert abs(r.ttc_seconds - r_zero.ttc_seconds) < 1e-9

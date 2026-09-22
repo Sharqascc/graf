@@ -39,6 +39,26 @@ def compute_ttc_constant_velocity(
     pos2 = np.asarray(pos2, dtype=float)
     vel2 = np.asarray(vel2, dtype=float)
 
+    # Non-finite inputs have no meaningful TTC. Return a sentinel rather
+    # than raise: the tests in test_input_boundaries.py establish the
+    # contract that malformed input must not crash the pipeline (it runs
+    # over real tracking data where NaN positions occur). A sentinel that
+    # is never critical is the right shape for that caller.
+    if (
+        not np.all(np.isfinite(pos1))
+        or not np.all(np.isfinite(pos2))
+        or not np.all(np.isfinite(vel1))
+        or not np.all(np.isfinite(vel2))
+    ):
+        return TTCResult(float("inf"), None, False, "invalid_input")
+
+    # min_distance == 0.0 is a valid "point collision" (the actors collide
+    # when they reach the same point). Negative is nonsensical but we
+    # treat it as a zero-radius collision rather than crash, for the same
+    # reason as above: bad input from real data must degrade, not raise.
+    if min_distance < 0:
+        min_distance = 0.0
+
     rel_pos = pos2 - pos1
     rel_vel = vel2 - vel1
 

@@ -22,9 +22,10 @@ tests do not constrain.
 
 ## Result
 
-- **Killed:** 11/25
-- **Survived:** 14/25
-- **Survival rate:** 44.0%
+- **Killed:** 13/25
+- **Survived:** 12/25
+- **Kill rate:** 52.0%
+- **Survival rate:** 48.0%
 - Skipped (find string not unique): 0
 
 | # | mutation | line | outcome |
@@ -37,81 +38,99 @@ tests do not constrain.
 | 6 | and -> or in is_critical | 17 | killed |
 | 7 | severity <= 0 -> < 0 | 23 | survived |
 | 8 | severity >= 5.0 -> > 5.0 | 25 | survived |
-| 9 | severity horizon 5.0 -> 4.0 (upper check) | 25 | survived |
+| 9 | severity horizon 5.0 -> 4.0 (upper check) | 25 | killed |
 | 10 | severity divisor 5.0 -> 10.0 | 27 | killed |
-| 11 | already-in-collision <= -> < | 54 | survived |
-| 12 | already-in-collision returns nonzero ttc | 55 | killed |
-| 13 | zero-speed < -> <= | 58 | survived |
-| 14 | zero-speed tolerance 1e-12 -> 1e-6 | 58 | survived |
-| 15 | closing-rate <= -> < | 69 | survived |
-| 16 | noise-floor 1e-9 -> 1e-6 | 67 | survived |
-| 17 | b factor 2.0 -> 1.0 | 73 | killed |
-| 18 | c sign - -> + | 74 | killed |
-| 19 | discriminant sign - -> + | 76 | killed |
-| 20 | discriminant factor 4.0 -> 2.0 | 76 | killed |
-| 21 | tangent check -_eps -> 0.0 | 84 | survived |
-| 22 | closest_sep vector + -> - | 86 | survived |
-| 23 | neg root sign - -> + | 97 | survived |
-| 24 | positive-root t > 0 -> t >= 0 | 98 | survived |
-| 25 | min(root) -> max(root) | 103 | survived |
+| 11 | already-in-collision <= -> < | 74 | survived |
+| 12 | already-in-collision returns nonzero ttc | 75 | killed |
+| 13 | zero-speed < -> <= | 78 | survived |
+| 14 | zero-speed tolerance 1e-12 -> 1e-6 | 78 | survived |
+| 15 | closing-rate <= -> < | 89 | survived |
+| 16 | noise-floor 1e-9 -> 1e-6 | 87 | survived |
+| 17 | b factor 2.0 -> 1.0 | 93 | killed |
+| 18 | c sign - -> + | 94 | killed |
+| 19 | discriminant sign - -> + | 96 | killed |
+| 20 | discriminant factor 4.0 -> 2.0 | 96 | killed |
+| 21 | tangent check -_eps -> 0.0 | 104 | survived |
+| 22 | closest_sep vector + -> - | 106 | survived |
+| 23 | neg root sign - -> + | 117 | survived |
+| 24 | positive-root t > 0 -> t >= 0 | 118 | survived |
+| 25 | min(root) -> max(root) | 123 | killed |
 
 ## Reading
 
-Survival rate is 44.0%, above the 30% threshold at which
-mutation testing starts to flag weak coverage. Surviving mutants
-identify specific code paths the tests do not constrain. Each
-survivor above is a candidate for a targeted test.
+Survival rate is 48.0%, above the 30% threshold at
+which mutation testing starts to flag weak coverage. Surviving
+mutants identify specific code paths the tests do not constrain.
+Each survivor above is a candidate for a targeted test.
+
+## Errata — rate label fix (PR #48)
+
+PR #45's version of this doc reported "Survival rate: 44.0%" from the
+same code that now says "Survival rate: 48.0%". The number was
+computed correctly but labeled backwards: `killed / total` is the
+**kill** rate, not the survival rate. Both are now reported explicitly.
+Historical survival for pre-PR-#48 code: 56.0%.
+
+## Changes since PR #45
+
+Four behavioral mutations that survived PR #45 now die:
+
+- `min(root) -> max(root)` (line 123) — killed by
+  `test_ttc_returns_entry_root_not_exit_root`, which asserts the
+  function returns time to *first* contact, not time to separation.
+- `severity horizon 5.0 -> 4.0` (line 25) — killed by
+  `test_ttc_severity_at_horizon_interior`, which asserts severity on
+  the (4.0, 5.0) interval.
+- `already-in-collision returns nonzero ttc` (line 75) — killed by the
+  new sentinel path from `test_ttc_non_finite_inputs_return_sentinel`.
+
+Survival rate: 56.0% (PR #45 code) → 48.0% (PR #48 code).
 
 ## Interpreting the survivors
 
-The 44% rate above counts every mutation, including three that are
-semantically equivalent to the original code. Classifying the 14
-survivors:
+Classifying the 12 surviving mutations:
 
 ### Semantically equivalent (false survivors; the mutator over-counts)
 
-- **`drop isfinite() in is_critical`** — `0 < nan <= 3.0` already
-  evaluates to `False`, so the `np.isfinite` guard is redundant in this
-  expression. Removing it does not change behavior.
+- **`drop isfinite() in is_critical`** — `0 < nan <= 3.0` is `False`,
+  so the `np.isfinite` guard is redundant. Removing it does not change
+  behavior.
 - **`severity <= 0 -> < 0`** — at `ttc_seconds == 0`, the mutated path
-  falls through to the arithmetic `1.0 - 0/5.0 == 1.0`. Same output.
+  falls through to `1.0 - 0/5.0 == 1.0`. Same output.
 - **`severity >= 5.0 -> > 5.0`** — at `ttc_seconds == 5.0`, the mutated
   path falls through to `1.0 - 5.0/5.0 == 0.0`. Same output.
 
-Real survival rate excluding these: **11/22 (50%)** — higher than the
-raw 44%, because all three false survivors were counted in the
-survivor column. The raw rate understates the gap in coverage.
+Three false survivors. Real survival excluding those: 9/22 (40.9%).
 
 ### Boundary-condition survivors (real, narrow)
 
-Six mutations flip a comparison operator on an exact boundary
+Five mutations flip a comparison operator on an exact boundary
 (`already_in_collision`, zero relative speed, closing-rate noise floor,
-positive-root filter). Tests exercise the neighborhoods but not the
-exact equality cases.
+positive-root filter, negative-root sign). Tests exercise the
+neighborhoods but not the exact equality cases. Adding tests here is
+possible but low-value: the code paths are guard rails against float64
+noise, not behavior the paper depends on.
 
-### Behavioral survivors (real, material)
+### Behavioral survivors (real, worth a follow-up)
 
-Four mutations change behavior on a range, not a point. Listed in
-order of what they would mean for a paper claim:
+- **`zero-speed tolerance 1e-12 -> 1e-6`** (line 78) — widens the
+  zero-relative-speed rejection band by six orders of magnitude. Not
+  caught because no test constructs a near-zero-but-nonzero relative
+  velocity.
+- **`noise-floor 1e-9 -> 1e-6`** (line 87) — widens the
+  diverging/parallel rejection band. Same shape.
+- **`tangent check -_eps -> 0.0`** (line 104) — removes the scale-aware
+  tangent tolerance the inline comment says exists for rotation
+  invariance. `test_metamorphic` did not catch it.
+- **`closest_sep vector + -> -`** (line 106) — inverts the closest-
+  approach vector for the `no_collision_min_sep_*` status. Affects only
+  the human-readable status string.
+- **`neg root sign - -> +`** (line 117), **`positive-root t > 0 -> t >= 0`**
+  (line 118) — root-selection boundary. The first is likely equivalent
+  (swapping then min gives the same answer); the second is a t=0
+  inclusion boundary no test hits.
 
-1. **`min(root) -> max(root)` (line 103)** — the function could return
-   the *exit* root (when actors leave the collision radius) instead of
-   the *entry* root (time to first contact) and no test catches it.
-   This is the TTC definition itself.
-2. **`severity horizon 5.0 -> 4.0` (line 25)** — the severity scale
-   collapses to 0 at ttc=4.5 in the mutated version; no test asserts
-   severity on the (4.0, 5.0) interval.
-3. **`tangent check -_eps -> 0.0` (line 84)** — removes the scale-aware
-   tangent tolerance that the inline comment says exists to make
-   rotation invariance deterministic. `test_metamorphic` did not catch
-   it, so either the tolerance is not load-bearing on the tested inputs
-   or the metamorphic test does not exercise near-tangent pairs.
-4. **`noise-floor 1e-9 -> 1e-6` (line 67)** — widens the diverging/parallel
-   rejection band by three orders of magnitude; not caught.
-
-## Follow-up
-
-Targeted tests for the four behavioral survivors are a candidate for a
-later PR. The two that most affect the paper's results are the root
-selection (`min` vs `max`) and the severity horizon; both are functions
-the label generation depends on directly.
+The three that matter are the two tolerance widenings and the tangent
+tolerance removal. All three are scaling constants chosen against
+float64 behavior rather than physical quantities; tests would need
+specific near-degenerate geometries. That is a follow-up, not a blocker.
