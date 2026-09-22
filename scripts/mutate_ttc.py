@@ -225,7 +225,8 @@ def main() -> int:
     survived = sum(1 for _, _, o, _ in rows if o == "survived")
     skipped = sum(1 for _, _, o, _ in rows if o == "SKIPPED")
     total = killed + survived
-    rate = (killed / total * 100.0) if total else 0.0
+    kill_rate = (killed / total * 100.0) if total else 0.0
+    survival_rate = (survived / total * 100.0) if total else 0.0
 
     lines = [
         "# Mutation testing — `src/graf/ssm/ttc.py`",
@@ -252,7 +253,8 @@ def main() -> int:
         "",
         f"- **Killed:** {killed}/{total}",
         f"- **Survived:** {survived}/{total}",
-        f"- **Survival rate:** {rate:.1f}%" if total else "",
+        f"- **Kill rate:** {kill_rate:.1f}%",
+        f"- **Survival rate:** {survival_rate:.1f}%",
         f"- Skipped (find string not unique): {skipped}",
         "",
         "| # | mutation | line | outcome |",
@@ -262,23 +264,23 @@ def main() -> int:
         cell_note = f" — {note}" if note else ""
         lines.append(f"| {i} | {label} | {line} | {outcome}{cell_note} |")
 
-    if rate >= 30:
+    if survival_rate >= 30:
         lines += [
             "",
             "## Reading",
             "",
-            f"Survival rate is {rate:.1f}%, above the 30% threshold at which",
-            "mutation testing starts to flag weak coverage. Surviving mutants",
-            "identify specific code paths the tests do not constrain. Each",
-            "survivor above is a candidate for a targeted test.",
+            f"Survival rate is {survival_rate:.1f}%, above the 30% threshold at",
+            "which mutation testing starts to flag weak coverage. Surviving",
+            "mutants identify specific code paths the tests do not constrain.",
+            "Each survivor above is a candidate for a targeted test.",
         ]
     else:
         lines += [
             "",
             "## Reading",
             "",
-            f"Survival rate is {rate:.1f}%, below the 30% threshold at which",
-            "mutation testing starts to flag weak coverage. The suite",
+            f"Survival rate is {survival_rate:.1f}%, below the 30% threshold at",
+            "which mutation testing starts to flag weak coverage. The suite",
             "constrains the ttc.py behavior in the sampled mutation set.",
         ]
 
@@ -299,7 +301,10 @@ def main() -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text("\n".join(lines) + "\n")
     print(f"\nwrote {args.out}")
-    print(f"killed {killed}/{total}, survived {survived}/{total} ({rate:.1f}%)")
+    print(
+        f"killed {killed}/{total}, survived {survived}/{total} "
+        f"(kill rate {kill_rate:.1f}%, survival rate {survival_rate:.1f}%)"
+    )
     return 0
 
 
