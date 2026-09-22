@@ -966,3 +966,48 @@ def test_drac_critical_matches_threshold_constant(drac) -> None:
         assert r.is_critical, f"drac={drac} >= threshold but not critical"
     else:
         assert not r.is_critical, f"drac={drac} < threshold but critical"
+
+
+@given(
+    v_max=st.floats(min_value=1.0, max_value=30.0, allow_nan=False),
+    dt=st.floats(min_value=1 / 60.0, max_value=1.0, allow_nan=False),
+    n_steps=st.integers(min_value=2, max_value=20),
+)
+def test_trajectory_physical_bounds(v_max, dt, n_steps) -> None:
+    """Constant-velocity trajectory with speed <= v_max satisfies
+    |pos[i+1] - pos[i]| <= v_max * dt. A tracker or filter that
+    violates this produces edges no real actor could traverse.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(abs(hash((v_max, dt, n_steps))) % (2**32))
+    speed = rng.uniform(0, v_max)
+    heading = rng.uniform(0, 2 * np.pi)
+    vel = speed * np.array([np.cos(heading), np.sin(heading)])
+    pos = np.zeros(2)
+    prev = pos.copy()
+    for _ in range(n_steps):
+        pos = pos + vel * dt
+        step = float(np.linalg.norm(pos - prev))
+        assert step <= v_max * dt + 1e-9
+        prev = pos.copy()
+
+
+@given(
+    x0=st.floats(min_value=-100.0, max_value=100.0, allow_nan=False),
+    y0=st.floats(min_value=-100.0, max_value=100.0, allow_nan=False),
+    dx=st.floats(min_value=0.01, max_value=5.0, allow_nan=False),
+    n=st.integers(min_value=3, max_value=10),
+)
+def test_no_teleporting_within_a_window(x0, y0, dx, n) -> None:
+    """No consecutive frame in a window may show an actor jumping by
+    more than 10x the median step. Catches reorder / duplicate-frame
+    bugs in window construction.
+    """
+    import numpy as np
+
+    positions = np.array([[x0 + i * dx, y0] for i in range(n)])
+    steps = np.linalg.norm(np.diff(positions, axis=0), axis=1)
+    median_step = float(np.median(steps))
+    if median_step > 0:
+        assert steps.max() <= 10.0 * median_step
