@@ -38,7 +38,10 @@ dependencies = [
 dev = [
   "pytest",
   "pytest-cov",
-  "ruff",
+  # Pinned to match .pre-commit-config.yaml's ruff-pre-commit rev. A
+  # mismatched local ruff reformats differently and the CI Ruff job
+  # fails on files that passed locally. Bump both together.
+  "ruff==0.16.4",
   "mypy",
   "pre-commit",
   "hypothesis",
