@@ -15,3 +15,14 @@ lint:
 format:
 > ruff format .
 > ruff check --fix .
+
+clean-interim:
+> rm -rf data/interim data/processed
+> @echo "removed data/interim and data/processed (raw preserved)"
+
+clean-all: clean-interim
+> rm -rf data/external
+> @echo "removed data/external"
+
+freeze:
+> python scripts/freeze_lock.py
