@@ -175,6 +175,40 @@ def _format_auc_note(num_folds: int) -> str:
     )
 
 
+def _bootstrap_ci(
+    values, *, n_resamples: int = 10_000, alpha: float = 0.05, seed: int = 42
+) -> dict | None:
+    """Percentile bootstrap CI over a 1-D array of per-fold metrics.
+
+    Resamples ``values`` with replacement ``n_resamples`` times and returns
+    the ``[alpha/2, 1-alpha/2]`` percentile interval of the resample means.
+    NaN values are dropped.
+
+    Returns ``None`` when ``n_resamples <= 0`` or when fewer than two
+    finite values are available.
+
+    Caveat: with 5-10 folds this is a *fold* bootstrap. It quantifies
+    uncertainty of the mean across folds, not the classifier's uncertainty
+    on unseen windows. At n=5 the bootstrap distribution of the mean is
+    coarse; treat the interval as a lower bound and pair it with the
+    Wilcoxon p-value in ``_fold_auc_summary`` rather than as a substitute.
+    """
+    arr = np.asarray([v for v in values if v == v], dtype=float)
+    if n_resamples <= 0 or arr.size < 2:
+        return None
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, arr.size, size=(n_resamples, arr.size))
+    means = arr[idx].mean(axis=1)
+    lo = float(np.quantile(means, alpha / 2))
+    hi = float(np.quantile(means, 1 - alpha / 2))
+    return {
+        "lo": lo,
+        "hi": hi,
+        "alpha": float(alpha),
+        "n_resamples": int(n_resamples),
+    }
+
+
 def _fold_auc_summary(fold_auc: list[float]) -> dict:
     """Summarise per-fold AUCs against a null of 0.5.
 
@@ -286,6 +320,7 @@ def evaluate_model(
     purge_gap_frames: int = 0,
     exclude_features: set[str] | None = None,
     single_feature_name: str = "edge_attr_nonzero_frac",
+    bootstrap_resamples: int = 0,
 ) -> dict[str, Any]:
     """Train and evaluate one model across all folds. Returns metrics + per-fold arrays.
 
@@ -469,6 +504,14 @@ def evaluate_model(
         "std_calibrated_accuracy": (
             float(np.std(fold_calibrated_acc)) if fold_calibrated_acc else None
         ),
+        "mean_accuracy_ci": _bootstrap_ci(fold_acc, n_resamples=bootstrap_resamples),
+        "mean_f1_ci": _bootstrap_ci(fold_f1, n_resamples=bootstrap_resamples),
+        "mean_auc_ci": _bootstrap_ci(fold_auc, n_resamples=bootstrap_resamples),
+        "mean_calibrated_accuracy_ci": (
+            _bootstrap_ci(fold_calibrated_acc, n_resamples=bootstrap_resamples)
+            if fold_calibrated_acc
+            else None
+        ),
         "fold_thresholds": fold_thresholds,
         "calibrate_threshold": calibrate_threshold,
         # Retained only for debugging. Pooling scores across folds trained
@@ -566,6 +609,17 @@ def parse_args(argv=None) -> argparse.Namespace:
         help=(
             "Column name used by the single_feature baseline. "
             "See GraphFeatureExtractor.feature_names()."
+        ),
+    )
+    p.add_argument(
+        "--bootstrap-resamples",
+        type=int,
+        default=10_000,
+        help=(
+            "Percentile bootstrap resamples for 95%% CIs on mean accuracy, "
+            "F1, and AUC. This is a per-fold bootstrap: it bounds the "
+            "uncertainty of the mean across folds, not the classifier's "
+            "uncertainty on unseen windows. Set to 0 to disable."
         ),
     )
     return p.parse_args(argv)
@@ -691,6 +745,7 @@ def main(argv=None) -> int:
             purge_gap_frames=purge_gap_frames,
             exclude_features=_exclude_set,
             single_feature_name=args.single_feature_name,
+            bootstrap_resamples=args.bootstrap_resamples,
         )
         r["runtime_seconds"] = round(time.time() - t0, 2)
         r["purge_gap_frames"] = purge_gap_frames
