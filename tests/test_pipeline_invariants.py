@@ -336,3 +336,58 @@ def test_no_strict_greater_than_0_5_in_prediction_path() -> None:
         assert pat not in text, (
             f"{pat!r} found; use >= 0.5 for consistency with _choose_threshold"
         )
+
+
+# ------------------------------------------------------------------
+# Bootstrap confidence intervals
+# ------------------------------------------------------------------
+
+
+def test_bootstrap_ci_contains_mean_on_symmetric_data() -> None:
+    """For a symmetric set, the 95% percentile CI contains the mean."""
+    rng = np.random.default_rng(0)
+    values = rng.normal(loc=0.75, scale=0.05, size=10)
+    ci = cb._bootstrap_ci(values, n_resamples=2000, seed=42)
+    assert ci is not None
+    mean = float(np.mean(values))
+    assert ci["lo"] <= mean <= ci["hi"], (
+        f"CI [{ci['lo']:.4f}, {ci['hi']:.4f}] does not contain mean {mean:.4f}"
+    )
+    assert ci["lo"] < ci["hi"]
+
+
+def test_bootstrap_ci_narrows_with_more_samples() -> None:
+    """The CI width shrinks as the number of folds grows (identical data scale)."""
+    rng = np.random.default_rng(1)
+    small = rng.normal(loc=0.7, scale=0.05, size=5)
+    large = rng.normal(loc=0.7, scale=0.05, size=50)
+    ci_small = cb._bootstrap_ci(small, n_resamples=4000, seed=42)
+    ci_large = cb._bootstrap_ci(large, n_resamples=4000, seed=42)
+    assert ci_small and ci_large
+    width_small = ci_small["hi"] - ci_small["lo"]
+    width_large = ci_large["hi"] - ci_large["lo"]
+    assert width_large < width_small, (
+        f"CI width did not shrink: n=5 -> {width_small:.4f}, n=50 -> {width_large:.4f}"
+    )
+
+
+def test_bootstrap_ci_disabled_returns_none() -> None:
+    """n_resamples=0 disables the CI and returns None."""
+    assert cb._bootstrap_ci([0.7, 0.8, 0.75], n_resamples=0) is None
+
+
+def test_bootstrap_ci_single_value_returns_none() -> None:
+    """Fewer than two finite values cannot be resampled."""
+    assert cb._bootstrap_ci([0.7], n_resamples=1000) is None
+    assert cb._bootstrap_ci([], n_resamples=1000) is None
+    assert cb._bootstrap_ci([float("nan"), float("nan")], n_resamples=1000) is None
+
+
+def test_bootstrap_ci_seed_is_deterministic() -> None:
+    """Same seed → identical CI bounds; different seed → (very likely) different."""
+    values = [0.70, 0.75, 0.80, 0.72, 0.68]
+    a = cb._bootstrap_ci(values, n_resamples=2000, seed=42)
+    b = cb._bootstrap_ci(values, n_resamples=2000, seed=42)
+    c = cb._bootstrap_ci(values, n_resamples=2000, seed=7)
+    assert a == b, "same seed produced different CIs"
+    assert a != c, "different seeds produced identical CIs (suspicious)"
