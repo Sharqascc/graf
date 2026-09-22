@@ -179,3 +179,11 @@ forbidden_modules = [
   "graf.ssm",
   "graf.training",
 ]
+
+[tool.pytest.ini_options]
+# Consolidated from the former pytest.ini. tox and CI both read this.
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+markers = [
+  "hypothesis: property-based tests using Hypothesis",
+]
