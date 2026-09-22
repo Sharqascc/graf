@@ -78,7 +78,9 @@ survivors:
 - **`severity >= 5.0 -> > 5.0`** — at `ttc_seconds == 5.0`, the mutated
   path falls through to `1.0 - 5.0/5.0 == 0.0`. Same output.
 
-Real survival rate excluding these: **11/22 (50%)**.
+Real survival rate excluding these: **11/22 (50%)** — higher than the
+raw 44%, because all three false survivors were counted in the
+survivor column. The raw rate understates the gap in coverage.
 
 ### Boundary-condition survivors (real, narrow)
 

@@ -11,12 +11,12 @@ manually after changes to ttc.py or its tests.
 Usage:
     python scripts/mutate_ttc.py --out docs/mutation_testing_2026_10.md
 """
+
 from __future__ import annotations
 
 import argparse
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -32,79 +32,130 @@ TEST_FILES = [
 # runtime; the table is ordered by appearance.
 MUTATIONS: list[tuple[str, str, str]] = [
     # is_critical: 0 < ttc <= 3.0
-    ("lower bound <= vs <", "0 < self.ttc_seconds <= 3.0", "0 <= self.ttc_seconds <= 3.0"),
-    ("upper bound < vs <=", "0 < self.ttc_seconds <= 3.0", "0 < self.ttc_seconds < 3.0"),
-    ("upper constant 3.0 -> 2.0",
-     "0 < self.ttc_seconds <= 3.0", "0 < self.ttc_seconds <= 2.0"),
-    ("upper constant 3.0 -> 4.0",
-     "0 < self.ttc_seconds <= 3.0", "0 < self.ttc_seconds <= 4.0"),
-    ("drop isfinite() in is_critical",
-     "np.isfinite(self.ttc_seconds) and 0 < self.ttc_seconds <= 3.0",
-     "0 < self.ttc_seconds <= 3.0"),
-    ("and -> or in is_critical",
-     "np.isfinite(self.ttc_seconds) and 0 < self.ttc_seconds <= 3.0",
-     "np.isfinite(self.ttc_seconds) or 0 < self.ttc_seconds <= 3.0"),
-
+    (
+        "lower bound <= vs <",
+        "0 < self.ttc_seconds <= 3.0",
+        "0 <= self.ttc_seconds <= 3.0",
+    ),
+    (
+        "upper bound < vs <=",
+        "0 < self.ttc_seconds <= 3.0",
+        "0 < self.ttc_seconds < 3.0",
+    ),
+    (
+        "upper constant 3.0 -> 2.0",
+        "0 < self.ttc_seconds <= 3.0",
+        "0 < self.ttc_seconds <= 2.0",
+    ),
+    (
+        "upper constant 3.0 -> 4.0",
+        "0 < self.ttc_seconds <= 3.0",
+        "0 < self.ttc_seconds <= 4.0",
+    ),
+    (
+        "drop isfinite() in is_critical",
+        "np.isfinite(self.ttc_seconds) and 0 < self.ttc_seconds <= 3.0",
+        "0 < self.ttc_seconds <= 3.0",
+    ),
+    (
+        "and -> or in is_critical",
+        "np.isfinite(self.ttc_seconds) and 0 < self.ttc_seconds <= 3.0",
+        "np.isfinite(self.ttc_seconds) or 0 < self.ttc_seconds <= 3.0",
+    ),
     # severity
-    ("severity <= 0 -> < 0",
-     "if self.ttc_seconds <= 0:", "if self.ttc_seconds < 0:"),
-    ("severity >= 5.0 -> > 5.0",
-     "if self.ttc_seconds >= 5.0:", "if self.ttc_seconds > 5.0:"),
-    ("severity horizon 5.0 -> 4.0 (upper check)",
-     "if self.ttc_seconds >= 5.0:", "if self.ttc_seconds >= 4.0:"),
-    ("severity divisor 5.0 -> 10.0",
-     "return float(1.0 - (self.ttc_seconds / 5.0))",
-     "return float(1.0 - (self.ttc_seconds / 10.0))"),
-
+    ("severity <= 0 -> < 0", "if self.ttc_seconds <= 0:", "if self.ttc_seconds < 0:"),
+    (
+        "severity >= 5.0 -> > 5.0",
+        "if self.ttc_seconds >= 5.0:",
+        "if self.ttc_seconds > 5.0:",
+    ),
+    (
+        "severity horizon 5.0 -> 4.0 (upper check)",
+        "if self.ttc_seconds >= 5.0:",
+        "if self.ttc_seconds >= 4.0:",
+    ),
+    (
+        "severity divisor 5.0 -> 10.0",
+        "return float(1.0 - (self.ttc_seconds / 5.0))",
+        "return float(1.0 - (self.ttc_seconds / 10.0))",
+    ),
     # already-in-collision check
-    ("already-in-collision <= -> <",
-     "if _d <= min_distance + _tol:", "if _d < min_distance + _tol:"),
-    ("already-in-collision returns nonzero ttc",
-     "return TTCResult(0.0, None, True, \"already_in_collision\")",
-     "return TTCResult(0.001, None, True, \"already_in_collision\")"),
-
+    (
+        "already-in-collision <= -> <",
+        "if _d <= min_distance + _tol:",
+        "if _d < min_distance + _tol:",
+    ),
+    (
+        "already-in-collision returns nonzero ttc",
+        'return TTCResult(0.0, None, True, "already_in_collision")',
+        'return TTCResult(0.001, None, True, "already_in_collision")',
+    ),
     # zero relative speed
-    ("zero-speed < -> <=",
-     "if rel_speed_sq < 1e-12:", "if rel_speed_sq <= 1e-12:"),
-    ("zero-speed tolerance 1e-12 -> 1e-6",
-     "if rel_speed_sq < 1e-12:", "if rel_speed_sq < 1e-6:"),
-
+    ("zero-speed < -> <=", "if rel_speed_sq < 1e-12:", "if rel_speed_sq <= 1e-12:"),
+    (
+        "zero-speed tolerance 1e-12 -> 1e-6",
+        "if rel_speed_sq < 1e-12:",
+        "if rel_speed_sq < 1e-6:",
+    ),
     # noise floor
-    ("closing-rate <= -> <",
-     "if closing_rate <= noise_floor:", "if closing_rate < noise_floor:"),
-    ("noise-floor 1e-9 -> 1e-6",
-     "1e-9 * float(np.linalg.norm(rel_pos)) * float(np.sqrt(rel_speed_sq)) + 1e-12",
-     "1e-6 * float(np.linalg.norm(rel_pos)) * float(np.sqrt(rel_speed_sq)) + 1e-12"),
-
+    (
+        "closing-rate <= -> <",
+        "if closing_rate <= noise_floor:",
+        "if closing_rate < noise_floor:",
+    ),
+    (
+        "noise-floor 1e-9 -> 1e-6",
+        "1e-9 * float(np.linalg.norm(rel_pos)) * float(np.sqrt(rel_speed_sq)) + 1e-12",
+        "1e-6 * float(np.linalg.norm(rel_pos)) * float(np.sqrt(rel_speed_sq)) + 1e-12",
+    ),
     # quadratic coefficients
-    ("b factor 2.0 -> 1.0",
-     "b = 2.0 * float(np.dot(rel_pos, rel_vel))",
-     "b = 1.0 * float(np.dot(rel_pos, rel_vel))"),
-    ("c sign - -> +",
-     "c = float(np.dot(rel_pos, rel_pos) - min_distance**2)",
-     "c = float(np.dot(rel_pos, rel_pos) + min_distance**2)"),
-    ("discriminant sign - -> +",
-     "discriminant = b**2 - 4.0 * a * c",
-     "discriminant = b**2 + 4.0 * a * c"),
-    ("discriminant factor 4.0 -> 2.0",
-     "discriminant = b**2 - 4.0 * a * c",
-     "discriminant = b**2 - 2.0 * a * c"),
-
+    (
+        "b factor 2.0 -> 1.0",
+        "b = 2.0 * float(np.dot(rel_pos, rel_vel))",
+        "b = 1.0 * float(np.dot(rel_pos, rel_vel))",
+    ),
+    (
+        "c sign - -> +",
+        "c = float(np.dot(rel_pos, rel_pos) - min_distance**2)",
+        "c = float(np.dot(rel_pos, rel_pos) + min_distance**2)",
+    ),
+    (
+        "discriminant sign - -> +",
+        "discriminant = b**2 - 4.0 * a * c",
+        "discriminant = b**2 + 4.0 * a * c",
+    ),
+    (
+        "discriminant factor 4.0 -> 2.0",
+        "discriminant = b**2 - 4.0 * a * c",
+        "discriminant = b**2 - 2.0 * a * c",
+    ),
     # tangent-approach tolerance
-    ("tangent check -_eps -> 0.0",
-     "if discriminant < -_eps:", "if discriminant < 0.0:"),
-    ("closest_sep vector + -> -",
-     "rel_pos + t_near * rel_vel", "rel_pos - t_near * rel_vel"),
-
+    (
+        "tangent check -_eps -> 0.0",
+        "if discriminant < -_eps:",
+        "if discriminant < 0.0:",
+    ),
+    (
+        "closest_sep vector + -> -",
+        "rel_pos + t_near * rel_vel",
+        "rel_pos - t_near * rel_vel",
+    ),
     # root selection
-    ("neg root sign - -> +",
-     "roots = [(-b - sqrt_disc) / (2.0 * a), (-b + sqrt_disc) / (2.0 * a)]",
-     "roots = [(-b + sqrt_disc) / (2.0 * a), (-b - sqrt_disc) / (2.0 * a)]"),
-    ("positive-root t > 0 -> t >= 0",
-     "positive_roots = [t for t in roots if t > 0]",
-     "positive_roots = [t for t in roots if t >= 0]"),
-    ("min(root) -> max(root)",
-     "ttc = float(min(positive_roots))", "ttc = float(max(positive_roots))"),
+    (
+        "neg root sign - -> +",
+        "roots = [(-b - sqrt_disc) / (2.0 * a), (-b + sqrt_disc) / (2.0 * a)]",
+        "roots = [(-b + sqrt_disc) / (2.0 * a), (-b - sqrt_disc) / (2.0 * a)]",
+    ),
+    (
+        "positive-root t > 0 -> t >= 0",
+        "positive_roots = [t for t in roots if t > 0]",
+        "positive_roots = [t for t in roots if t >= 0]",
+    ),
+    (
+        "min(root) -> max(root)",
+        "ttc = float(min(positive_roots))",
+        "ttc = float(max(positive_roots))",
+    ),
 ]
 
 
@@ -119,7 +170,10 @@ def run_tests() -> bool:
     """Return True if the test suite passes (mutant survived)."""
     r = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", *TEST_FILES],
-        cwd=REPO, capture_output=True, text=True, timeout=600,
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        timeout=600,
     )
     return r.returncode == 0
 
@@ -142,8 +196,14 @@ def main() -> int:
     for label, find_s, replace_s in MUTATIONS:
         occurrences = original.count(find_s)
         if occurrences != 1:
-            rows.append((label, line_of(original, find_s), "SKIPPED",
-                         f"find string appears {occurrences}x (need exactly 1)"))
+            rows.append(
+                (
+                    label,
+                    line_of(original, find_s),
+                    "SKIPPED",
+                    f"find string appears {occurrences}x (need exactly 1)",
+                )
+            )
             print(f"  SKIP  {label}: find string appears {occurrences}x")
             continue
         mutated = original.replace(find_s, replace_s, 1)
