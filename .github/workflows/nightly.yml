@@ -1,0 +1,63 @@
+name: Nightly Deep Verification
+
+# Scheduled off the top of the hour; GitHub's cron is UTC.
+on:
+  schedule:
+    - cron: "34 2 * * *"
+  workflow_dispatch:  # allow manual trigger
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  deep-property-tests:
+    name: Deep property tests (Hypothesis)
+    runs-on: ubuntu-latest
+    env:
+      HYPOTHESIS_PROFILE: nightly
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt -r requirements/dev.txt
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install torch-geometric
+      - name: Deep property testing
+        run: pytest -q tests/test_property_based.py -m hypothesis
+
+  mutation-diagnostic:
+    name: Mutation diagnostic (ttc.py)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt -r requirements/dev.txt
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install torch-geometric
+      # Runs the hand-listed mutator, always exits 0 so a weekly survivor
+      # count is a review artifact rather than a gate. See the mutation
+      # doc for the current survival rate and what the survivors mean.
+      - name: Run mutation harness
+        run: |
+          python scripts/mutate_ttc.py --out /tmp/mutation_testing.md || true
+          cat /tmp/mutation_testing.md
+      - name: Upload mutation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-${{ github.run_id }}
+          path: /tmp/mutation_testing.md
+          retention-days: 30
