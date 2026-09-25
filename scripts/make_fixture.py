@@ -104,25 +104,16 @@ def write_homography(h: dict, path: Path) -> None:
 
 
 def _call_builder(rows: list[dict], frame_id: int, video_id: str):
-    """Call build_pyg_graph_for_frame with whatever signature the repo has."""
+    """Build one frame's PyG Data via the repo's graph builder.
+
+    Signature is
+    `(actors, radius=6.0, actor_classes=None, directed=True,
+      frame_id=None, video_id=None)`,
+    so we pass the frame/video identifiers as keywords.
+    """
     from graf.graph.builders import build_pyg_graph_for_frame
 
-    attempts = [
-        lambda: build_pyg_graph_for_frame(rows, frame_id=frame_id, video_id=video_id),
-        lambda: build_pyg_graph_for_frame(rows, frame_id, video_id),
-        lambda: build_pyg_graph_for_frame(rows, frame_id=frame_id),
-        lambda: build_pyg_graph_for_frame(rows, frame_id),
-    ]
-    last = None
-    for fn in attempts:
-        try:
-            return fn()
-        except TypeError as e:
-            last = e
-            continue
-    raise RuntimeError(
-        f"could not call build_pyg_graph_for_frame; last TypeError: {last}"
-    )
+    return build_pyg_graph_for_frame(rows, frame_id=frame_id, video_id=video_id)
 
 
 def build_graphs(rows: list[dict], graphs_dir: Path, video_id: str) -> int:
