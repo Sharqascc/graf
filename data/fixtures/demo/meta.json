@@ -1,0 +1,7 @@
+{
+  "fps": 30.0,
+  "num_actors": 6,
+  "num_frames": 60,
+  "seed": 20260925,
+  "video_id": "demo_fixture"
+}
