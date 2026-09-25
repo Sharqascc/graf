@@ -101,6 +101,16 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF"]
 [tool.ruff.format]
 quote-style = "double"
 
+
+[tool.coverage.run]
+# scripts/make_fixture.py generates the committed synthetic fixture via a
+# subprocess from the smoke test, so its lines never show up in the parent
+# process's coverage. Its correctness is asserted by the fixture files
+# themselves (they are committed and the smoke test loads them).
+omit = [
+    "scripts/make_fixture.py",
+]
+
 [tool.mypy]
 python_version = "3.11"
 disable_error_code = ["import-untyped", "no-any-return"]
