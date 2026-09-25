@@ -37,3 +37,8 @@ data/raw/*.jsonl
 data/raw/*.yaml
 data/interim/
 data/processed/
+
+# Fixture graphs are small, committed, and reproducible via
+# `python scripts/make_fixture.py`. Track them despite the
+# blanket *.pt rule above.
+!data/fixtures/**/*.pt

@@ -428,39 +428,58 @@ def evaluate_model(
                         perm = rng.permutation(n_train)
                         inner_train = train_idx[perm[:n_inner]]
                         inner_calib = train_idx[perm[n_inner:]]
-                    inner_model = _make_model(
-                        name, seed + k, single_feature_name=single_feature_name
-                    )
-                    inner_model.fit(all_features[inner_train], labels_arr[inner_train])
-                    try:
-                        p_calib = inner_model.predict_proba(all_features[inner_calib])
-                        calib_scores = (
-                            p_calib[:, 1]
-                            if p_calib.ndim == 2 and p_calib.shape[1] == 2
-                            else p_calib.reshape(-1)
+                    _inner_classes = {int(c) for c in labels_arr[inner_train]}
+                    _calib_classes = {int(c) for c in labels_arr[inner_calib]}
+                    if len(_inner_classes) == 2 and len(_calib_classes) == 2:
+                        inner_model = _make_model(
+                            name,
+                            seed + k,
+                            single_feature_name=single_feature_name,
                         )
-                    except Exception:
-                        calib_scores = np.asarray(
-                            inner_model.predict(all_features[inner_calib]),
-                            dtype=np.float64,
+                        inner_model.fit(
+                            all_features[inner_train],
+                            labels_arr[inner_train],
                         )
-                    threshold = _choose_threshold(
-                        calib_scores,
-                        labels_arr[inner_calib],
-                        objective=calibration_objective,
-                    )
+                        try:
+                            p_calib = inner_model.predict_proba(
+                                all_features[inner_calib]
+                            )
+                            calib_scores = (
+                                p_calib[:, 1]
+                                if p_calib.ndim == 2 and p_calib.shape[1] == 2
+                                else p_calib.reshape(-1)
+                            )
+                        except Exception:
+                            calib_scores = np.asarray(
+                                inner_model.predict(all_features[inner_calib]),
+                                dtype=np.float64,
+                            )
+                        threshold = _choose_threshold(
+                            calib_scores,
+                            labels_arr[inner_calib],
+                            objective=calibration_objective,
+                        )
 
-            model = _make_model(name, seed + k, single_feature_name=single_feature_name)
-            model.fit(X_train, y_train)
-            try:
-                proba = model.predict_proba(X_val)
-                if proba.ndim == 2 and proba.shape[1] == 2:
-                    scores = proba[:, 1]
-                else:
-                    scores = proba.reshape(-1)
-            except Exception:
-                scores = np.asarray(model.predict(X_val), dtype=np.float64)
-            scores = np.asarray(scores, dtype=np.float64)
+            _train_classes = {int(c) for c in y_train}
+            if len(_train_classes) < 2:
+                # Training fold is single-class: no model can be fit.
+                # Fall back to the majority class as a constant score.
+                _const = float(max(_train_classes) if _train_classes else 0)
+                scores = np.full(len(X_val), _const, dtype=np.float64)
+            else:
+                model = _make_model(
+                    name, seed + k, single_feature_name=single_feature_name
+                )
+                model.fit(X_train, y_train)
+                try:
+                    proba = model.predict_proba(X_val)
+                    if proba.ndim == 2 and proba.shape[1] == 2:
+                        scores = proba[:, 1]
+                    else:
+                        scores = proba.reshape(-1)
+                except Exception:
+                    scores = np.asarray(model.predict(X_val), dtype=np.float64)
+                scores = np.asarray(scores, dtype=np.float64)
 
             preds = (scores >= 0.5).astype(int)
             fold_acc.append(float((preds == y_val).mean()))
