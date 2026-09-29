@@ -158,9 +158,16 @@ On VNTraffic, post-purge:
 | model | mean AUC | 95% CI | mean accuracy |
 |---|---:|---|---:|
 | majority | 0.500 | [0.500, 0.500] | 0.778 |
+| gcn | 0.590 | — | **0.778** |
 | logreg | 0.695 | [0.614, 0.782] | 0.573 |
 | rf | 0.757 | [0.660, 0.843] | 0.728 |
 | single_feature | **0.803** | **[0.736, 0.863]** | 0.765 |
+
+The GCN's accuracy and F1 match the majority baseline exactly, and its
+AUC is barely above chance. The model collapsed to the majority class.
+The complete ordering — cue > rf > gcn > majority — means both added
+capacity (rf over logreg) and added structure (gcn) reduce AUC on this
+label.
 
 Label distribution: 194 positive / 55 negative, majority baseline
 0.779. Leakage after purge: 0 in every fold, every model.
