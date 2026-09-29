@@ -1,0 +1,544 @@
+{
+  "setup": {
+    "tracks": "data/raw/aicc22_tracks_min20.jsonl",
+    "graphs_dir": "data/processed/graphs/aicc22_min20",
+    "window_size": 5,
+    "stride": 2,
+    "label_source": "ttc",
+    "label_strategy": "sustained",
+    "run_length": 5,
+    "fraction_threshold": 0.2,
+    "ttc_threshold_seconds": 1.5,
+    "ttc_distance_threshold": 3.0,
+    "split": "blocked",
+    "num_folds": 5,
+    "purge_gap_frames": 5,
+    "calibrate_threshold": true,
+    "calibration_objective": "accuracy",
+    "epochs": 25,
+    "batch_size": 16,
+    "lr": 0.001,
+    "pos_weight": 2.0,
+    "seed": 42
+  },
+  "labels": {
+    "num_windows": 97,
+    "num_positive": 69,
+    "num_negative": 28,
+    "majority_baseline": 0.711340206185567
+  },
+  "results": [
+    {
+      "model": "majority",
+      "fold_acc": [
+        0.9473684210526315,
+        1.0,
+        0.7368421052631579,
+        0.05263157894736842,
+        0.8095238095238095
+      ],
+      "fold_f1": [
+        0.972972972972973,
+        1.0,
+        0.8484848484848484,
+        0.1,
+        0.8947368421052632
+      ],
+      "fold_auc": [
+        0.5,
+        NaN,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "fold_majority": [
+        0.9473684210526315,
+        1.0,
+        0.7368421052631579,
+        0.05263157894736842,
+        0.8095238095238095
+      ],
+      "fold_negative_count": [
+        1,
+        0,
+        5,
+        18,
+        4
+      ],
+      "mean_accuracy": 0.7092731829573935,
+      "std_accuracy": 0.3415259446285954,
+      "mean_f1": 0.763238932712617,
+      "mean_auc": 0.5,
+      "std_auc": 0.0,
+      "n_valid_folds_auc": 4,
+      "wilcoxon_p_vs_0_5": null,
+      "pooled_accuracy": 0.711340206185567,
+      "fold_calibrated_acc": [
+        0.9473684210526315,
+        1.0,
+        0.7368421052631579,
+        0.05263157894736842,
+        0.8095238095238095
+      ],
+      "mean_calibrated_accuracy": 0.7092731829573935,
+      "std_calibrated_accuracy": 0.3415259446285954,
+      "mean_accuracy_ci": {
+        "lo": 0.3684210526315789,
+        "hi": 0.9408521303258144,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "mean_f1_ci": {
+        "lo": 0.42429156429156434,
+        "hi": 0.9681365576102419,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "mean_auc_ci": {
+        "lo": 0.5,
+        "hi": 0.5,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "mean_calibrated_accuracy_ci": {
+        "lo": 0.3684210526315789,
+        "hi": 0.9408521303258144,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "fold_thresholds": [
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "calibrate_threshold": true,
+      "pooled_auc_DEBUG_DO_NOT_REPORT": 0.5,
+      "runtime_seconds": 0.94,
+      "purge_gap_frames": 5,
+      "leakage_raw": {
+        "per_fold": [
+          2,
+          4,
+          4,
+          4,
+          2
+        ],
+        "total": 16,
+        "num_val": 97,
+        "train_size_per_fold": [
+          78,
+          78,
+          78,
+          78,
+          76
+        ],
+        "gap": 0
+      },
+      "leakage_after_purge": {
+        "per_fold": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "total": 0,
+        "num_val": 97,
+        "train_size_per_fold": [
+          74,
+          70,
+          70,
+          70,
+          72
+        ],
+        "gap": 5
+      }
+    },
+    {
+      "model": "logreg",
+      "fold_acc": [
+        0.9473684210526315,
+        0.3157894736842105,
+        0.7368421052631579,
+        0.10526315789473684,
+        0.19047619047619047
+      ],
+      "fold_f1": [
+        0.972972972972973,
+        0.4799999999999999,
+        0.8387096774193549,
+        0.10526315789473684,
+        0.0
+      ],
+      "fold_auc": [
+        0.8888888888888888,
+        NaN,
+        0.4714285714285714,
+        0.1111111111111111,
+        0.9705882352941176
+      ],
+      "fold_majority": [
+        0.9473684210526315,
+        1.0,
+        0.7368421052631579,
+        0.05263157894736842,
+        0.8095238095238095
+      ],
+      "fold_negative_count": [
+        1,
+        0,
+        5,
+        18,
+        4
+      ],
+      "mean_accuracy": 0.4591478696741854,
+      "std_accuracy": 0.32663248013715046,
+      "mean_f1": 0.4793891616574129,
+      "mean_auc": 0.6105042016806723,
+      "std_auc": 0.34492536699044857,
+      "n_valid_folds_auc": 4,
+      "wilcoxon_p_vs_0_5": null,
+      "pooled_accuracy": 0.4536082474226804,
+      "fold_calibrated_acc": [
+        0.9473684210526315,
+        0.47368421052631576,
+        0.7368421052631579,
+        0.10526315789473684,
+        0.19047619047619047
+      ],
+      "mean_calibrated_accuracy": 0.49072681704260646,
+      "std_calibrated_accuracy": 0.318784382090087,
+      "mean_accuracy_ci": {
+        "lo": 0.18145363408521303,
+        "hi": 0.7538847117794486,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "mean_f1_ci": {
+        "lo": 0.1381052631578947,
+        "hi": 0.8206730601569312,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "mean_auc_ci": {
+        "lo": 0.29126984126984123,
+        "hi": 0.9297385620915033,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "mean_calibrated_accuracy_ci": {
+        "lo": 0.21303258145363407,
+        "hi": 0.7684210526315789,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "fold_thresholds": [
+        2.3151434112971052e-09,
+        0.06165079249628655,
+        0.009820754854225245,
+        0.7103239508067045,
+        0.9930514273486613
+      ],
+      "calibrate_threshold": true,
+      "pooled_auc_DEBUG_DO_NOT_REPORT": 0.38664596273291924,
+      "runtime_seconds": 1.44,
+      "purge_gap_frames": 5,
+      "leakage_raw": {
+        "per_fold": [
+          2,
+          4,
+          4,
+          4,
+          2
+        ],
+        "total": 16,
+        "num_val": 97,
+        "train_size_per_fold": [
+          78,
+          78,
+          78,
+          78,
+          76
+        ],
+        "gap": 0
+      },
+      "leakage_after_purge": {
+        "per_fold": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "total": 0,
+        "num_val": 97,
+        "train_size_per_fold": [
+          74,
+          70,
+          70,
+          70,
+          72
+        ],
+        "gap": 5
+      }
+    },
+    {
+      "model": "rf",
+      "fold_acc": [
+        0.42105263157894735,
+        1.0,
+        0.7894736842105263,
+        0.05263157894736842,
+        0.19047619047619047
+      ],
+      "fold_f1": [
+        0.5925925925925926,
+        1.0,
+        0.8750000000000001,
+        0.1,
+        0.0
+      ],
+      "fold_auc": [
+        0.05555555555555555,
+        NaN,
+        0.4714285714285714,
+        0.8055555555555556,
+        0.9338235294117647
+      ],
+      "fold_majority": [
+        0.9473684210526315,
+        1.0,
+        0.7368421052631579,
+        0.05263157894736842,
+        0.8095238095238095
+      ],
+      "fold_negative_count": [
+        1,
+        0,
+        5,
+        18,
+        4
+      ],
+      "mean_accuracy": 0.49072681704260646,
+      "std_accuracy": 0.3565224352091954,
+      "mean_f1": 0.5135185185185185,
+      "mean_auc": 0.5665908029878619,
+      "std_auc": 0.33991796906018906,
+      "n_valid_folds_auc": 4,
+      "wilcoxon_p_vs_0_5": null,
+      "pooled_accuracy": 0.4845360824742268,
+      "fold_calibrated_acc": [
+        0.9473684210526315,
+        1.0,
+        0.7894736842105263,
+        0.21052631578947367,
+        0.19047619047619047
+      ],
+      "mean_calibrated_accuracy": 0.6275689223057643,
+      "std_calibrated_accuracy": 0.355574006594075,
+      "mean_accuracy_ci": {
+        "lo": 0.18145363408521303,
+        "hi": 0.8,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "mean_f1_ci": {
+        "lo": 0.1585185185185185,
+        "hi": 0.8685185185185185,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "mean_auc_ci": {
+        "lo": 0.24305555555555558,
+        "hi": 0.8696895424836601,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "mean_calibrated_accuracy_ci": {
+        "lo": 0.3182957393483709,
+        "hi": 0.9368421052631579,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "fold_thresholds": [
+        0.27,
+        0.345,
+        0.265,
+        0.81,
+        1.0
+      ],
+      "calibrate_threshold": true,
+      "pooled_auc_DEBUG_DO_NOT_REPORT": 0.22593167701863354,
+      "runtime_seconds": 4.19,
+      "purge_gap_frames": 5,
+      "leakage_raw": {
+        "per_fold": [
+          2,
+          4,
+          4,
+          4,
+          2
+        ],
+        "total": 16,
+        "num_val": 97,
+        "train_size_per_fold": [
+          78,
+          78,
+          78,
+          78,
+          76
+        ],
+        "gap": 0
+      },
+      "leakage_after_purge": {
+        "per_fold": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "total": 0,
+        "num_val": 97,
+        "train_size_per_fold": [
+          74,
+          70,
+          70,
+          70,
+          72
+        ],
+        "gap": 5
+      }
+    },
+    {
+      "model": "single_feature",
+      "fold_acc": [
+        0.9473684210526315,
+        1.0,
+        0.5263157894736842,
+        0.8421052631578947,
+        0.19047619047619047
+      ],
+      "fold_f1": [
+        0.972972972972973,
+        1.0,
+        0.5263157894736842,
+        0.0,
+        0.0
+      ],
+      "fold_auc": [
+        1.0,
+        NaN,
+        0.9,
+        0.75,
+        0.4117647058823529
+      ],
+      "fold_majority": [
+        0.9473684210526315,
+        1.0,
+        0.7368421052631579,
+        0.05263157894736842,
+        0.8095238095238095
+      ],
+      "fold_negative_count": [
+        1,
+        0,
+        5,
+        18,
+        4
+      ],
+      "mean_accuracy": 0.7012531328320801,
+      "std_accuracy": 0.30369652856085705,
+      "mean_f1": 0.49985775248933145,
+      "mean_auc": 0.7654411764705882,
+      "std_auc": 0.22273829624902172,
+      "n_valid_folds_auc": 4,
+      "wilcoxon_p_vs_0_5": null,
+      "pooled_accuracy": 0.6907216494845361,
+      "fold_calibrated_acc": [
+        0.9473684210526315,
+        1.0,
+        0.7368421052631579,
+        0.05263157894736842,
+        0.19047619047619047
+      ],
+      "mean_calibrated_accuracy": 0.5854636591478697,
+      "std_calibrated_accuracy": 0.39131981667765037,
+      "mean_accuracy_ci": {
+        "lo": 0.41954887218045106,
+        "hi": 0.9473684210526315,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "mean_f1_ci": {
+        "lo": 0.10526315789473684,
+        "hi": 0.894452347083926,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "mean_auc_ci": {
+        "lo": 0.5338235294117647,
+        "hi": 0.95,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "mean_calibrated_accuracy_ci": {
+        "lo": 0.2446115288220551,
+        "hi": 0.9263157894736842,
+        "alpha": 0.05,
+        "n_resamples": 10000
+      },
+      "fold_thresholds": [
+        -0.12666581354484127,
+        -0.0816752278512386,
+        -0.07276050486852455,
+        -0.8130514572590596,
+        0.19013429809921706
+      ],
+      "calibrate_threshold": true,
+      "pooled_auc_DEBUG_DO_NOT_REPORT": 0.7316252587991718,
+      "runtime_seconds": 0.79,
+      "purge_gap_frames": 5,
+      "leakage_raw": {
+        "per_fold": [
+          2,
+          4,
+          4,
+          4,
+          2
+        ],
+        "total": 16,
+        "num_val": 97,
+        "train_size_per_fold": [
+          78,
+          78,
+          78,
+          78,
+          76
+        ],
+        "gap": 0
+      },
+      "leakage_after_purge": {
+        "per_fold": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "total": 0,
+        "num_val": 97,
+        "train_size_per_fold": [
+          74,
+          70,
+          70,
+          70,
+          72
+        ],
+        "gap": 5
+      }
+    }
+  ]
+}
