@@ -183,7 +183,7 @@ def test_golden_master_ssm_snapshot(summary):
     assert len(summary["events"]) == len(expected["events"]), (
         f"event count: {len(summary['events'])} != {len(expected['events'])}"
     )
-    for got, exp in zip(summary["events"], expected["events"]):
+    for got, exp in zip(summary["events"], expected["events"], strict=False):
         assert got["metric_name"] == exp["metric_name"]
         assert got["start_frame"] == exp["start_frame"]
         assert got["end_frame"] == exp["end_frame"]

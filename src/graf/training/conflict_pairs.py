@@ -18,7 +18,7 @@ from ..trajectories.conflict_pairs import compute_conflict_pairs
 
 def load_tracks(path: str | Path) -> pd.DataFrame:
     """Load a JSONL tracks file into a DataFrame."""
-    with open(path) as f:
+    with Path(path).open() as f:
         tracks = [json.loads(line) for line in f if line.strip()]
     return pd.DataFrame(tracks)
 
@@ -124,7 +124,7 @@ def run_cross_validation(
 
     Returns the metrics dict that is also written to ``metrics_cv.json``.
     """
-    with open(homography_config) as f:
+    with Path(homography_config).open() as f:
         H = np.array(yaml.safe_load(f)["H"], dtype=np.float64)
 
     df = filter_tracks(load_tracks(tracks_path))
@@ -190,7 +190,7 @@ def run_cross_validation(
         "distance_threshold": distance_threshold,
         "min_interaction_frames": min_interaction_frames,
     }
-    with open(out_dir / "metrics_cv.json", "w") as f:
+    with (out_dir / "metrics_cv.json").open("w") as f:
         json.dump(metrics, f, indent=2)
     print(f"Saved metrics to {out_dir / 'metrics_cv.json'}")
     return metrics

@@ -144,7 +144,7 @@ def main(argv=None) -> int:
             "num_events": len(events),
             "thresholds": thresholds,
             "input": str(Path(args.values_path)),
-            "num_input_rows": int(len(values)),
+            "num_input_rows": len(values),
             "min_duration_frames": args.min_duration_frames,
             "max_frame_gap": args.max_frame_gap,
         },

@@ -223,7 +223,7 @@ def print_pipeline_status(root: Path, depth: int = 4) -> None:
         real_files = sum(count_real_files(root / p) for p in stage["paths"])
         icon = stage_status_icon(all(statuses), real_files)
         print(f"\\n{stage['name']}  -->  {icon}")
-        for rel_path, exists in zip(stage["paths"], statuses):
+        for rel_path, exists in zip(stage["paths"], statuses, strict=False):
             p = root / rel_path
             kind = "file" if p.is_file() else "dir"
             extra = (

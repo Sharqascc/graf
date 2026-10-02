@@ -26,7 +26,7 @@ def tracks_to_world_points(H: np.ndarray, tracks: Sequence[TrackRecord]) -> list
     world_pts = image_points_to_world(H, image_pts)
 
     output = []
-    for track, (x_m, y_m), img_pt in zip(tracks, world_pts, image_pts):
+    for track, (x_m, y_m), img_pt in zip(tracks, world_pts, image_pts, strict=False):
         output.append(
             {
                 "video_id": track.video_id,

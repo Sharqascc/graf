@@ -191,7 +191,7 @@ def test_to_pyg_data_deprecation_warning_and_return():
         assert data.site_id == "siteA"
 
         mock_builder.build_pyg_data.assert_called_once()
-        args, kwargs = mock_builder.build_pyg_data.call_args
+        _args, kwargs = mock_builder.build_pyg_data.call_args
         assert kwargs["frame_id"] == 1
         assert kwargs["video_id"] == "vid1"
         assert kwargs["actors"][0]["track_id"] == 1

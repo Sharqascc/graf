@@ -94,5 +94,5 @@ def test_blocked_folds_is_deterministic():
     windows = _windows(n=40)
     a = blocked_folds(windows, num_folds=5)
     b = blocked_folds(windows, num_folds=5)
-    for fa, fb in zip(a, b):
+    for fa, fb in zip(a, b, strict=False):
         assert np.array_equal(fa, fb)

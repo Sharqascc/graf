@@ -103,7 +103,7 @@ def _leakage_count(train_idx, val_idx, frame_ids_per_window):
         for i in val_idx
         if any(f in train_frames for f in frame_ids_per_window[int(i)])
     )
-    return int(leaked), int(len(val_idx))
+    return int(leaked), len(val_idx)
 
 
 def _binomial_vs_majority(correct: int, total: int, majority_rate: float) -> float:
@@ -183,7 +183,7 @@ def build_labels(
     ttc_distance_threshold: float = 3.0,
     ttc_closing_rate_threshold: float = 0.5,
 ):
-    with open(homography_config) as f:
+    with Path(homography_config).open() as f:
         H = np.array(yaml.safe_load(f)["H"], dtype=np.float64)
     df = filter_tracks(load_tracks(tracks_path))
     df = add_world_coords(df, H, fps=fps)
@@ -318,7 +318,7 @@ def leakage_report(
                 if f & train_frames:
                     leaked += 1
         per_fold.append(int(leaked))
-        per_fold_train.append(int(len(train_idx)))
+        per_fold_train.append(len(train_idx))
     return {
         "per_fold": per_fold,
         "total": int(sum(per_fold)),
@@ -518,7 +518,7 @@ def main(argv=None):
     pooled_correct = int(
         sum(
             1
-            for s, lbl in zip(pooled_scores, pooled_labels)
+            for s, lbl in zip(pooled_scores, pooled_labels, strict=False)
             if int(s > 0.5) == int(lbl)
         )
     )

@@ -360,7 +360,7 @@ def main(argv=None) -> int:
     if not use_motion_prediction and args.max_centroid_distance_px is None:
         max_centroid_distance_px = 0.0
 
-    with open(args.detections) as f:
+    with Path(args.detections).open() as f:
         detections = [json.loads(line) for line in f if line.strip()]
 
     tracks = track(
@@ -377,7 +377,7 @@ def main(argv=None) -> int:
 
     out_path = Path(args.output_dir) / "tracks.jsonl"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    with out_path.open("w") as f:
         for t in tracks:
             f.write(json.dumps(t) + "\n")
     print(f"Tracks saved to {out_path} ({len(tracks)} rows)")

@@ -17,13 +17,9 @@ from graf.utils.io import ensure_dir, write_json
 
 
 def load_tracks(path: str) -> pd.DataFrame:
-    tracks = []
-    with open(path) as f:
-        for line in f:
-            if line.strip():
-                tracks.append(json.loads(line))
-    df = pd.DataFrame(tracks)
-    return df
+    with Path(path).open() as f:
+        tracks = [json.loads(line) for line in f if line.strip()]
+    return pd.DataFrame(tracks)
 
 
 def filter_tracks(
@@ -32,8 +28,7 @@ def filter_tracks(
     df = df[df["confidence"] >= min_conf].copy()
     lengths = df.groupby("track_id").size()
     valid = lengths[lengths >= min_len].index
-    df = df[df["track_id"].isin(valid)].copy()
-    return df
+    return df[df["track_id"].isin(valid)].copy()
 
 
 def add_kinematics(
@@ -184,7 +179,7 @@ def main():
     # Load homography if provided
     H = None
     if args.homography_config:
-        with open(args.homography_config) as f:
+        with Path(args.homography_config).open() as f:
             hom_cfg = yaml.safe_load(f)
         H = np.array(hom_cfg["H"], dtype=np.float64)
 

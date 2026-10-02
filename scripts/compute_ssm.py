@@ -122,17 +122,17 @@ def _flatten_nested(payload: list[dict[str, Any]]) -> pd.DataFrame:
         track_id = track.get("track_id")
         class_name = track.get("class_name", "unknown")
         video_id = track.get("video_id")
-        for frame in track.get("frames", []):
-            rows.append(
-                {
-                    "video_id": video_id,
-                    "frame_idx": int(frame.get("frame_id", frame.get("frame_idx"))),
-                    "track_id": track_id,
-                    "class_name": class_name,
-                    "x_m": float(frame["x"]),
-                    "y_m": float(frame["y"]),
-                }
-            )
+        rows.extend(
+            {
+                "video_id": video_id,
+                "frame_idx": int(frame.get("frame_id", frame.get("frame_idx"))),
+                "track_id": track_id,
+                "class_name": class_name,
+                "x_m": float(frame["x"]),
+                "y_m": float(frame["y"]),
+            }
+            for frame in track.get("frames", [])
+        )
     return pd.DataFrame(rows)
 
 
@@ -280,7 +280,7 @@ def main(argv=None) -> int:
 
     summary: dict[str, Any] = {
         "num_rows": len(rows),
-        "num_input_trajectory_rows": int(len(df)),
+        "num_input_trajectory_rows": len(df),
         "metrics": sorted({r["metric_name"] for r in rows}),
         "fps": args.fps,
         "distance_threshold": args.distance_threshold,

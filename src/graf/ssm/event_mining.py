@@ -92,7 +92,7 @@ def _emit_event(
         severity="critical",
         metadata={
             "metric_direction": direction,
-            "num_frames": int(len(run_frames)),
+            "num_frames": len(run_frames),
             "mean_value": float(run_values.mean()),
         },
     )

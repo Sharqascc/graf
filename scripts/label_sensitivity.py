@@ -220,15 +220,15 @@ def _write_md(
     lines.append("")
     lines.append("| ttc (s) | dist (m) | rule | positives | negatives | majority |")
     lines.append("|---|---|---|---|---|---|")
-    for row in sorted(grid, key=lambda r: -r["majority"]):
-        lines.append(
-            f"| {row['ttc_threshold_seconds']:.1f} "
-            f"| {row['distance_threshold']:.1f} "
-            f"| {row['window_rule']} "
-            f"| {row['num_positive']} "
-            f"| {row['num_negative']} "
-            f"| {row['majority']:.3f} |"
-        )
+    lines.extend(
+        f"| {row['ttc_threshold_seconds']:.1f} "
+        f"| {row['distance_threshold']:.1f} "
+        f"| {row['window_rule']} "
+        f"| {row['num_positive']} "
+        f"| {row['num_negative']} "
+        f"| {row['majority']:.3f} |"
+        for row in sorted(grid, key=lambda r: -r["majority"])
+    )
 
     lines.append("")
     lines.append("## Stage 2 — model sweep on balanced configs")
@@ -320,7 +320,7 @@ def main(argv=None) -> int:
     dist_grid = [float(x) for x in args.distance_grid.split(",") if x.strip()]
 
     # Load data once
-    with open(args.homography_config) as f:
+    with Path(args.homography_config).open() as f:
         H = np.array(yaml.safe_load(f)["H"], dtype=np.float64)
     df = filter_tracks(load_tracks(args.tracks))
     df = add_world_coords(df, H, fps=args.fps)
