@@ -203,11 +203,24 @@ outcomes of the analysis plan.
 
 ### 6.5 Second dataset
 
-[Pending AICC22-Custom run. This subsection is a placeholder until the
-second clip has been processed through the same pipeline. If the
-finding replicates, it strengthens the paper materially; if it does
-not, the paper's scope narrows to VNTraffic and the limitation section
-is adjusted accordingly.]
+AICC22-Custom, the companion clip in the same Zenodo record, was
+processed through the same pipeline with the same hyperparameters. Its
+label distribution differs — 97 windows, 69 positive / 28 negative,
+majority 0.711 — and one fold has zero validation negatives, so the
+effective AUC fold count is 4.
+
+| model | AUC | 95% CI |
+|---|---:|---|
+| majority | 0.500 | [0.500, 0.500] |
+| logreg | 0.611 | [0.291, 0.930] |
+| rf | 0.567 | [0.243, 0.870] |
+| single_feature | **0.765** | [0.534, 0.950] |
+
+The direction replicates: cue leads rf by 0.199, larger than the 0.046
+gap on VNTraffic. The absolute intervals are too wide for a
+confirmatory claim — neither model excludes 0.5 — so the second clip
+is reported as directional evidence only. Full numbers in
+`docs/paper/baselines_sustained_r5_aicc22.md`.
 
 ## 7. Limitations
 
