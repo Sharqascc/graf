@@ -33,16 +33,13 @@ def main():
     args = parser.parse_args()
 
     # Read all tracks
-    tracks = []
-    with open(args.tracks) as f:
-        for line in f:
-            if line.strip():
-                tracks.append(json.loads(line))
+    with Path(args.tracks).open() as f:
+        tracks = [json.loads(line) for line in f if line.strip()]
 
     # Load homography if provided
     H = None
     if args.homography_config:
-        with open(args.homography_config) as f:
+        with Path(args.homography_config).open() as f:
             hom_cfg = yaml.safe_load(f)
         H = np.array(hom_cfg["H"], dtype=np.float64)
 
@@ -51,8 +48,7 @@ def main():
             pts = np.array([[x_pix, y_pix]], dtype=np.float64)
             world = project_points(H, pts)[0]
             return world[0], world[1]
-        else:
-            return x_pix / args.pixels_per_meter, y_pix / args.pixels_per_meter
+        return x_pix / args.pixels_per_meter, y_pix / args.pixels_per_meter
 
     # Group by frame
     by_frame = defaultdict(list)

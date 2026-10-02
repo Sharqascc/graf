@@ -669,7 +669,7 @@ def main(argv=None) -> int:
     if args.label_strategy != "any":
         print(f"Recomputing labels with strategy={args.label_strategy}")
         tracks_df = filter_tracks(load_tracks(args.tracks))
-        with open(args.homography_config) as _f:
+        with Path(args.homography_config).open() as _f:
             H = np.array(yaml.safe_load(_f)["H"], dtype=np.float64)
         tracks_df = add_world_coords(tracks_df, H, fps=args.fps)
         labels = apply_strategy(

@@ -41,7 +41,7 @@ def main():
     args = parser.parse_args()
 
     in_path = Path(args.input_config)
-    with open(in_path) as f:
+    with in_path.open() as f:
         cfg = yaml.safe_load(f)
 
     if "calibration_points_pixel" not in cfg or "calibration_points_world" not in cfg:
@@ -87,7 +87,7 @@ def main():
     out_cfg["max_inlier_error_m"] = max_inlier_error
 
     out_path = Path(args.output_config) if args.output_config else in_path
-    with open(out_path, "w") as f:
+    with out_path.open("w") as f:
         yaml.safe_dump(out_cfg, f, sort_keys=False)
     print(f"Saved refined homography to {out_path}")
 

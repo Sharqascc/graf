@@ -41,7 +41,7 @@ def build_temporal_window_graph(
       - node metadata describing frame membership
       - edge_type: 0 for spatial, 1 for temporal
     """
-    frame_list = sorted(list(frames), key=_frame_sort_key)
+    frame_list = sorted(frames, key=_frame_sort_key)
     if not frame_list:
         raise ValueError("At least one frame graph is required")
 

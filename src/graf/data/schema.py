@@ -126,7 +126,7 @@ class SSMEventRecord:
 
 
 def bbox_bottom_center(bbox_xyxy: BBox) -> Point2D:
-    x1, y1, x2, y2 = bbox_xyxy
+    x1, _y1, x2, y2 = bbox_xyxy
     return ((x1 + x2) / 2.0, y2)
 
 

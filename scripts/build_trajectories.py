@@ -118,7 +118,7 @@ def bbox_bottom_center(bbox: list[float]) -> tuple[float, float]:
     box under a perspective camera. The centroid would introduce a
     depth-dependent bias in the world projection.
     """
-    x1, y1, x2, y2 = bbox
+    x1, _y1, x2, y2 = bbox
     return ((x1 + x2) / 2.0, y2)
 
 

@@ -41,7 +41,7 @@ def main():
     parser.add_argument("--stride", type=int, default=2)
     args = parser.parse_args()
 
-    with open(args.homography_config) as f:
+    with Path(args.homography_config).open() as f:
         np.array(yaml.safe_load(f)["H"], dtype=np.float64)
 
     window_ds = SpatioTemporalWindowDataset(
@@ -88,7 +88,7 @@ def main():
         sample = window_ds[0]
         frames = sample.frame_ids.tolist()[:3]
         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-        for ax, fid in zip(axes, frames):
+        for ax, fid in zip(axes, frames, strict=False):
             fp = Path(args.frames_dir) / f"{fid:06d}.jpg"
             if fp.exists():
                 im = cv2.imread(str(fp))

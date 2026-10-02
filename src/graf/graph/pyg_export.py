@@ -134,22 +134,21 @@ def to_pyg_data(graph: dict[str, Any]) -> Data:
         stacklevel=2,
     )
 
-    actors = []
-    for node in graph.get("nodes", []):
-        actors.append(
-            {
-                "track_id": node.get("track_id"),
-                "x_m": node.get("x", node.get("x_m", 0.0)),
-                "y_m": node.get("y", node.get("y_m", 0.0)),
-                "vx": node.get("vx", 0.0),
-                "vy": node.get("vy", 0.0),
-                "ax": node.get("ax", 0.0),
-                "ay": node.get("ay", 0.0),
-                "heading_rad": node.get("heading", 0.0),
-                "actor_class": node.get("actor_class", "other"),
-                "frame_id": graph.get("frame_id"),
-            }
-        )
+    actors = [
+        {
+            "track_id": node.get("track_id"),
+            "x_m": node.get("x", node.get("x_m", 0.0)),
+            "y_m": node.get("y", node.get("y_m", 0.0)),
+            "vx": node.get("vx", 0.0),
+            "vy": node.get("vy", 0.0),
+            "ax": node.get("ax", 0.0),
+            "ay": node.get("ay", 0.0),
+            "heading_rad": node.get("heading", 0.0),
+            "actor_class": node.get("actor_class", "other"),
+            "frame_id": graph.get("frame_id"),
+        }
+        for node in graph.get("nodes", [])
+    ]
 
     data = GraphBuilder().build_pyg_data(
         actors=actors,

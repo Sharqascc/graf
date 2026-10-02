@@ -124,17 +124,21 @@ class SpatioTemporalWindowDataset(Dataset):
             groups.setdefault(video_id, []).append((frame_id, idx))
 
         windows: list[list[int]] = []
-        for _, items in groups.items():
+        for items in groups.values():
             items.sort(key=lambda x: x[0])
             ordered_indices = [idx for _, idx in items]
 
             if len(ordered_indices) < self.window_size:
                 continue
 
-            for start in range(
-                0, len(ordered_indices) - self.window_size + 1, self.stride
-            ):
-                windows.append(ordered_indices[start : start + self.window_size])
+            windows.extend(
+                ordered_indices[start : start + self.window_size]
+                for start in range(
+                    0,
+                    len(ordered_indices) - self.window_size + 1,
+                    self.stride,
+                )
+            )
 
         return windows
 

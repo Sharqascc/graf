@@ -4,10 +4,7 @@ from collections.abc import Iterable
 
 
 def _to_list(values: Iterable) -> list[float]:
-    out = []
-    for v in values:
-        out.append(float(v))
-    return out
+    return [float(v) for v in values]
 
 
 def sigmoid(x: float) -> float:
@@ -24,10 +21,10 @@ def binary_classification_metrics(
     probs = [sigmoid(v) for v in logits]
     y_pred = [1 if p >= threshold else 0 for p in probs]
 
-    tp = sum(1 for yt, yp in zip(y_true, y_pred) if yt == 1 and yp == 1)
-    tn = sum(1 for yt, yp in zip(y_true, y_pred) if yt == 0 and yp == 0)
-    fp = sum(1 for yt, yp in zip(y_true, y_pred) if yt == 0 and yp == 1)
-    fn = sum(1 for yt, yp in zip(y_true, y_pred) if yt == 1 and yp == 0)
+    tp = sum(1 for yt, yp in zip(y_true, y_pred, strict=False) if yt == 1 and yp == 1)
+    tn = sum(1 for yt, yp in zip(y_true, y_pred, strict=False) if yt == 0 and yp == 0)
+    fp = sum(1 for yt, yp in zip(y_true, y_pred, strict=False) if yt == 0 and yp == 1)
+    fn = sum(1 for yt, yp in zip(y_true, y_pred, strict=False) if yt == 1 and yp == 0)
 
     total = max(len(y_true), 1)
     accuracy = (tp + tn) / total
