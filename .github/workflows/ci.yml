@@ -39,7 +39,9 @@ jobs:
 
   unit-tests:
     name: "2 · Unit tests"
-    needs: lint
+    # Runs in parallel with lint: a lint failure should not prevent
+    # tests from reporting. Previously `needs: lint` meant a docs
+    # PR that tripped a hygiene hook skipped every test job.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

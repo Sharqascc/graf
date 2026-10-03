@@ -2,10 +2,10 @@
 
 *[Draft manuscript. Title, authors, affiliations to be finalized.]*
 
-**Code:** https://github.com/Sharqascc/graf  
-**Data:** VNTraffic & AICC22-Custom, Zenodo record 18195750  
-**Pre-registration:** `docs/preregistration_sustained_r5.md`  
-**Reproducibility:** `docs/reproducibility.md`
+- **Code:** https://github.com/Sharqascc/graf
+- **Data:** VNTraffic & AICC22-Custom, Zenodo record 18195750
+- **Pre-registration:** `docs/preregistration_sustained_r5.md`
+- **Reproducibility:** `docs/reproducibility.md`
 
 ---
 
@@ -1063,8 +1063,8 @@ SSM-ML literature, is where the signal is lost.
 
 ## Reproducibility statement
 
-Code: https://github.com/Sharqascc/graf  
-Data: VNTraffic and AICC22-Custom, Zenodo record 18195750  
-Pipeline: three commands from a fresh clone, documented in `docs/reproducibility.md`  
-Pre-registration: `docs/preregistration_sustained_r5.md`, committed before the rerun  
-All result JSONs: `docs/paper/*.json`
+- Code: https://github.com/Sharqascc/graf
+- Data: VNTraffic and AICC22-Custom, Zenodo record 18195750
+- Pipeline: three commands from a fresh clone, documented in `docs/reproducibility.md`
+- Pre-registration: `docs/preregistration_sustained_r5.md`, committed before the rerun
+- All result JSONs: `docs/paper/*.json`

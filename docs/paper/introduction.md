@@ -17,14 +17,16 @@ features. The aggregation step is treated as plumbing. We show it is
 not. On two hand-annotated traffic clips from the public Zenodo
 *Vehicle Tracking* record, under a sustained `run_length=5` TTC label
 with a purged 10-fold cross-validation split, a single scalar feature
-(`edge_attr_nonzero_frac`) reaches mean AUC 0.803 [0.736, 0.863] and
-matches or exceeds every trained model: random forest 0.757 [0.660,
-0.843], logistic regression 0.695, and a graph convolutional network
-0.590. The GCN's accuracy and F1 are identical to the majority-class
-baseline to three decimal places, indicating it collapsed to the
-trivial predictor. Neither the models nor the scalar exceeds the
-majority baseline on accuracy. The scalar's advantage is not a
-lucky column: it is a proxy for the fraction of edges in the window
+(`edge_attr_nonzero_frac`) reaches mean AUC 0.803 (corrected 95% CI
+[0.690, 0.915]). No trained model showed a statistically detectable
+advantage over it: random forest 0.757 [0.596, 0.918], paired
+$\Delta$AUC = −0.046, corrected 95% CI [−0.138, +0.046], $p=0.29$;
+logistic regression 0.695; a graph convolutional network 0.590
+[0.382, 0.798], which does not establish above-chance ranking at this
+fold count. The cue and the random forest both beat chance at
+$p<0.01$; the GCN does not. Neither the models nor the scalar exceeds
+the majority baseline on accuracy. The scalar's parity with the models
+is not a lucky column: it is a proxy for the fraction of edges in the window
 with any relative motion, and correlates at |rho| >= 0.94 with four
 relative-velocity features. The window label is a coarse activity
 detector, and the field's models are learning to recover activity
@@ -86,11 +88,14 @@ in the way a classification pipeline assumes.
 
 On VNTraffic, a 501-frame Hanoi intersection clip from the public
 Zenodo *Vehicle Tracking* record (18195750), the single-feature
-scalar reaches mean AUC 0.803 under purged 10-fold cross-validation.
-A random forest on all 42 features reaches 0.757. A logistic
-regression reaches 0.695. A graph convolutional network reading the
-same window summary reaches 0.590 and matches the majority-class
-baseline exactly on accuracy and F1 — it did not learn the task.
+scalar reaches mean AUC 0.803 (corrected 95% CI [0.690, 0.915]) under
+purged 10-fold cross-validation. A random forest on all 42 features
+reaches 0.757 [0.596, 0.918]. The paired difference between the two is
+−0.046 with a corrected 95% CI of [−0.138, +0.046] ($p=0.29$): no
+detectable difference. A logistic regression reaches 0.695. A graph
+convolutional network reading the same window summary reaches 0.590
+[0.382, 0.798]; its accuracy equals the majority-class baseline to
+three decimal places, and it does not establish above-chance ranking.
 Neither the models nor the scalar exceeds the majority baseline on
 accuracy. On AICC22-Custom, a second clip from the same record, the
 direction replicates: the scalar (0.765) leads the random forest
@@ -108,11 +113,12 @@ reads it directly.
 ### 1.4 Contributions
 
 1. **A negative result with a precise diagnosis.** Under the standard
-   window-level SSM label with a corrected cross-validation split,
-   neither trained models nor a graph network exceed a single scalar
-   feature on ranking performance, and neither beats the majority
-   baseline on accuracy. The failure is in the label's construction,
-   not in the models.
+   window-level SSM label with a corrected cross-validation split, no
+   trained model was detected to outperform a single scalar feature on
+   ranking performance (paired $\Delta$AUC = −0.046, corrected 95% CI
+   [−0.138, +0.046]), and neither the models nor the scalar beats the
+   majority baseline on accuracy. The failure is in the label's
+   construction, not in the models.
 
 2. **The mechanism.** The scalar that ties the models is a proxy for
    scene activity rather than conflict severity. This is established
