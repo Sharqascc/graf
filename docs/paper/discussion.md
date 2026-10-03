@@ -11,15 +11,17 @@ the data, that is said explicitly.
 
 Three models of increasing capacity and structural richness — logistic
 regression, random forest, GCN — were trained on the sustained
-`run_length=5` VNTraffic label with the boundary leak corrected. None
-exceeded a single scalar feature (`edge_attr_nonzero_frac`) on ranking
-performance, and none exceeded the majority-class baseline on accuracy.
-The GCN matched the majority baseline exactly on both accuracy and F1,
-meaning it converged to the trivial predictor.
+`run_length=5` VNTraffic label with the boundary leak corrected. No
+trained model was detected to outperform a single scalar feature
+(`edge_attr_nonzero_frac`) on ranking performance, and none exceeded
+the majority-class baseline on accuracy. The GCN's accuracy matched
+the majority baseline exactly; its AUC did not establish above-chance
+ranking at this fold count.
 
 The primary result is the null the pre-registration memo committed to
-reporting if it occurred: the trained model provides no evidence of
-value over the trivial scalar. This is not a failed experiment. It is
+reporting if it occurred: no detectable added value over the
+single-feature cue (paired $\Delta$AUC = −0.046, corrected 95% CI
+[−0.138, +0.046], $p=0.29$). This is not a failed experiment. It is
 the experiment's answer.
 
 ## 2. Why the label fails
@@ -72,10 +74,12 @@ activity-driven positives.
 The implication for the field is not that SSMs are wrong. TTC is a
 well-defined, physically meaningful quantity. The implication is that
 the *window-level aggregation* of a per-pair per-frame SSM into a
-single binary label is not a scale-invariant operation, and treating
-it as one produces tasks that look learnable (the AUC is above chance)
-but are not (the model does not beat a scalar, and neither beats the
-prior).
+single binary label is not a scale-invariant operation. On this data
+it produces a task with real ranking signal — the cue and the random
+forest both beat chance at corrected $p<0.01$ — but where a 42-feature
+model provides no detectable added value over one of its own columns,
+and where ranking does not convert to classification above the class
+prior at threshold 0.5.
 
 ## 4. What this paper does not claim
 
@@ -205,7 +209,10 @@ saturation as an empirical finding rather than a caveat.
 
 On two traffic clips with hand-annotated trajectories, under the
 standard window-level TTC-based SSM label with a corrected cross-
-validation split, a single scalar feature matches or beats the trained
-models. The failure is not in the model class; it is in the label's
-construction. The window-aggregation step, treated as plumbing in the
-SSM-ML literature, is where the signal is lost.
+validation split, no trained model was detected to outperform a
+single scalar feature. The cue and the random forest both carry
+statistically significant ranking signal, but a 42-feature model adds
+nothing measurable over one of its columns, and neither beats the
+majority-class accuracy at threshold 0.5. The window-aggregation step,
+treated as plumbing in the SSM-ML literature, is where the added value
+is lost.
