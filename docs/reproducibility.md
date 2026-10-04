@@ -85,3 +85,41 @@ results — only of the code and the tests.
 Future work: an artifact registry (DVC, S3, or Zenodo) with checksums
 so `data/raw/videos/` and the derived artifacts have a durable home
 outside an ephemeral runtime.
+
+---
+
+## Branch protection and merge enforcement
+
+GitHub enforces required status checks on `main` only when the
+repository is public or on a paid plan. While `Sharquascc/graf` is
+private on the free plan, branch protection is unavailable and a
+red CI check does not block a merge.
+
+The six CI jobs defined in `.github/workflows/ci.yml` still run on
+every pull request, and this repository's merge procedure refuses
+to merge a PR unless all six report `success` or `skipped`. That
+refusal is client-side: it lives in the tooling that opens and
+merges PRs, not in GitHub's policy layer.
+
+**Practical rule while the repo is private:** merge only when every
+job on the PR's checks page is green. Do not use the web UI merge
+button without first opening the PR's *Checks* tab and confirming
+all six jobs have passed.
+
+**Enforcement returns automatically** when the repository is made
+public at submission time. At that point, re-add the required
+checks under Settings -> Branches -> Branch protection rules:
+
+```
+1 · Ruff
+2 · Unit tests
+3 · Property tests (Hypothesis)
+4 · Invariants (pre-push suite)
+5 · Manuscript build
+6 · Dependency review
+```
+
+Six jobs, not three. The last three were added after the initial
+branch protection rule and are not covered by the older three-check
+configuration; a protection rule copied from before that change
+would not block on them.
