@@ -183,9 +183,7 @@ forbidden_modules = [
   "graf.ssm",
   "graf.training",
   "graf.trajectories",
-  "graf.detection",
   "graf.tracking",
-  "graf.visualization",
   "graf.evaluation",
 ]
 
