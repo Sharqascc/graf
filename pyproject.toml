@@ -103,12 +103,13 @@ quote-style = "double"
 
 
 [tool.coverage.run]
-# scripts/make_fixture.py generates the committed synthetic fixture via a
-# subprocess from the smoke test, so its lines never show up in the parent
-# process's coverage. Its correctness is asserted by the fixture files
-# themselves (they are committed and the smoke test loads them).
+# Two build-time authoring tools run as subprocesses and are not part of
+# the pipeline's library surface. Their outputs are verified by other
+# means: make_fixture.py's output is the committed fixture the smoke test
+# loads, and build_manuscript.py has an idempotency check the CI can run.
 omit = [
     "scripts/make_fixture.py",
+    "scripts/build_manuscript.py",
 ]
 
 [tool.mypy]
