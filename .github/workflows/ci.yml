@@ -148,6 +148,35 @@ jobs:
       - name: Verify manuscript.md is up to date
         run: python scripts/build_manuscript.py --check
 
+  import-smoke:
+    name: "7 · Import smoke"
+    # Imports every module under src/ and scripts/. Catches syntax
+    # errors, missing imports, references to deleted modules, and
+    # missing dependencies — the class of error a test suite cannot
+    # see when the failing file is never touched by a test.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Cache pip wheels
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements/*.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt -r requirements/dev.txt
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install torch-geometric
+      - name: Import every module
+        run: PYTHONPATH=src python scripts/import_smoke.py
+
   dependency-review:
     name: "6 · Dependency review"
     # Advisory: scans the PR's dependency diff for known CVEs via GitHub's
