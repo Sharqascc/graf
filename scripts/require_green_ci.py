@@ -33,15 +33,20 @@ EXPECTED = {
 
 def current_sha(repo: Path) -> str:
     return subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=repo,
-        capture_output=True, text=True, check=True,
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
 
 
 def current_repo() -> str:
     url = subprocess.run(
         ["git", "config", "--get", "remote.origin.url"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
     if url.startswith("https://github.com/"):
         url = url[len("https://github.com/"):]

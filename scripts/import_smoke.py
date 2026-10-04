@@ -24,11 +24,11 @@ sys.path.insert(0, str(REPO))
 
 def collect() -> list[str]:
     """Every importable module name under src/graf and scripts/."""
-    names: list[str] = []
     import graf
 
-    for mod in pkgutil.walk_packages(graf.__path__, prefix="graf."):
-        names.append(mod.name)
+    names: list[str] = [
+        mod.name for mod in pkgutil.walk_packages(graf.__path__, prefix="graf.")
+    ]
 
     for p in sorted((REPO / "scripts").glob("*.py")):
         if p.name == "__init__.py":
