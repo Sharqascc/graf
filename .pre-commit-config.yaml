@@ -54,30 +54,27 @@ repos:
         always_run: true
 
       - id: pytest-full
-        name: pytest (full unit suite, CI selection)
-        # ~78 s. Runs the same selection as CI's `2 · Unit tests` job
-        # minus coverage: everything under tests/ except the Hypothesis
-        # property file. Catches code regressions in Colab before the
-        # push leaves the machine, so the GitHub PR is more likely to be
-        # green first try.
+        name: pytest (full unit suite + coverage floor)
+        # ~105 s. Runs the exact selection CI's `2 · Unit tests` job runs:
+        # everything under tests/ except the Hypothesis property file,
+        # with the same coverage floor (65%). Any failure — a failing
+        # test OR a coverage drop below the floor — aborts the push in
+        # Colab, so the GitHub PR is green first try.
         #
-        # This replaced two narrower pre-push hooks (determinism +
-        # leakage + input-boundaries; metamorphic + differential) that
-        # together ran ~43 tests in ~12 s. The full suite supersedes them
-        # because it includes those files and 540 more. Running both
-        # would double-run the safety files for no benefit.
-        #
-        # Excluded on purpose:
-        #   - coverage (CI's job; doubles the wall time here)
-        #   - tests/test_property_based.py (48 Hypothesis tests; CI + nightly)
-        #   - mutation testing (nightly only)
-        #   - manuscript build check (CI only)
+        # Previously this ran without coverage, which meant a passing
+        # suite that dropped coverage under 65% pushed cleanly and only
+        # failed in CI ~5 minutes later. Adding coverage closes that one
+        # remaining class of late failure. Cost: +27 s per push.
         #
         # Bypassable via `git push --no-verify`. This is an early-warning
         # layer, not a security boundary. Server-side enforcement is
         # GitHub's job (see docs/reproducibility.md for the current
         # private-repo caveat).
-        entry: python -m pytest -q --ignore=tests/test_property_based.py
+        entry: >-
+          python -m pytest -q
+          --cov=src --cov=scripts --cov-report=term-missing
+          --cov-fail-under=65
+          --ignore=tests/test_property_based.py
         language: system
         pass_filenames: false
         always_run: true
