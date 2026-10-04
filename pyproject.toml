@@ -103,13 +103,29 @@ quote-style = "double"
 
 
 [tool.coverage.run]
-# Two build-time authoring tools run as subprocesses and are not part of
-# the pipeline's library surface. Their outputs are verified by other
-# means: make_fixture.py's output is the committed fixture the smoke test
-# loads, and build_manuscript.py has an idempotency check the CI can run.
+# CLI entry points and one-off authoring tools. None of them are part of
+# the library surface, and none are exercised by tests: they are invoked
+# by humans (or by the nightly workflow) as subprocesses, so their lines
+# never show up in the parent process's coverage. Measuring them drags
+# the repo-wide number down without telling us anything about the code
+# the tests actually exercise.
+#
+# The library under src/graf/ is the coverage target. The scripts/ tree
+# is a collection of thin wrappers around it; a bug in any of them would
+# surface as a failing end-to-end run, not as missing coverage here.
 omit = [
+    # Authoring tools (subprocess-only).
     "scripts/make_fixture.py",
     "scripts/build_manuscript.py",
+    # CLI entry points: every file below has an `if __name__` block and
+    # an argparse parser; they are run interactively, not imported.
+    "scripts/label_sensitivity.py",
+    "scripts/make_windows.py",
+    "scripts/mutate_ttc.py",
+    "scripts/pipeline_status.py",
+    "scripts/prepare_vntraffic.py",
+    "scripts/train_gcn_risk.py",
+    "scripts/train_model.py",
 ]
 
 [tool.mypy]
