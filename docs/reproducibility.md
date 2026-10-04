@@ -123,3 +123,28 @@ Six jobs, not three. The last three were added after the initial
 branch protection rule and are not covered by the older three-check
 configuration; a protection rule copied from before that change
 would not block on them.
+
+---
+
+## Local pre-commit hooks in ephemeral environments
+
+In a Colab runtime, `.git/hooks/` is wiped on every reset, so the
+hooks declared in `.pre-commit-config.yaml` do nothing until they
+are reinstalled. After each fresh clone, run:
+
+```bash
+bash scripts/setup_colab_hooks.sh
+```
+
+That installs both hook stages:
+
+- `pre-commit` stage: ruff, ruff-format, mypy, import-linter,
+  deptry, hygiene hooks (whitespace, EOF, YAML/TOML/AST, etc.).
+- `pre-push` stage: the full unit-test suite except the Hypothesis
+  property file (~78 s, 583 tests).
+
+Local hooks are an early-warning layer, not a security boundary.
+`git push --no-verify` skips every hook. The authoritative gate is
+GitHub CI, which runs all six jobs on every pull request and
+cannot be bypassed. See the Branch protection section above for
+the current enforcement caveat.
