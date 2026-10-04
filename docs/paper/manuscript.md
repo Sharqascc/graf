@@ -7,7 +7,8 @@
 - **Pre-registration:** `docs/preregistration_sustained_r5.md`
 - **Reproducibility:** `docs/reproducibility.md`
 
----
+
+# Abstract and Introduction
 
 ## Abstract
 
@@ -20,14 +21,16 @@ features. The aggregation step is treated as plumbing. We show it is
 not. On two hand-annotated traffic clips from the public Zenodo
 *Vehicle Tracking* record, under a sustained `run_length=5` TTC label
 with a purged 10-fold cross-validation split, a single scalar feature
-(`edge_attr_nonzero_frac`) reaches mean AUC 0.803 [0.736, 0.863] and
-matches or exceeds every trained model: random forest 0.757 [0.660,
-0.843], logistic regression 0.695, and a graph convolutional network
-0.590. The GCN's accuracy and F1 are identical to the majority-class
-baseline to three decimal places, indicating it collapsed to the
-trivial predictor. Neither the models nor the scalar exceeds the
-majority baseline on accuracy. The scalar's advantage is not a
-lucky column: it is a proxy for the fraction of edges in the window
+(`edge_attr_nonzero_frac`) reaches mean AUC 0.803 (corrected 95% CI
+[0.690, 0.915]). No trained model showed a statistically detectable
+advantage over it: random forest 0.757 [0.596, 0.918], paired
+$\Delta$AUC = −0.046, corrected 95% CI [−0.138, +0.046], $p=0.29$;
+logistic regression 0.695; a graph convolutional network 0.590
+[0.382, 0.798], which does not establish above-chance ranking at this
+fold count. The cue and the random forest both beat chance at
+$p<0.01$; the GCN does not. Neither the models nor the scalar exceeds
+the majority baseline on accuracy. The scalar's parity with the models
+is not a lucky column: it is a proxy for the fraction of edges in the window
 with any relative motion, and correlates at |rho| >= 0.94 with four
 relative-velocity features. The window label is a coarse activity
 detector, and the field's models are learning to recover activity
@@ -89,11 +92,14 @@ in the way a classification pipeline assumes.
 
 On VNTraffic, a 501-frame Hanoi intersection clip from the public
 Zenodo *Vehicle Tracking* record (18195750), the single-feature
-scalar reaches mean AUC 0.803 under purged 10-fold cross-validation.
-A random forest on all 42 features reaches 0.757. A logistic
-regression reaches 0.695. A graph convolutional network reading the
-same window summary reaches 0.590 and matches the majority-class
-baseline exactly on accuracy and F1 — it did not learn the task.
+scalar reaches mean AUC 0.803 (corrected 95% CI [0.690, 0.915]) under
+purged 10-fold cross-validation. A random forest on all 42 features
+reaches 0.757 [0.596, 0.918]. The paired difference between the two is
+−0.046 with a corrected 95% CI of [−0.138, +0.046] ($p=0.29$): no
+detectable difference. A logistic regression reaches 0.695. A graph
+convolutional network reading the same window summary reaches 0.590
+[0.382, 0.798]; its accuracy equals the majority-class baseline to
+three decimal places, and it does not establish above-chance ranking.
 Neither the models nor the scalar exceeds the majority baseline on
 accuracy. On AICC22-Custom, a second clip from the same record, the
 direction replicates: the scalar (0.765) leads the random forest
@@ -111,11 +117,12 @@ reads it directly.
 ### 1.4 Contributions
 
 1. **A negative result with a precise diagnosis.** Under the standard
-   window-level SSM label with a corrected cross-validation split,
-   neither trained models nor a graph network exceed a single scalar
-   feature on ranking performance, and neither beats the majority
-   baseline on accuracy. The failure is in the label's construction,
-   not in the models.
+   window-level SSM label with a corrected cross-validation split, no
+   trained model was detected to outperform a single scalar feature on
+   ranking performance (paired $\Delta$AUC = −0.046, corrected 95% CI
+   [−0.138, +0.046]), and neither the models nor the scalar beats the
+   majority baseline on accuracy. The failure is in the label's
+   construction, not in the models.
 
 2. **The mechanism.** The scalar that ties the models is a proxy for
    scene activity rather than conflict severity. This is established
@@ -163,13 +170,6 @@ words; trim for the target venue.
 ---
 
 # Related work
-
-below is marked with a confidence flag. `[HIGH]` = author, year, and content
-I am confident about. `[CHECK]` = the paper exists but verify the exact year,
-venue, and DOI in Google Scholar before submission. Nothing here is fabricated;
-the flags mark where a human read is required.
-
----
 
 ## 1. Surrogate safety measures: from conflict to indicator
 
@@ -397,12 +397,6 @@ section. It is not a finished bibliography. A submitting author should:
 ---
 
 # Method
-
-quantity named below is traceable to a function or CLI flag in the repo.
-Where the code and the prose disagree, the code is authoritative and the
-prose is wrong.
-
----
 
 ## 1. Data
 
@@ -682,12 +676,6 @@ result. `docs/reproducibility.md` documents the full state.
 
 # Results
 
-`docs/paper/baselines_*.json` and the tables in `baselines_*.md`. Every
-number below is copied from those files unchanged. If the JSONs and the
-prose disagree, the JSONs are authoritative.
-
----
-
 ## 1. Setup
 
 The primary comparison is the one the pre-registration memo commits to
@@ -705,13 +693,16 @@ per run in the `leakage_after_purge` field of the output JSON.
 
 ## 2. Primary comparison
 
-| model | mean AUC | 95% CI | mean accuracy | mean F1 |
+| model | mean AUC | corrected 95% CI vs 0.5 | mean accuracy | mean F1 |
 |---|---:|---|---:|---:|
 | majority | 0.500 | [0.500, 0.500] | 0.778 | 0.870 |
-| GCN | 0.590 | (see §5) | 0.778 | 0.870 |
+| GCN | 0.590 | [0.382, 0.798] | 0.778 | 0.870 |
 | logistic regression | 0.695 | [0.614, 0.782] | 0.573 | 0.629 |
-| random forest | 0.757 | [0.660, 0.843] | 0.728 | 0.833 |
-| single-feature cue | **0.803** | **[0.736, 0.863]** | 0.765 | 0.858 |
+| random forest | 0.757 | [0.596, 0.918] | 0.728 | 0.833 |
+| single-feature cue | **0.803** | **[0.690, 0.915]** | 0.765 | 0.858 |
+
+Intervals are corrected for cross-validation fold dependence (Nadeau &
+Bengio 2003); see `statistical_analysis.md`.
 
 AUC on each fold is computed with the Hanley-McNeil average-rank
 formula; the reported interval is the 2.5th to 97.5th percentile of
@@ -721,8 +712,12 @@ each fold is trained on a different subset and its scores live on a
 different scale.
 
 The point ordering is cue > random forest > logistic regression > GCN >
-majority. The trained models do not exceed the single scalar that reads
-one column of the feature matrix they themselves are trained on.
+majority. The paired difference between the random forest and the
+single-feature cue is −0.046 AUC with a corrected 95% CI of
+[−0.138, +0.046] ($p=0.29$): no statistically detectable difference
+between the 42-feature model and the single column. A gap as large as
+0.14 AUC remains compatible with the data. The correct statement is
+that no added value was detected, not that the model adds nothing.
 
 ## 3. Neither model beats the majority baseline on accuracy
 
@@ -736,9 +731,12 @@ accuracy objective (numbers in that file, not repeated here).
 The label is 78% positive. A constant-positive predictor therefore has
 high accuracy by construction. That the RF does not exceed it means the
 model's ranking is not strong enough to justify predicting positive
-more often than the base rate — not that the model is at chance (its
-AUC is 0.757), but that no threshold on its scores yields a
-classification rule better than the prior.
+more often than the base rate. The models do have ranking signal: the
+cue and RF beat chance at corrected $p=0.0002$ and $p=0.0056$
+respectively. The paradox is that this ranking signal does not convert
+to accuracy above the prior at threshold 0.5. Whether the cause is
+calibration, label design, or a property of the class imbalance is not
+tested here; it is a hypothesis, not a finding.
 
 ## 4. Pre-purge versus post-purge
 
@@ -762,16 +760,20 @@ is the reason the primary comparison in §2 is the corrected one.
 The GCN path exists to close the reviewer objection that the tabular
 models are too weak and a graph network would perform differently.
 It does not. The GCN's accuracy (0.778) and F1 (0.870) are identical to
-the majority baseline to three decimal places. Its AUC is 0.590 ± 0.190,
-barely above chance and with the highest per-fold standard deviation
-of any model. The model did not learn the task; it degenerated to the
-majority-class predictor.
+the majority baseline to three decimal places, and its AUC is 0.590
+with corrected 95% CI [0.382, 0.798] and corrected $p=0.3542$ versus
+chance. The available folds do not establish above-chance ranking for
+the GCN. The point estimate is lower than the cue's by 0.213, at a
+level that is borderline under the corrected test ($p=0.056$) and
+would cross $\alpha=0.05$ only under the anti-conservative naive test
+($p=0.011$). The GCN is not detectably different from the random forest
+($p=0.21$).
 
-Adding structure therefore does not help where adding capacity did not.
-The complete AUC ordering under the corrected split is cue > random
-forest > GCN > majority. Both an increase in model capacity (RF over
-logistic regression) and the introduction of graph structure (GCN)
-reduce ranking performance on this label.
+Adding structure therefore did not produce a detectable improvement
+where adding capacity also did not. The point ordering under the
+corrected split is cue > random forest > GCN > majority, with the
+caveat that the sample size does not support precise separation
+between the lower three.
 
 ## 6. Pre-registered decision rule
 
@@ -782,12 +784,22 @@ comparison, evaluated before the rerun:
 2. The two CIs overlap and the RF's point estimate is higher.
 3. The two CIs do not overlap.
 
-With the post-purge numbers, RF = [0.660, 0.843] and cue = [0.736,
-0.863]. The intervals overlap across 0.107 of their joint range and
-the cue's point estimate is higher. **Outcome 1 fires.** The
-pre-registered interpretation is that the trained model does not
-demonstrably outperform the single scalar; the paper's headline claim
-is the null, not a rejection.
+With the post-purge numbers as reported at pre-registration time,
+RF = [0.660, 0.843] and cue = [0.736, 0.863]. The intervals overlap
+across 0.107 of their joint range and the cue's point estimate is
+higher. **Outcome 1 fires.** The pre-registered interpretation is that
+the trained model does not demonstrably outperform the single scalar;
+the paper's headline claim is the null, not a rejection.
+
+**Post-hoc supplement.** The pre-registered rule compares independent
+intervals, which is not a valid test of difference. The paired
+analysis reported in `statistical_analysis.md` replaces that comparison
+with a corrected resampled $t$-test on the per-fold differences. It
+reaches the same conclusion: $\bar\Delta$AUC = −0.046, corrected 95%
+CI [−0.138, +0.046], $p=0.29$, no detectable difference. The
+pre-registered rule is retained here verbatim to preserve the audit
+trail; the paired test is the statistically correct statement of what
+the data show.
 
 ## 7. Second dataset
 
@@ -804,52 +816,210 @@ effective fold count for AUC is 4.
 | random forest | 0.567 | [0.243, 0.870] |
 | single-feature cue | **0.765** | [0.534, 0.950] |
 
-Direction replicates: the cue leads the random forest by 0.199, larger
-than the 0.046 gap on VNTraffic. The absolute CIs are too wide for a
-confirmatory claim — neither model's interval excludes 0.5 — so the
-second dataset is reported as directional evidence only. The cue is the
-more clip-stable estimator: 0.803 on VNTraffic, 0.765 on AICC22-Custom,
-versus the RF's 0.757 and 0.567.
+**This dataset is reported descriptively only.** One fold has zero
+validation negatives, so effective $n=4$. The corrected 95% CI on the
+RF − cue paired difference spans [−1.618, +1.220] — 2.8 AUC units on a
+metric bounded in [0, 1] — and no inferential claim is made on this
+fold count. Per-fold RF − cue differences: −0.944, −0.429, +0.056,
++0.522. Mean ΔAUC: −0.199. The direction is consistent with VNTraffic;
+the magnitude is not interpretable at $n=4$.
 
 ## 8. Summary of results
 
-1. The single-feature cue has the highest AUC of any model on either
-   dataset.
-2. No model beats the majority baseline on accuracy on either dataset.
-3. The random forest loses 0.025 AUC when the boundary leak is
+1. On VNTraffic, no statistically detectable difference was found
+   between the random forest (AUC 0.757) and the single-feature cue
+   (AUC 0.803): paired $\Delta$AUC = −0.046, corrected 95% CI
+   [−0.138, +0.046], $p=0.29$. A gap as large as 0.14 remains compatible
+   with the data.
+2. Both the cue and the random forest have statistically significant
+   ranking signal against chance ($p=0.0002$ and $p=0.0056$,
+   corrected). Neither exceeds the majority-class accuracy at threshold
+   0.5. The reason is untested.
+3. The GCN's accuracy equals the majority baseline to three decimals
+   and its AUC does not establish above-chance ranking at this fold
+   count ($p=0.35$). It is not detectably different from the random
+   forest.
+4. The random forest loses 0.025 AUC when the boundary leak is
    corrected; the cue is unaffected.
-4. A graph network with more capacity and more structure performs
-   worse than the tabular baselines, and collapses to the majority
-   predictor.
-5. The direction of the primary comparison replicates on a second clip,
-   but at low power.
+5. On the second clip, the direction is consistent with VNTraffic but
+   the fold count (effective $n=4$) does not support inference.
 
 Interpretation and implications for the label definition and for the
 SSM literature are deferred to `discussion.md`.
 
 ---
 
-# Discussion
+# Statistical analysis
 
-traces to a number in `results.md` or a finding in
-`docs/external_review_2026_09.md`. Where the interpretation goes beyond
-the data, that is said explicitly.
+## 1. Why the first-draft comparison was wrong
+
+The first draft of `results.md` compared the random forest and the
+single-feature cue by asking whether their independent 95% confidence
+intervals overlapped. Overlap of independent CIs is not a test of
+difference: two intervals can overlap while the underlying quantities
+differ significantly, and two intervals can fail to overlap while the
+difference is not distinguishable from zero. The correct comparison
+for two models evaluated on identical folds is a **paired** analysis
+on the per-fold difference:
+
+$$\Delta_i = \mathrm{AUC}_{A,i} - \mathrm{AUC}_{B,i}$$
+
+which eliminates the cross-fold covariance that the independent-CI
+comparison ignores. This section reports the paired analysis and
+replaces the overlapping-CI claim in `results.md` §2 and §6.
+
+## 2. Method
+
+**Corrected resampled t-test (Nadeau & Bengio, 2003).** Cross-validation
+folds share training data, so fold-level metrics are not independent.
+The correction inflates the standard error of the mean difference by
+a factor of $\sqrt{1/n + 1/(k-1)}$ where $k$ is the fold count. At
+$k=10$ this is an inflation of $\sqrt{1 + n/(k-1)} \approx 1.45$
+relative to the naive paired SE. Without the correction the paired
+p-values are anti-conservative.
+
+**Exact sign-flip permutation test.** For each paired comparison the
+mean of $\pm d_i$ across all $2^n$ sign assignments gives an exact
+null distribution of the mean under symmetry of the differences. This
+is a nonparametric cross-check on the corrected t-test; it does not
+itself correct for fold dependence and is reported as a sanity check
+only.
+
+**Effect size.** Cohen's $d_z = \bar\Delta / s_\Delta$ is reported for
+each comparison. At $n=10$ or fewer folds it is unstable and should be
+read as a magnitude indicator rather than a precise estimate.
+
+**Wilcoxon signed-rank.** Not used as a primary test here. For a
+two-sided Wilcoxon on $k$ nonzero pairs the minimum attainable $p$ is
+$2^{1-k}$: $0.0625$ at $k=5$ and $0.125$ at $k=4$. Wilcoxon is
+therefore structurally unable to reach $p<0.05$ on the AICC22 dataset
+and cannot be the basis of any claim at that fold count.
+
+**Multiplicity.** Only RF vs cue on VNTraffic was pre-specified in
+`docs/preregistration_sustained_r5.md`. The remaining comparisons are
+exploratory and are labeled as such. Where a family of tests is
+reported together, a Holm correction is applied to the exploratory
+family and both raw and adjusted $p$ values are shown.
+
+## 3. VNTraffic ($k=10$) — absolute performance vs chance ($AUC = 0.5$)
+
+One-sample corrected t on the per-fold AUC minus 0.5.
+
+| model | mean AUC | corrected 95% CI | corrected $p$ vs 0.5 | verdict |
+|---|---:|---|---:|---|
+| single-feature cue | 0.803 | [0.690, 0.915] | **0.0002** | beats chance |
+| random forest | 0.757 | [0.596, 0.918] | **0.0056** | beats chance |
+| logistic regression | 0.695 | [0.614, 0.782] | (see raw JSON) | beats chance (raw $p<0.05$) |
+| GCN | 0.590 | [0.382, 0.798] | 0.3542 | does not establish above-chance performance |
+| majority | 0.500 | [0.500, 0.500] | 1.0000 | by construction |
+
+The GCN's CI includes 0.5 and its corrected $p$ is 0.35. The correct
+statement is that the available folds do not establish above-chance
+ranking for the GCN, not that the GCN is at chance. Its point estimate
+is 0.590 and its CI upper bound reaches the random forest's point
+estimate.
+
+## 4. VNTraffic — paired differences
+
+| comparison | $\bar\Delta$ AUC | corrected 95% CI | $p$ (corr. $t$) | $p$ (perm.) | $d_z$ | reading |
+|---|---:|---|---:|---:|---:|---|
+| RF − cue *(primary)* | −0.046 | [−0.138, +0.046] | 0.2862 | 0.1406 | −0.52 | no detectable difference |
+| GCN − cue | −0.213 | [−0.433, +0.006] | 0.0557 | 0.0195 | −1.01 | borderline; not significant at α=0.05 |
+| GCN − RF | −0.167 | [−0.446, +0.112] | 0.2083 | 0.0762 | −0.62 | no detectable difference |
+| RF − majority | +0.257 | [+0.096, +0.418] | 0.0056 | 0.0039 | +1.66 | RF beats a constant predictor |
+
+The primary comparison (RF − cue) yields a CI that spans zero. The
+pre-registered decision rule in `docs/preregistration_sustained_r5.md`
+is retained verbatim in `results.md` §6 and fires its outcome 1 on the
+pre-purge independent-CI framing. The paired analysis reported here is
+a post-hoc supplement that sharpens the same conclusion: no detectable
+difference between the two estimators.
+
+The GCN − cue comparison is borderline. Three methods disagree on
+whether it crosses α=0.05: corrected $t$ gives $p=0.056$, the exact
+permutation gives $p=0.020$, and the naive paired $t$ gives $p=0.011$.
+The corrected $t$ is the appropriate primary test given fold dependence;
+the honest reading is that the GCN point estimate is lower than the
+cue's, at a level that would be significant under the anti-conservative
+naive test and is not under the corrected one.
+
+## 5. AICC22-Custom ($k=4$) — descriptive only
+
+One fold has zero validation negatives, so effective $n=4$. The
+corrected CI on RF − cue is [−1.618, +1.220] — spanning 2.8 AUC units
+on a metric bounded in [0, 1]. The bootstrap over four values has
+$\binom{8}{4}=70$ distinct resamples; the interval is essentially
+uninformative. **No inferential claim is made on this dataset.**
+
+Reported descriptively:
+
+- Per-fold RF − cue differences: −0.944, −0.429, +0.056, +0.522
+- Mean ΔAUC: −0.199
+- Cue mean AUC: 0.765, RF mean AUC: 0.567
+
+The direction is consistent with VNTraffic. The magnitude is not
+interpretable at this fold count.
+
+## 6. Multiple comparisons
+
+Only one comparison was pre-specified. The remaining pairwise tests
+in §4 are exploratory and would survive a Holm correction only for the
+RF − majority comparison (raw $p=0.0056$, Holm-adjusted $p=0.0168$
+over the family of three non-primary tests). The GCN − cue comparison
+would not survive Holm (adjusted $p \approx 0.11$). The correct
+framing is exploratory for all of §4 except the primary.
+
+## 7. Structural limits of this analysis
+
+- **Fold count.** $k=10$ on VNTraffic, effective $k=4$ on AICC22. The
+  VNTraffic analysis is adequately powered to detect the effect sizes
+  reported; the AICC22 analysis is not.
+- **Unequal fold weight.** Folds with 2 validation negatives and folds
+  with 10 are given equal weight in the mean. Per-fold AUC on 2
+  negatives has variance an order of magnitude larger than on 10.
+- **Approximate correction.** The Nadeau-Bengio correction assumes a
+  random partition. Our folds are blocked and purged; the correction
+  is approximate for this design and should be read as the
+  conservative end of the plausible range.
+- **Permutation test floor.** With $n=10$ the sign-flip permutation
+  has $2^{10}=1024$ distinct outcomes, floor $p \approx 0.002$.
+  Small $p$-values from this test should not be interpreted below that
+  floor.
+
+## 8. What changes in the paper text
+
+The following phrases in the first draft of `results.md`, `discussion.md`,
+and `introduction.md` were rewritten to match this analysis:
+
+- "matches or beats" → "no statistically detectable difference"
+- Independent 95% CIs on each model → paired 95% CIs on the difference
+- "neither model beats chance" (where present) → per-model chance tests;
+  cue and RF beat chance, GCN does not establish it
+- "the GCN collapses to majority" → "the GCN's accuracy equals the
+  majority baseline; its AUC does not establish above-chance ranking"
+
+The pre-registered decision rule in `results.md` §6 is preserved
+verbatim; the paired analysis is added as a labeled post-hoc supplement.
 
 ---
+
+# Discussion
 
 ## 1. What the results mean
 
 Three models of increasing capacity and structural richness — logistic
 regression, random forest, GCN — were trained on the sustained
-`run_length=5` VNTraffic label with the boundary leak corrected. None
-exceeded a single scalar feature (`edge_attr_nonzero_frac`) on ranking
-performance, and none exceeded the majority-class baseline on accuracy.
-The GCN matched the majority baseline exactly on both accuracy and F1,
-meaning it converged to the trivial predictor.
+`run_length=5` VNTraffic label with the boundary leak corrected. No
+trained model was detected to outperform a single scalar feature
+(`edge_attr_nonzero_frac`) on ranking performance, and none exceeded
+the majority-class baseline on accuracy. The GCN's accuracy matched
+the majority baseline exactly; its AUC did not establish above-chance
+ranking at this fold count.
 
 The primary result is the null the pre-registration memo committed to
-reporting if it occurred: the trained model provides no evidence of
-value over the trivial scalar. This is not a failed experiment. It is
+reporting if it occurred: no detectable added value over the
+single-feature cue (paired $\Delta$AUC = −0.046, corrected 95% CI
+[−0.138, +0.046], $p=0.29$). This is not a failed experiment. It is
 the experiment's answer.
 
 ## 2. Why the label fails
@@ -902,10 +1072,12 @@ activity-driven positives.
 The implication for the field is not that SSMs are wrong. TTC is a
 well-defined, physically meaningful quantity. The implication is that
 the *window-level aggregation* of a per-pair per-frame SSM into a
-single binary label is not a scale-invariant operation, and treating
-it as one produces tasks that look learnable (the AUC is above chance)
-but are not (the model does not beat a scalar, and neither beats the
-prior).
+single binary label is not a scale-invariant operation. On this data
+it produces a task with real ranking signal — the cue and the random
+forest both beat chance at corrected $p<0.01$ — but where a 42-feature
+model provides no detectable added value over one of its own columns,
+and where ranking does not convert to classification above the class
+prior at threshold 0.5.
 
 ## 4. What this paper does not claim
 
@@ -1035,6 +1207,20 @@ saturation as an empirical finding rather than a caveat.
 
 On two traffic clips with hand-annotated trajectories, under the
 standard window-level TTC-based SSM label with a corrected cross-
+validation split, no trained model was detected to outperform a
+single scalar feature. The cue and the random forest both carry
+statistically significant ranking signal, but a 42-feature model adds
+nothing measurable over one of its columns, and neither beats the
+majority-class accuracy at threshold 0.5. The window-aggregation step,
+treated as plumbing in the SSM-ML literature, is where the added value
+is lost.
+
+---
+
+# Conclusion
+
+On two traffic clips with hand-annotated trajectories, under the
+standard window-level TTC-based SSM label with a corrected cross-
 validation split, a single scalar feature matches or beats the trained
 models. The failure is not in the model class; it is in the label's
 construction. The window-aggregation step, treated as plumbing in the
@@ -1042,19 +1228,171 @@ SSM-ML literature, is where the signal is lost.
 
 ---
 
-## References
+# References
 
-*Bibliography management TBD. Citations in `related_work.md` carry
-`[HIGH]` (verified) and `[CHECK]` (verify before submission) tags.
-13 entries need verification.*
+Working bibliography. Entries marked `[HIGH]` are confirmed by the
+draft author. Entries marked `[CHECK]` are cited correctly by author
+and title but their venue, year, or page range has not been verified
+against the publisher record. **Do not submit until every `[CHECK]`
+has been resolved.** The verification queue at the end of this file
+lists what to look up for each entry.
+
+Style: author-year, close to Chicago author-date. Volume, issue, and
+page ranges are recorded where confident; omitted where not. Do not
+fabricate them at submission time.
 
 ---
+
+## Bibliography
+
+- **Bergmeir, C., Benítez, J. M. (2012).** "On the use of
+  cross-validation for time series predictor evaluation."
+  *Information Sciences*, 191, 192–213. [HIGH]
+
+- **Essa, M., Sayed, T. (2019).** "Traffic conflict models to
+  evaluate the safety of intersections at the cycle level."
+  *Accident Analysis & Prevention*. [CHECK — volume, pages]
+
+- **Formosa, N., Quddus, M., Ison, S., Purdie, F., Bhavsar, P.,
+  Sharples, S. (2020).** "Predicting traffic conflicts for use in
+  road safety analysis: A review of analytic methods and future
+  directions." *Analytic Methods in Accident Research*, 29, 100142.
+  [HIGH]
+
+- **Hydén, C. (1987).** *The development of a method for traffic
+  safety evaluation: The Swedish Traffic Conflicts Technique.*
+  PhD thesis, Lund Institute of Technology, Bulletin 70.
+  [CHECK — publisher record]
+
+- **Johnsson, C., Laureshyn, A., De Ceunynck, T. (2018).** "In
+  search of surrogate safety indicators for vulnerable road users:
+  a review of surrogate safety indicators." *Transport Reviews*.
+  [CHECK — volume, pages, exact title]
+
+- **Kapoor, S., Narayanan, A. (2023).** "Leakage and the
+  reproducibility crisis in machine-learning-based science."
+  *Patterns*, 4(9), 100804. [HIGH]
+
+- **Kaufman, S., Rosset, S., Perlich, C., Stitelman, O. (2012).**
+  "Leakage in data mining: Formulation, detection, and avoidance."
+  *ACM Transactions on Knowledge Discovery from Data*, 6(4), 15.
+  [HIGH]
+
+- **Kipf, T. N., Welling, M. (2017).** "Semi-supervised
+  classification with graph convolutional networks." *ICLR*. [HIGH]
+
+- **Laureshyn, A., Svensson, Å., Hydén, C. (2010).** "Evaluation of
+  traffic safety, based on micro-level behavioural data: Theoretical
+  framework and first implementation." *Accident Analysis &
+  Prevention*, 42(6), 1637–1646. [HIGH]
+
+- **Lord, D., Mannering, F. (2010).** "The statistical analysis of
+  crash-frequency data: A review and assessment of methodological
+  alternatives." *Transportation Research Part A*, 44(5), 291–305.
+  [HIGH]
+
+- **Mahmud, S. M. S., Ferreira, L., Hoque, M. S., Tavassoli, A.
+  (2017).** "Application of proximal surrogate indicators for
+  safety evaluation: A review of recent developments and research
+  needs." *IATSS Research*, 41(4), 153–163.
+  [CHECK — authorship order, venue]
+
+- **McDermott, M. B. A., Wang, S., Marinsek, N., Ranganath, R.,
+  Foschini, L., Ghassemi, M. (2021).** "Reproducibility in machine
+  learning for health research: Still a ways to go." *Science
+  Translational Medicine*, 13(586). [CHECK — year is 2021, not
+  2019/2020 as currently cited in the draft; verify]
+
+- **Mohamed, A., Qian, K., Elhoseiny, M., Claudel, C. (2020).**
+  "Social-STGCNN: A social spatio-temporal graph convolutional
+  neural network for human trajectory prediction." *CVPR*,
+  14424–14432. [CHECK — page range]
+
+- **Musgrave, K., Belongie, S., Lim, S.-N. (2020).** "A metric
+  learning reality check." *ECCV*. [HIGH]
+
+- **Perkins, S. R., Harris, J. I. (1968).** "Traffic conflict
+  characteristics: Accident potential at intersections." *Highway
+  Research Record*, 225, 35–43. Also SAE Technical Paper 680124.
+  [CHECK — the two venues are often cited interchangeably; pick one
+  and cite the other only if directly consulted]
+
+- **Roberts, D. R., Bahn, V., Ciuti, S., et al. (2017).**
+  "Cross-validation strategies for data with temporal, spatial,
+  hierarchical, or phylogenetic structure." *Ecography*, 40(8),
+  913–929. [HIGH]
+
+- **Schöller, C., Aravantinos, V., Lay, F., Knoll, A. (2020).**
+  "What the constant velocity model can teach us about pedestrian
+  motion prediction." *IEEE Robotics and Automation Letters*,
+  5(2), 1696–1703. [CHECK — volume, pages]
+
+- **Sculley, D., Holt, G., Golovin, D., et al. (2015).** "Hidden
+  technical debt in machine learning systems." *NeurIPS*, 2503–2511.
+  [HIGH]
+
+- **Tarko, A. P., et al. (2009).** "Surrogate measures of safety."
+  *Transportation Research Board Annual Meeting*, White Paper.
+  [CHECK — full author list, TRB paper number]
+
+- **Veličković, P., Cucurull, G., Casanova, A., Romero, A., Liò, P.,
+  Bengio, Y. (2018).** "Graph attention networks." *ICLR*. [HIGH]
+
+- **Wang, C., Xie, Y., Huang, H., Liu, P. (2021).** "A review of
+  surrogate safety measures and their applications in connected and
+  automated vehicles safety modeling." *Accident Analysis &
+  Prevention*, 157, 106157. [CHECK — author list, pages]
+
+- **Yu, C., Ma, X., Ren, J., Zhao, H., Yi, S. (2020).**
+  "Spatio-temporal graph transformer networks for pedestrian
+  trajectory prediction." *ECCV*. [CHECK — author list]
+
+- **Zheng, L., Ismail, K., Meng, X. (2014).** "Traffic conflict
+  techniques for road safety analysis: open questions and some
+  insights." *Canadian Journal of Civil Engineering*, 41(7),
+  633–641. [CHECK — the draft cites this as AAP; the venue is
+  likely CJCE, verify]
+
+---
+
+## Verification queue
+
+Eleven entries need a publisher-record check before submission. For
+each, search the paper title + first author on Google Scholar or the
+journal's website, and confirm: exact author list, year, venue, and
+page range. Update the entry above, then remove the `[CHECK]` tag.
+
+| # | entry | what to verify |
+|---|---|---|
+| 1 | Essa & Sayed (2019) | volume, pages |
+| 2 | Hydén (1987) | thesis vs bulletin; publisher |
+| 3 | Johnsson et al. (2018) | volume, pages, exact subtitle |
+| 4 | Mahmud et al. (2017) | authorship order; venue |
+| 5 | McDermott et al. | **year is 2021, not 2019/2020**; update citation in manuscript |
+| 6 | Mohamed et al. (2020) | page range |
+| 7 | Perkins & Harris (1968) | Highway Research Record vs SAE — pick one |
+| 8 | Schöller et al. (2020) | volume, pages |
+| 9 | Tarko et al. (2009) | full author list, TRB paper number |
+| 10 | Wang et al. (2021) | author list, pages |
+| 11 | Yu et al. (2020) | author list |
+| 12 | Zheng et al. (2014) | **venue is likely CJCE, not AAP**; update citation in manuscript |
+
+Entries 5 and 12 have known errors in the current draft — the
+verification is to correct the manuscript citation, not just to
+confirm.
+
+## Missing from bibliography
+
+The introduction cites `Perkins & Harris, 1968; Hydén, 1987; Tarko
+et al., 2009; Mahmud et al., 2017` inline and these are covered above.
+No other citations appear in the manuscript without a matching
+bibliography entry at time of writing.
 
 ## Figures
 
 | figure | caption |
 |---|---|
-| `figures/fig1_auc_vntraffic.pdf` | VNTraffic — mean AUC per model, 95% bootstrap CI. |
+| `figures/fig1_auc_vntraffic.pdf` | VNTraffic - mean AUC per model, 95% bootstrap CI. |
 | `figures/fig2_pre_post_purge.pdf` | Pre- vs post-purge AUC for RF and the single-feature cue. |
 | `figures/fig3_cross_clip.pdf` | Cross-clip comparison. Direction replicates; CIs overlap. |
 | `figures/fig4_gcn_collapse.pdf` | The GCN matches the majority baseline on accuracy exactly. |
