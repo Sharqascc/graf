@@ -250,6 +250,33 @@ structure. The reported comparison is a comparison of this extractor
 against itself; it does not test whether a model reading the graph
 directly would perform differently.
 
+**Label TTC is not `ssm/ttc.py`.** The label pipeline computes TTC
+inline as time to closest approach (`closing_rate / rel_speed_sq`).
+The tested `compute_ttc_constant_velocity` solves the collision-radius
+quadratic. The two agree on collinear approaches and diverge on
+non-collinear ones, where the label still returns a finite
+closest-approach time while the quadratic returns infinity. This
+divergence is documented and tested in `tests/test_label_ttc_parity.py`.
+
+**`rel_heading_sin` is a constant-zero column on this data.**
+`build_edge_feature` populates relative-heading sine and cosine from
+`heading_rad` on the input actors. VNTraffic's tracks carry bounding
+boxes only, so both actors default to heading 0 and `rel_heading_sin`
+is identically zero across every edge tensor. The diagnostic is in
+`tests/test_rel_heading_diagnostic.py`. No result depends on this
+column.
+
+**Alternative label strategy available.** A `persistent_pair`
+strategy requires the same pair to remain critical for `run_length`
+consecutive frames, rather than allowing different pairs to satisfy
+the frame-level criterion. It is implemented in
+`scripts/label_strategies.py` and tested in
+`tests/test_label_persistent_pair.py`. It is *not* the label used in
+this paper: the frozen results use `sustained`. The strategy is
+offered so a follow-up study can test whether the saturation this
+paper documents is a property of the label or of the `any`-per-frame
+rule specifically.
+
 ## 8. Reproducibility
 
 The full pipeline is three commands from a fresh clone:
