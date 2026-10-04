@@ -141,7 +141,7 @@ That installs both hook stages:
 - `pre-commit` stage: ruff, ruff-format, mypy, import-linter,
   deptry, hygiene hooks (whitespace, EOF, YAML/TOML/AST, etc.).
 - `pre-push` stage: the full unit-test suite except the Hypothesis
-  property file (~78 s, 583 tests).
+  property file, plus the coverage floor (~105 s, 583 tests, 65% floor).
 
 Local hooks are an early-warning layer, not a security boundary.
 `git push --no-verify` skips every hook. The authoritative gate is
