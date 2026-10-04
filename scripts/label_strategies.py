@@ -42,7 +42,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import numpy as np
 import pandas as pd
 
-STRATEGIES = ("any", "pair_fraction", "sustained", "min_ttc")
+STRATEGIES = ("any", "pair_fraction", "sustained", "min_ttc", "persistent_pair")
 
 
 def _frame_ttc_stats(
@@ -94,6 +94,99 @@ def _frame_ttc_stats(
             }
         )
     return pd.DataFrame(rows).set_index("frame_idx")
+
+
+def _frame_critical_pair_ids(
+    df: pd.DataFrame,
+    *,
+    ttc_threshold_seconds: float,
+    distance_threshold: float,
+    closing_rate_threshold: float,
+) -> dict[int, set[tuple[int, int]]]:
+    """For each frame, the set of (track_a, track_b) critical pairs.
+
+    A pair is critical if it satisfies the same criterion as
+    `_frame_ttc_stats`: within `distance_threshold`, positive closing
+    rate above `closing_rate_threshold`, and TTC in
+    (0, ttc_threshold_seconds]. Track ids are ordered canonically as
+    (min, max) so the same physical pair is comparable across frames
+    and across rows with swapped ordering.
+    """
+    out: dict[int, set[tuple[int, int]]] = {}
+    for frame_idx, frame_df in df.groupby("frame_idx"):
+        records = frame_df.to_dict("records")
+        ids: set[tuple[int, int]] = set()
+        n = len(records)
+        for i in range(n):
+            a = records[i]
+            for j in range(i + 1, n):
+                b = records[j]
+                rel_pos = np.array([b["x_m"] - a["x_m"], b["y_m"] - a["y_m"]])
+                rel_vel = np.array([b["vx"] - a["vx"], b["vy"] - a["vy"]])
+                dist = float(np.linalg.norm(rel_pos))
+                if dist >= distance_threshold:
+                    continue
+                closing_rate = -float(np.dot(rel_pos, rel_vel))
+                rss = float(np.dot(rel_vel, rel_vel))
+                if rss <= 1e-9 or closing_rate <= closing_rate_threshold:
+                    continue
+                ttc = closing_rate / rss
+                if np.isfinite(ttc) and 0 < ttc <= ttc_threshold_seconds:
+                    ta, tb = int(a["track_id"]), int(b["track_id"])
+                    ids.add((min(ta, tb), max(ta, tb)))
+        out[int(frame_idx)] = ids
+    return out
+
+
+def label_persistent_pair(
+    df: pd.DataFrame,
+    window_ds,
+    *,
+    ttc_threshold_seconds: float = 1.5,
+    distance_threshold: float = 3.0,
+    closing_rate_threshold: float = 0.5,
+    run_length: int = 3,
+    **_: object,
+) -> list[int]:
+    """Window positive if the same pair is critical for run_length
+    consecutive frames.
+
+    Stricter than `sustained`: requires the same two track ids across
+    every frame in the run, not just any critical pair per frame. The
+    intent is to filter windows where a rotating cast of different
+    pairs keeps the frame-level 'any critical pair' criterion satisfied
+    without any one interaction persisting.
+
+    The label values on a given dataset differ from `sustained` unless
+    every critical run happens to be carried by a single pair. This
+    strategy is *not* interchangeable with `sustained`; the choice must
+    be recorded in any run that uses it.
+    """
+    if run_length < 1:
+        raise ValueError(f"run_length must be >= 1, got {run_length}")
+    critical = _frame_critical_pair_ids(
+        df,
+        ttc_threshold_seconds=ttc_threshold_seconds,
+        distance_threshold=distance_threshold,
+        closing_rate_threshold=closing_rate_threshold,
+    )
+
+    labels: list[int] = []
+    for w in _window_frames(window_ds):
+        pair_best: dict[tuple[int, int], int] = {}
+        pair_cur: dict[tuple[int, int], int] = {}
+        for f in w:
+            present = critical.get(int(f), set())
+            for pair in list(pair_cur):
+                if pair not in present:
+                    pair_cur.pop(pair)
+            for pair in present:
+                pair_cur[pair] = pair_cur.get(pair, 0) + 1
+                if pair_cur[pair] > pair_best.get(pair, 0):
+                    pair_best[pair] = pair_cur[pair]
+        best = max(pair_best.values(), default=0)
+        labels.append(1 if best >= run_length else 0)
+    return labels
 
 
 def _window_frames(window_ds) -> list[list[int]]:
@@ -247,6 +340,7 @@ _DISPATCH: dict[str, Callable[..., list[int]]] = {
     "pair_fraction": label_pair_fraction,
     "sustained": label_sustained,
     "min_ttc": label_min_ttc,
+    "persistent_pair": label_persistent_pair,
 }
 
 
