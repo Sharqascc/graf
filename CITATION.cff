@@ -1,8 +1,46 @@
 cff-version: 1.2.0
-message: "If you use this software in your research, please cite it as below."
-title: "GRAF: Graph-based surrogate safety analysis pipeline"
-authors:
-  - name: "ASCC Sharq 786"
-version: 0.1.0
-date-released: 2026-08-23
+message: "If you use this software or the results it produces, please cite it as below."
+title: "graf: graph-based surrogate safety analysis"
+abstract: >-
+  A Python pipeline for computing surrogate safety measures
+  (time-to-collision, post-encroachment time, deceleration rate to
+  avoid a crash) from video-derived vehicle trajectories, building
+  per-frame interaction graphs, and evaluating learned classifiers on
+  window-level conflict labels. The repository accompanies a
+  pre-registered negative-result study showing that a single scalar
+  feature matches or exceeds the trained models on this task.
+type: software
+version: "0.1.0"
+date-released: "2026-10-04"
 license: MIT
+repository-code: "https://github.com/Sharqascc/graf"
+url: "https://github.com/Sharqascc/graf"
+keywords:
+  - traffic safety
+  - surrogate safety measures
+  - time-to-collision
+  - graph neural networks
+  - reproducibility
+  - negative results
+authors:
+  - family-names: "Sharqas"
+    given-names: "Scc"
+    # Update with ORCID if you have one: `orcid: https://orcid.org/...`
+    # Update with affiliation if you want it recorded here.
+    # TODO: fill in affiliation before submission
+preferred-citation:
+  type: article
+  title: "The window-level surrogate safety label is an activity proxy"
+  # The manuscript is in preparation. Fill in these fields when the
+  # paper is accepted.
+  authors:
+    - family-names: "Sharqas"
+      given-names: "Scc"
+  # journal: ""
+  # year: 2026
+  # doi: ""
+  # url: ""
+  notes: >-
+    Manuscript draft under revision. See docs/paper/manuscript.md in the
+    repository for the current version. Pre-registration at
+    docs/preregistration_sustained_r5.md.
