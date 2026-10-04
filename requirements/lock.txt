@@ -22,7 +22,7 @@ coverage==7.16.1
 cycler==0.12.1
 deptry==0.25.1
 distlib==0.4.3
-filelock==3.32.5
+filelock==4.0.8
 fonttools==4.64.0
 grimp==3.17
 hypothesis==6.168.0
