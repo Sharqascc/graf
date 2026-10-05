@@ -42,3 +42,6 @@ data/processed/
 # `python scripts/make_fixture.py`. Track them despite the
 # blanket *.pt rule above.
 !data/fixtures/**/*.pt
+
+# Detector weights (fetched on demand)
+data/models/

@@ -188,6 +188,13 @@ def main(argv=None) -> int:
         action="store_true",
         help="Restrict predictions to COCO vehicle classes",
     )
+    ap.add_argument(
+        "--class-filter",
+        default=None,
+        help="Comma-separated class indices to keep. "
+        "Default: keep all. COCO vehicles: 2,3,5,7. "
+        "UVH-26: omit (all 14 classes are vehicles).",
+    )
     args = ap.parse_args(argv)
 
     try:
@@ -237,8 +244,13 @@ def main(argv=None) -> int:
             xyxy = boxes.xyxy.cpu().numpy()
             conf = boxes.conf.cpu().numpy().reshape(-1, 1)
             cls = boxes.cls.cpu().numpy().astype(int)
+            class_filter = None
+            if args.class_filter:
+                class_filter = {int(c.strip()) for c in args.class_filter.split(",")}
             if args.vehicle_only:
-                keep = np.isin(cls, list(VEHICLE_CLASSES))
+                class_filter = VEHICLE_CLASSES
+            if class_filter is not None:
+                keep = np.isin(cls, list(class_filter))
                 xyxy = xyxy[keep]
                 conf = conf[keep]
             preds_by_frame[frame_idx] = np.concatenate([xyxy, conf], axis=1)
