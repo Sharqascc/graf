@@ -306,11 +306,11 @@ def _choose_threshold(scores, labels, objective: str = "accuracy") -> float:
 def _confusion(preds, labels) -> dict[str, int]:
     """TP/FP/TN/FN counts at the given predictions."""
     p = np.asarray(preds).astype(int)
-    l = np.asarray(labels).astype(int)
-    tp = int(((p == 1) & (l == 1)).sum())
-    fp = int(((p == 1) & (l == 0)).sum())
-    tn = int(((p == 0) & (l == 0)).sum())
-    fn = int(((p == 0) & (l == 1)).sum())
+    y = np.asarray(labels).astype(int)
+    tp = int(((p == 1) & (y == 1)).sum())
+    fp = int(((p == 1) & (y == 0)).sum())
+    tn = int(((p == 0) & (y == 0)).sum())
+    fn = int(((p == 0) & (y == 1)).sum())
     return {"tp": tp, "fp": fp, "tn": tn, "fn": fn}
 
 
@@ -569,7 +569,9 @@ def evaluate_model(
             float(np.std(fold_calibrated_acc)) if fold_calibrated_acc else None
         ),
         "mean_accuracy_ci": _bootstrap_ci(fold_acc, n_resamples=bootstrap_resamples),
-        "mean_precision_ci": _bootstrap_ci(fold_precision, n_resamples=bootstrap_resamples),
+        "mean_precision_ci": _bootstrap_ci(
+            fold_precision, n_resamples=bootstrap_resamples
+        ),
         "mean_recall_ci": _bootstrap_ci(fold_recall, n_resamples=bootstrap_resamples),
         "mean_f1_ci": _bootstrap_ci(fold_f1, n_resamples=bootstrap_resamples),
         "mean_auc_ci": _bootstrap_ci(fold_auc, n_resamples=bootstrap_resamples),
