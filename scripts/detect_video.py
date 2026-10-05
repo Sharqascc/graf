@@ -16,12 +16,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
 
 import cv2
 import numpy as np
+
+
+def frame_index(path: Path) -> int:
+    """Frame index from a filename. Accepts numeric stems ("000000")
+    and prefixed ones ("f_00001", "sample_0005") by taking the
+    trailing run of digits."""
+    m = re.search(r"(\d+)$", path.stem)
+    if not m:
+        raise ValueError(f"no trailing digits in filename: {path.name}")
+    return int(m.group(1))
 
 
 def parse_args(argv=None):
@@ -134,7 +145,7 @@ def main(argv=None) -> int:
 
         per_frame.append(
             {
-                "frame": int(fp.stem),
+                "frame": frame_index(fp),
                 "num_detections": len(dets),
                 "detections": dets,
             }
