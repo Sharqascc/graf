@@ -1,0 +1,26 @@
+{
+  "model": "data/models/UVH-26-MV-YOLOv11-S.pt",
+  "conf_threshold": 0.5,
+  "imgsz": 1280,
+  "num_frames": 150,
+  "total_detections": 7254,
+  "mean_detections_per_frame": 48.36,
+  "std_detections_per_frame": 3.960269351109004,
+  "min_detections": 37,
+  "max_detections": 57,
+  "class_distribution": {
+    "Two-wheeler": 3163,
+    "Three-wheeler": 2909,
+    "Hatchback": 449,
+    "Sedan": 302,
+    "Truck": 150,
+    "LCV": 139,
+    "Van": 92,
+    "bicycle": 25,
+    "MUV": 23,
+    "SUV": 1,
+    "Bus": 1
+  },
+  "mean_confidence": 0.7805354827884015,
+  "std_confidence": 0.12235308063282188
+}
