@@ -303,6 +303,29 @@ def _choose_threshold(scores, labels, objective: str = "accuracy") -> float:
     raise ValueError(f"unknown calibration objective: {objective!r}")
 
 
+def _confusion(preds, labels) -> dict[str, int]:
+    """TP/FP/TN/FN counts at the given predictions."""
+    p = np.asarray(preds).astype(int)
+    l = np.asarray(labels).astype(int)
+    tp = int(((p == 1) & (l == 1)).sum())
+    fp = int(((p == 1) & (l == 0)).sum())
+    tn = int(((p == 0) & (l == 0)).sum())
+    fn = int(((p == 0) & (l == 1)).sum())
+    return {"tp": tp, "fp": fp, "tn": tn, "fn": fn}
+
+
+def _precision(preds, labels) -> float:
+    c = _confusion(preds, labels)
+    d = c["tp"] + c["fp"]
+    return float(c["tp"] / d) if d else 0.0
+
+
+def _recall(preds, labels) -> float:
+    c = _confusion(preds, labels)
+    d = c["tp"] + c["fn"]
+    return float(c["tp"] / d) if d else 0.0
+
+
 def evaluate_model(
     name: str,
     window_ds,
@@ -331,6 +354,9 @@ def evaluate_model(
     """
     labels_arr = np.asarray(labels, dtype=np.int64)
     fold_acc, fold_f1, fold_auc, fold_maj = [], [], [], []
+    fold_precision: list[float] = []
+    fold_recall: list[float] = []
+    fold_confusion: list[dict[str, int]] = []
     fold_neg_count: list[int] = []
     fold_calibrated_acc: list[float] = []
     fold_thresholds: list[float] = []
@@ -361,6 +387,9 @@ def evaluate_model(
             preds = (scores >= 0.5).astype(int)
             fold_acc.append(float((preds == val_labels).mean()))
             fold_f1.append(_f1(preds, val_labels))
+            fold_precision.append(_precision(preds, val_labels))
+            fold_recall.append(_recall(preds, val_labels))
+            fold_confusion.append(_confusion(preds, val_labels))
             fold_auc.append(_auc(scores, val_labels))
             fold_maj.append(
                 _majority_baseline_accuracy(labels_arr[train_idx], val_labels)
@@ -484,6 +513,9 @@ def evaluate_model(
             preds = (scores >= 0.5).astype(int)
             fold_acc.append(float((preds == y_val).mean()))
             fold_f1.append(_f1(preds, y_val))
+            fold_precision.append(_precision(preds, y_val))
+            fold_recall.append(_recall(preds, y_val))
+            fold_confusion.append(_confusion(preds, y_val))
             fold_auc.append(_auc(scores, y_val))
             fold_maj.append(_majority_baseline_accuracy(labels_arr[train_idx], y_val))
             fold_neg_count.append(_negative_count(y_val))
@@ -498,6 +530,9 @@ def evaluate_model(
     pooled_labels_arr = np.asarray(pooled_labels)
     pooled_preds = (pooled_scores_arr >= 0.5).astype(int)
     pooled_acc = float((pooled_preds == pooled_labels_arr).mean())
+    pooled_precision = _precision(pooled_preds, pooled_labels_arr)
+    pooled_recall = _recall(pooled_preds, pooled_labels_arr)
+    pooled_confusion = _confusion(pooled_preds, pooled_labels_arr)
 
     auc_stats = _fold_auc_summary(fold_auc)
 
@@ -507,8 +542,15 @@ def evaluate_model(
         "fold_f1": fold_f1,
         "fold_auc": fold_auc,
         "fold_majority": fold_maj,
+        "fold_precision": fold_precision,
+        "fold_recall": fold_recall,
+        "fold_confusion": fold_confusion,
         "fold_negative_count": fold_neg_count,
         "mean_accuracy": float(np.mean(fold_acc)),
+        "mean_precision": float(np.mean(fold_precision)),
+        "std_precision": float(np.std(fold_precision)),
+        "mean_recall": float(np.mean(fold_recall)),
+        "std_recall": float(np.std(fold_recall)),
         "std_accuracy": float(np.std(fold_acc)),
         "mean_f1": float(np.mean(fold_f1)),
         "mean_auc": auc_stats["mean_auc"],
@@ -516,6 +558,9 @@ def evaluate_model(
         "n_valid_folds_auc": auc_stats["n_valid_folds"],
         "wilcoxon_p_vs_0_5": auc_stats["wilcoxon_p_vs_0_5"],
         "pooled_accuracy": pooled_acc,
+        "pooled_precision": pooled_precision,
+        "pooled_recall": pooled_recall,
+        "pooled_confusion": pooled_confusion,
         "fold_calibrated_acc": fold_calibrated_acc,
         "mean_calibrated_accuracy": (
             float(np.mean(fold_calibrated_acc)) if fold_calibrated_acc else None
@@ -524,6 +569,8 @@ def evaluate_model(
             float(np.std(fold_calibrated_acc)) if fold_calibrated_acc else None
         ),
         "mean_accuracy_ci": _bootstrap_ci(fold_acc, n_resamples=bootstrap_resamples),
+        "mean_precision_ci": _bootstrap_ci(fold_precision, n_resamples=bootstrap_resamples),
+        "mean_recall_ci": _bootstrap_ci(fold_recall, n_resamples=bootstrap_resamples),
         "mean_f1_ci": _bootstrap_ci(fold_f1, n_resamples=bootstrap_resamples),
         "mean_auc_ci": _bootstrap_ci(fold_auc, n_resamples=bootstrap_resamples),
         "mean_calibrated_accuracy_ci": (
