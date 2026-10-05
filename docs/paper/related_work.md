@@ -31,7 +31,8 @@ required braking to prevent collision. Comprehensive reviews of the indicator
 menu appear in Tarko and colleagues' TRB white paper [CHECK: Tarko et al., 2009,
 *Surrogate measures of safety*, TRB Annual Meeting] and in Zheng, Ismail, and
 Meng [CHECK: Zheng, Ismail, Meng, 2014, *Traffic conflict techniques for road
-safety analysis*, Accident Analysis & Prevention]. Mahmud and coauthors provide
+safety analysis: open questions and some insights*, Canadian Journal of
+Civil Engineering]. Mahmud and coauthors provide
 a recent catalog of proximal indicators and their empirical properties [HIGH:
 Mahmud, Ferreira, Hoque, Tavassoli, 2017, *Application of proximal surrogate
 indicators for safety evaluation: A review of recent developments and research
@@ -185,8 +186,9 @@ where the standard label construction has been taken for granted.
 
 The paper reports a negative result and is explicit about it. The ML
 reproducibility literature — including the reproducibility-in-health work of
-McDermott and coauthors [CHECK: McDermott et al., 2019 or 2020, *Reproducibility
-in machine learning for health*] and the general negative-results movement in
+McDermott and coauthors [CHECK: McDermott et al., 2021, *Reproducibility in
+machine learning for health research: Still a ways to go*, Science
+Translational Medicine] and the general negative-results movement in
 the physical and life sciences — argues that negative results are
 underpublished and that their absence distorts the field's picture of what
 works. This paper adds one negative result to that accounting, with the
@@ -202,7 +204,7 @@ Google Scholar before submission. For each, the search that will find it is:
 1. Perkins & Harris 1968, traffic conflict characteristics General Motors
 2. Hydén 1987, Swedish Traffic Conflicts Technique Lund
 3. Tarko et al. 2009, surrogate measures of safety TRB white paper
-4. Zheng, Ismail, Meng 2014, traffic conflict techniques AAP
+4. Zheng, Ismail, Meng 2014, traffic conflict techniques CJCE — DONE
 5. Johnsson, Laureshyn, De Ceunynck 2018, vulnerable road users Transport Reviews
 6. Wang, Xie, Huang, Liu, Chen 2021, SSM CAV review AAP
 7. Guo, Sayed, Zaki 2019/2020, SSM from computer vision
@@ -211,7 +213,7 @@ Google Scholar before submission. For each, the search that will find it is:
 10. Yu, Ma, Ren, Zhao 2020, STAR graph transformer ECCV
 11. Schöller, Aravantinos, Lay, Knoll 2020, constant velocity model RA-L
 12. Bouthillier et al. 2021, variance in ML benchmarks MLSys
-13. McDermott et al. 2019/2020, reproducibility in ML for health
+13. McDermott et al. 2021, reproducibility in ML for health (Sci Transl Med) — DONE
 
 The `[HIGH]` citations above I am confident about. If any of them is wrong,
 the error is mine and the citation should be corrected; the prose does not
