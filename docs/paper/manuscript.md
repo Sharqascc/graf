@@ -438,6 +438,39 @@ the PPM error. This paper reports TTC-based labels only; DRAC is
 implemented in `src/graf/ssm/drac.py` but is not part of the reported
 result.
 
+### 1.4 Detection baseline
+
+The reported classification results use the VNTraffic hand-annotated
+ground-truth boxes directly; detection and tracking are not run for
+the paper's headline numbers. To characterize what a deployed version
+of the pipeline would inherit, we run a detection baseline on the same
+clip.
+
+YOLOv8n (COCO-pretrained, 3.2M parameters) at 640-pixel input, evaluated
+against the hand-annotated boxes at IoU thresholds from 0.50 to 0.95.
+Matching is class-agnostic because the ground truth carries no class
+labels; predictions in pedestrian classes are dropped so that
+undetected pedestrians (which the ground truth does not annotate) are
+not counted as false positives. 16,036 ground-truth boxes across 501
+frames.
+
+| metric | value |
+|---|---:|
+| AP@0.5 | 0.682 |
+| AP@0.5:0.95 | 0.475 |
+| precision at F1-optimal point (IoU=0.5) | 0.658 |
+| recall at F1-optimal point (IoU=0.5) | 0.604 |
+| F1 at F1-optimal point (IoU=0.5) | 0.630 |
+
+The full per-IoU curve is in `docs/paper/detection_metrics.md`; the
+raw JSON is in `docs/paper/detection_metrics.json`; the evaluation
+script is `scripts/evaluate_detection.py`. The reported classification
+numbers do not depend on this baseline — they are computed from
+ground-truth trajectories, not from detector output — so detection
+error is not a confound in the classification result. The baseline
+quantifies the additional error a detection-first deployment would
+introduce, and is reported here for context.
+
 ## 2. Window construction
 
 The 501-frame clip is cut into overlapping windows of `window_size = 5`

@@ -63,3 +63,31 @@ has a CI checkmark before the artifact exists.
   new commit.
 - Do not merge a red CI run because the failure "looks unrelated." A
   red run is red; investigate, fix, or revert.
+
+## What "green" means
+
+A commit is green when every check-run on it is in a non-blocking
+terminal state:
+
+| conclusion | blocks? | notes |
+|---|---|---|
+| `success` | no | passed |
+| `skipped` | no | conditional job that did not apply (e.g. Dependency review runs on PRs, not on merge commits) |
+| `neutral` | no | ran but no verdict |
+| `failure` | **yes** | failed |
+| `cancelled` | **yes** | cancelled before finishing |
+| `timed_out` | **yes** | exceeded the job timeout |
+| `action_required` | **yes** | waiting on a human decision |
+
+`skipped` is common and expected. On a merged-main HEAD, the Dependency
+review job reports `skipped` because it only runs on pull requests.
+Treating it as a failure would block every post-merge run for no reason.
+
+## Enforcement
+
+`scripts/require_ci_green.py` exits 1 if HEAD is not green. Prefix any
+cell that runs project code with it:
+
+    python scripts/require_ci_green.py && python <your-script>
+
+It reads a GitHub token from the `GITHUB_TOKEN` environment variable.
