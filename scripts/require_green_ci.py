@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -49,9 +48,9 @@ def current_repo() -> str:
         check=True,
     ).stdout.strip()
     if url.startswith("https://github.com/"):
-        url = url[len("https://github.com/"):]
+        url = url[len("https://github.com/") :]
     elif url.startswith("git@github.com:"):
-        url = url[len("git@github.com:"):]
+        url = url[len("git@github.com:") :]
     if url.endswith(".git"):
         url = url[:-4]
     if "@" in url:
