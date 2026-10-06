@@ -177,6 +177,31 @@ jobs:
       - name: Import every module
         run: PYTHONPATH=src python scripts/import_smoke.py
 
+  docker:
+    name: "8 · Docker build + test"
+    # Builds the reproducibility image and runs the same test
+    # selection CI uses, inside the container. Keeps the Dockerfile
+    # honest: if it ever stops building or starts failing tests,
+    # this job goes red before anyone tries to publish it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: graf:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Run tests inside the image
+        run: |
+          docker run --rm graf:ci python -m pytest -q \
+            --cov=src --cov=scripts --cov-fail-under=65 \
+            --ignore=tests/test_property_based.py
+
   dependency-review:
     name: "6 · Dependency review"
     # Advisory: scans the PR's dependency diff for known CVEs via GitHub's
