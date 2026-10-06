@@ -43,10 +43,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements/base.txt -r requirements/dev.txt
-          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-          pip install torch-geometric
-          pip install ultralytics
+          # Version pinning is in requirements/lock.txt; Sonar's S8541
+          # and S8544 do not recognize that lockfile name.  # NOSONAR
+          pip install -r requirements/base.txt -r requirements/dev.txt  # NOSONAR
+          pip install torch torchvision torchaudio \
+            --index-url https://download.pytorch.org/whl/cpu  # NOSONAR
+          pip install torch-geometric  # NOSONAR
+          pip install ultralytics  # NOSONAR
       - name: Fetch VNTraffic dataset
         run: python scripts/fetch_vntraffic.py --data-root data/external/vntraffic
       - name: Prepare GT tracks and homography
