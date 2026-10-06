@@ -42,13 +42,13 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO))
 
-from graf.training.conflict_pairs import (  # noqa: E402
+from graf.training.conflict_pairs import (
     add_world_coords,
     filter_tracks,
     load_tracks,
 )
-from scripts.label_strategies import label_sustained  # noqa: E402
-from scripts.prepare_vntraffic import convert_tracks  # noqa: E402
+from scripts.label_strategies import label_sustained
+from scripts.prepare_vntraffic import convert_tracks
 
 
 class _Window:
@@ -113,7 +113,7 @@ def run_step(cmd: list[str]) -> None:
     injection surface.
     """
     print(f"$ {' '.join(str(c) for c in cmd)}")
-    r = subprocess.run(  # noqa: S603  # NOSONAR - list args, no shell
+    r = subprocess.run(  # NOSONAR - list args, no shell
         cmd, cwd=REPO, capture_output=True, text=True
     )
     if r.stdout.strip():
@@ -147,36 +147,42 @@ def main(argv=None) -> int:
 
     if not (args.skip_detection and detected_tracks_path.exists()):
         if not frames_root.exists():
-            run_step([
-                sys.executable,
-                "scripts/extract_frames.py",
-                "--video_path",
-                str(video_path),
-                "--output_dir",
-                str(frames_root),
-            ])
+            run_step(
+                [
+                    sys.executable,
+                    "scripts/extract_frames.py",
+                    "--video_path",
+                    str(video_path),
+                    "--output_dir",
+                    str(frames_root),
+                ]
+            )
         video_stem = video_path.stem
         actual_frames = frames_root / video_stem
 
-        run_step([
-            sys.executable,
-            "scripts/run_detection.py",
-            "--frames_dir",
-            str(actual_frames),
-            "--output_dir",
-            str(detections_dir),
-            "--imgsz",
-            str(args.detection_imgsz),
-        ])
+        run_step(
+            [
+                sys.executable,
+                "scripts/run_detection.py",
+                "--frames_dir",
+                str(actual_frames),
+                "--output_dir",
+                str(detections_dir),
+                "--imgsz",
+                str(args.detection_imgsz),
+            ]
+        )
 
-        run_step([
-            sys.executable,
-            "scripts/run_tracking.py",
-            "--detections",
-            str(detections_dir / "detections.jsonl"),
-            "--output_dir",
-            str(tracks_dir),
-        ])
+        run_step(
+            [
+                sys.executable,
+                "scripts/run_tracking.py",
+                "--detections",
+                str(detections_dir / "detections.jsonl"),
+                "--output_dir",
+                str(tracks_dir),
+            ]
+        )
 
     # 3. Load and project both track sets
     with homography_path.open() as f:
@@ -197,9 +203,7 @@ def main(argv=None) -> int:
     det_df = add_world_coords(det_df, H, fps=args.fps)
 
     # 4. Window structure from max frame index in either set
-    num_frames = (
-        int(max(gt_df["frame_idx"].max(), det_df["frame_idx"].max())) + 1
-    )
+    num_frames = int(max(gt_df["frame_idx"].max(), det_df["frame_idx"].max())) + 1
     window_ds = build_windows(num_frames, args.window_size, args.stride)
 
     # 5. Compute labels on both
@@ -217,14 +221,10 @@ def main(argv=None) -> int:
     gt_pos = sum(gt_labels)
     det_pos = sum(det_labels)
     gt_pos_det_neg = sum(
-        1
-        for a, b in zip(gt_labels, det_labels, strict=True)
-        if a == 1 and b == 0
+        1 for a, b in zip(gt_labels, det_labels, strict=True) if a == 1 and b == 0
     )
     gt_neg_det_pos = sum(
-        1
-        for a, b in zip(gt_labels, det_labels, strict=True)
-        if a == 0 and b == 1
+        1 for a, b in zip(gt_labels, det_labels, strict=True) if a == 0 and b == 1
     )
 
     result = {
@@ -242,8 +242,8 @@ def main(argv=None) -> int:
         "gt_neg_detected_pos": gt_neg_det_pos,
         "gt_track_count": int(gt_df["track_id"].nunique()),
         "detected_track_count": int(det_df["track_id"].nunique()),
-        "gt_row_count": int(len(gt_df)),
-        "detected_row_count": int(len(det_df)),
+        "gt_row_count": len(gt_df),
+        "detected_row_count": len(det_df),
         "gt_labels": gt_labels,
         "detected_labels": det_labels,
     }
@@ -276,17 +276,17 @@ def main(argv=None) -> int:
         "",
         "## Track counts (post-filter)",
         "",
-        f'- GT tracks:       {result["gt_track_count"]}',
-        f'- Detected tracks: {result["detected_track_count"]}',
-        f'- GT rows:         {result["gt_row_count"]}',
-        f'- Detected rows:   {result["detected_row_count"]}',
+        f"- GT tracks:       {result['gt_track_count']}",
+        f"- Detected tracks: {result['detected_track_count']}",
+        f"- GT rows:         {result['gt_row_count']}",
+        f"- Detected rows:   {result['detected_row_count']}",
     ]
     (out / "comparison.md").write_text("\n".join(md) + "\n")
 
     print()
     print("\n".join(md))
-    print(f'\nWrote {out / "comparison.json"}')
-    print(f'Wrote {out / "comparison.md"}')
+    print(f"\nWrote {out / 'comparison.json'}")
+    print(f"Wrote {out / 'comparison.md'}")
     return 0
 
 
