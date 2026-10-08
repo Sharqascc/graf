@@ -8,18 +8,48 @@ GRAF is a research pipeline for building graph representations of traffic intera
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+## Quickstart
+
+```bash
+git clone https://github.com/Sharqascc/graf.git
+cd graf
+pip install -e ".[dev]"
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install torch-geometric ultralytics
+
+# 1. check that your environment is ready
+graf doctor
+
+# 2. see all available commands
+graf --help
+
+# 3. reproduce the paper's primary result
+graf reproduce configs/recipes/paper_v1.yaml
+```
+
+If `graf doctor` reports missing detector weights, fetch them:
+
+```bash
+graf fetch-detector --model YOLOv11-S
+```
+
+The `graf` command is the entry point for the pipeline. See [CLI](#cli)
+for the full command list, and [Recipes](#recipes) for how the paper's
+results are reproduced.
+
 ## Project status
 
 **Working end-to-end on synthetic data; not yet validated on real annotated video.**
 
 | Area | Status |
 |---|---|
-| Library code (`src/graf/`) | Complete; 290 unit tests pass |
+| Library code (`src/graf/`) | Complete; ~600 unit and property tests |
+| CLI (`graf`) | Entry point; 7 subcommands - see [CLI](#cli) |
+| Recipes | `configs/recipes/paper_v1.yaml` reproduces the paper's primary result |
 | Synthetic end-to-end test | `tests/test_end_to_end_synthetic.py` (~30 s on CPU) |
-| Training API | `from graf.training import run_cross_validation` |
-| Real-video pipeline | Runs, but no committed data or ground truth |
+| Detection | UVH-26 YOLOv11-S (India-specific); results in `docs/paper/detection_*.md` |
 | Tracking quality metrics (MOTA / IDF1 / ID switches) | Not implemented |
-| Reproducible real-video accuracy | None - see `docs/experiment_results.md` |
+| Reproducible real-video accuracy | Run `graf reproduce configs/recipes/paper_v1.yaml` |
 
 The 87.5% cross-validation accuracy in `docs/experiment_results.md` was produced
 from local data that is not committed. See the reproducibility note there for
@@ -59,16 +89,15 @@ The paper's central comparison — RF on all 42 features vs a single scalar
 [PR #40](https://github.com/Sharqascc/graf/pull/40):
 
 ```bash
-# RF on all features
-python scripts/compare_baselines.py ... --models rf
+# The paper's primary comparison is the `compare` step of paper_v1:
+graf reproduce configs/recipes/paper_v1.yaml --only compare
 
-# The trivial cue alone
+# Direct invocation of the harness for ablation variants:
+python scripts/compare_baselines.py ... --models rf                  # all 42 features
 python scripts/compare_baselines.py ... --models single_feature \
-    --single-feature-name edge_attr_nonzero_frac
-
-# RF without the trivial cue
+    --single-feature-name edge_attr_nonzero_frac                      # cue alone
 python scripts/compare_baselines.py ... --models rf \
-    --exclude-features edge_attr_nonzero_frac
+    --exclude-features edge_attr_nonzero_frac                         # RF minus cue
 ```
 
 ## Features
@@ -84,12 +113,33 @@ python scripts/compare_baselines.py ... --models rf \
 
 ## CLI
 
+The `graf` command is the entry point for the pipeline.
+
+| Command | What it does |
+|---|---|
+| `graf doctor` | Check environment, data directories, detector weights, and recipes |
+| `graf reproduce <recipe.yaml>` | Run a recipe file end-to-end |
+| `graf detect-video --frames-dir X --model Y --output-dir Z` | Run a detector over a directory of frames |
+| `graf fetch-detector --model YOLOv11-S` | Download UVH-26 detector weights into `data/models/` |
+| `graf status` | Print pipeline status tree |
+| `graf demo-graphs --outdir outputs/` | Write a toy PyG graph sample |
+| `graf train-conflict-pairs --tracks ... --graphs_dir ... --homography_config ...` | Train a GCN on conflict-pair labels |
+
+### Recipes
+
+A recipe is a YAML file listing pipeline steps. Each step is a
+subprocess command. Recipes are data-only; any non-trivial step lives
+as a script under `scripts/` and is invoked from the recipe.
+
+`configs/recipes/paper_v1.yaml` reproduces the paper's VNTraffic
+primary result as five steps: fetch, prepare tracks, filter, build
+graphs, compare.
+
 ```bash
-graf status                              # print pipeline status tree
-graf demo-graphs --outdir outputs/       # write a toy PyG graph sample
-graf train-conflict-pairs --tracks <tracks.jsonl> --graphs_dir <graphs> \
-    --homography_config <h.yaml> --output_dir outputs/models_conflict_pairs \
-    --epochs 50 --num_folds 5 --seed 42
+graf reproduce configs/recipes/paper_v1.yaml              # run all steps
+graf reproduce configs/recipes/paper_v1.yaml --dry-run    # preview
+graf reproduce configs/recipes/paper_v1.yaml --only compare
+graf reproduce configs/recipes/paper_v1.yaml --from-step build-graphs
 ```
 
 
