@@ -1,4 +1,5 @@
 """Tests for the recipe runner."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -16,10 +17,13 @@ def _write(tmp_path: Path, body: dict) -> Path:
 
 
 def test_load_recipe_minimal(tmp_path: Path) -> None:
-    p = _write(tmp_path, {
-        "name": "t",
-        "steps": [{"name": "s1", "cmd": ["echo", "hi"]}],
-    })
+    p = _write(
+        tmp_path,
+        {
+            "name": "t",
+            "steps": [{"name": "s1", "cmd": ["echo", "hi"]}],
+        },
+    )
     r = load_recipe(p)
     assert r.name == "t"
     assert len(r.steps) == 1
@@ -28,19 +32,25 @@ def test_load_recipe_minimal(tmp_path: Path) -> None:
 
 
 def test_load_recipe_python_step(tmp_path: Path) -> None:
-    p = _write(tmp_path, {
-        "name": "t",
-        "steps": [{"name": "s1", "python": "x = 1 + 1"}],
-    })
+    p = _write(
+        tmp_path,
+        {
+            "name": "t",
+            "steps": [{"name": "s1", "python": "x = 1 + 1"}],
+        },
+    )
     r = load_recipe(p)
     assert r.steps[0].kind == "python"
     assert r.steps[0].code == "x = 1 + 1"
 
 
 def test_load_recipe_rejects_both_cmd_and_python(tmp_path: Path) -> None:
-    p = _write(tmp_path, {
-        "steps": [{"name": "s1", "cmd": ["echo"], "python": "x = 1"}],
-    })
+    p = _write(
+        tmp_path,
+        {
+            "steps": [{"name": "s1", "cmd": ["echo"], "python": "x = 1"}],
+        },
+    )
     with pytest.raises(ValueError, match="exactly one"):
         load_recipe(p)
 
@@ -63,13 +73,16 @@ def test_load_recipe_missing_file() -> None:
 
 
 def test_run_recipe_dry_run_does_not_execute(tmp_path: Path) -> None:
-    p = _write(tmp_path, {
-        "name": "t",
-        "steps": [
-            {"name": "s1", "cmd": ["false"]},  # would fail if executed
-            {"name": "s2", "python": "raise SystemExit(1)"},
-        ],
-    })
+    p = _write(
+        tmp_path,
+        {
+            "name": "t",
+            "steps": [
+                {"name": "s1", "cmd": ["false"]},  # would fail if executed
+                {"name": "s2", "python": "raise SystemExit(1)"},
+            ],
+        },
+    )
     r = load_recipe(p)
     rc = run_recipe(r, dry_run=True)
     assert rc == 0
