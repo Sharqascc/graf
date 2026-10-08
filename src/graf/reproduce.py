@@ -60,13 +60,13 @@ def load_recipe(path: str | Path) -> Recipe:
         name = s.get("name")
         if not name:
             raise ValueError(f"step {i} missing 'name'")
-        if "cmd" not in s:
-            raise ValueError(f"step {name!r}: missing 'cmd'")
         if "python" in s:
             raise ValueError(
                 f"step {name!r}: inline 'python' is not supported; "
                 "write a script under scripts/ and call it via 'cmd'"
             )
+        if "cmd" not in s:
+            raise ValueError(f"step {name!r}: missing 'cmd'")
         cmd = s["cmd"]
         if not isinstance(cmd, list) or not all(isinstance(x, str) for x in cmd):
             raise ValueError(f"step {name!r}: 'cmd' must be a list of strings")
