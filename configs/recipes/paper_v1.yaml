@@ -1,0 +1,96 @@
+# Recipe for reproducing the paper's primary result.
+#
+# `graf reproduce configs/recipes/paper_v1.yaml` runs these steps in
+# order. Each step is either:
+#   cmd:    a subprocess command (list of argv tokens)
+#   python: inline Python code (a string, exec'd)
+#
+# Steps are independent; run a subset with --only <name> or resume with
+# --from-step <name>.
+
+name: paper_v1
+description: VNTraffic post-purge classification comparison
+
+steps:
+  - name: fetch-vntraffic
+    cmd: [python, scripts/fetch_vntraffic.py, --data-root, data/external/vntraffic]
+    produces: data/external/vntraffic/VNTraffic/VNTraffic_GroundTruth.txt
+
+  - name: prepare-tracks
+    cmd: [python, scripts/prepare_vntraffic.py, --dataset-root, data/external/vntraffic]
+    produces: data/raw/vntraffic_tracks.jsonl
+
+  - name: filter-tracks
+    python: |
+      import json
+      from collections import defaultdict
+      from pathlib import Path
+
+      src = Path("data/raw/vntraffic_tracks.jsonl")
+      dst = Path("data/raw/vntraffic_tracks_all85_min20.jsonl")
+      counts = defaultdict(int)
+      rows = []
+      for line in src.read_text().splitlines():
+          if not line.strip():
+              continue
+          r = json.loads(line)
+          counts[r["track_id"]] += 1
+          rows.append(r)
+      keep = {tid for tid, n in counts.items() if n >= 20}
+      with dst.open("w") as f:
+          for r in rows:
+              if r["track_id"] in keep:
+                  f.write(json.dumps(r) + "\n")
+      print(f"filtered to {len(keep)} tracks (from {len(counts)})")
+    produces: data/raw/vntraffic_tracks_all85_min20.jsonl
+
+  - name: build-graphs
+    cmd:
+      - python
+      - scripts/build_graphs.py
+      - --tracks
+      - data/raw/vntraffic_tracks_all85_min20.jsonl
+      - --output_dir
+      - data/processed/graphs/vntraffic_all85
+      - --homography_config
+      - data/raw/vntraffic_homography.yaml
+      - --radius
+      - "10.0"
+    produces: data/processed/graphs/vntraffic_all85
+
+  - name: compare
+    cmd:
+      - python
+      - scripts/compare_baselines.py
+      - --tracks
+      - data/raw/vntraffic_tracks_all85_min20.jsonl
+      - --graphs_dir
+      - data/processed/graphs/vntraffic_all85
+      - --homography_config
+      - data/raw/vntraffic_homography.yaml
+      - --output_dir
+      - outputs/purged_sustained_r10
+      - --models
+      - majority,logreg,rf,single_feature
+      - --num_folds
+      - "10"
+      - --split
+      - blocked
+      - --label-source
+      - ttc
+      - --label-strategy
+      - sustained
+      - --run-length
+      - "5"
+      - --ttc-threshold-seconds
+      - "1.5"
+      - --ttc-distance-threshold
+      - "3.0"
+      - --calibrate-threshold
+      - --calibration-objective
+      - accuracy
+      - --single-feature-name
+      - edge_attr_nonzero_frac
+      - --bootstrap-resamples
+      - "10000"
+    produces: outputs/purged_sustained_r10/comparison.json

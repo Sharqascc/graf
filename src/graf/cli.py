@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from graf.reproduce import load_recipe, run_recipe
 from graf.training.conflict_pairs import run_cross_validation
 from graf.utils.export_graph_samples import export_graph_samples
 from graf.utils.logger import get_logger
@@ -52,7 +53,42 @@ def build_parser() -> argparse.ArgumentParser:
     train_cp.add_argument("--num_folds", type=int, default=5)
     train_cp.add_argument("--seed", type=int, default=42)
 
+    reproduce = subparsers.add_parser(
+        "reproduce",
+        help="Run a recipe file (a sequence of pipeline steps)",
+    )
+    reproduce.add_argument("recipe", help="Path to a recipe YAML")
+    reproduce.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show steps without executing them",
+    )
+    reproduce.add_argument(
+        "--only",
+        default=None,
+        help="Run only the step with this name",
+    )
+    reproduce.add_argument(
+        "--from-step",
+        default=None,
+        help="Start from the step with this name (inclusive)",
+    )
+
     return parser
+
+
+def run_reproduce(
+    recipe_path: str,
+    dry_run: bool = False,
+    only: str | None = None,
+    from_step: str | None = None,
+) -> int:
+    try:
+        recipe = load_recipe(recipe_path)
+    except (FileNotFoundError, ValueError) as e:
+        logger.error("Could not load recipe: %s", e)
+        return 1
+    return run_recipe(recipe, dry_run=dry_run, only=only, from_step=from_step)
 
 
 def run_status(root: str, depth: int = 4) -> int:
@@ -124,6 +160,13 @@ def main(argv: list[str] | None = None) -> int:
         return run_status(args.root, args.depth)
     if args.command == "demo-graphs":
         return run_demo_graphs(args.outdir)
+    if args.command == "reproduce":
+        return run_reproduce(
+            recipe_path=args.recipe,
+            dry_run=args.dry_run,
+            only=args.only,
+            from_step=args.from_step,
+        )
     if args.command == "train-conflict-pairs":
         return run_train_conflict_pairs(
             tracks=args.tracks,
