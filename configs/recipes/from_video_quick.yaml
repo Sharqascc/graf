@@ -63,3 +63,33 @@ steps:
       - "100.0"
       - --radius
       - "10.0"
+
+  - name: compare
+    cmd:
+      - python
+      - scripts/compare_baselines.py
+      - --tracks
+      - data/interim/tracks/from_video_quick/tracks.jsonl
+      - --graphs_dir
+      - data/processed/graphs/from_video_quick
+      - --pixels_per_meter
+      - "100.0"
+      - --output_dir
+      - outputs/from_video_quick
+      - --models
+      - majority,rf,single_feature
+      - --num_folds
+      - "5"
+      - --split
+      - blocked
+      - --label-source
+      - ttc
+      - --label-strategy
+      - sustained
+      - --run-length
+      - "5"
+      - --ttc-threshold-seconds
+      - "1.5"
+      - --ttc-distance-threshold
+      - "3.0"
+    produces: outputs/from_video_quick/comparison.json

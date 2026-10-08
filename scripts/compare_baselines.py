@@ -595,7 +595,22 @@ def parse_args(argv=None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--tracks", required=True)
     p.add_argument("--graphs_dir", required=True)
-    p.add_argument("--homography_config", required=True)
+    p.add_argument(
+        "--homography_config",
+        default=None,
+        help="YAML with a 3x3 H matrix. Required unless --pixels_per_meter is given.",
+    )
+    p.add_argument(
+        "--pixels_per_meter",
+        type=float,
+        default=None,
+        help=(
+            "Scale-only alternative to --homography_config. "
+            "Synthesizes a diag(1/PPM, 1/PPM, 1) homography on disk "
+            "and passes that to the rest of the pipeline. TTC is "
+            "scale-invariant, so this is sufficient for TTC-based labels."
+        ),
+    )
     p.add_argument("--output_dir", default="outputs/baseline_comparison")
     p.add_argument("--window_size", type=int, default=5)
     p.add_argument("--stride", type=int, default=2)
@@ -693,8 +708,30 @@ def parse_args(argv=None) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
+def _scale_homography_yaml(ppm: float, out_path: Path) -> Path:
+    """Write a diag(1/ppm, 1/ppm, 1) homography as a YAML file."""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    H = [[1.0 / ppm, 0.0, 0.0], [0.0, 1.0 / ppm, 0.0], [0.0, 0.0, 1.0]]
+    out_path.write_text(yaml.safe_dump({"H": H}))
+    return out_path
+
+
 def main(argv=None) -> int:
     args = parse_args(argv)
+
+    # --homography_config is optional when --pixels_per_meter is set.
+    # Synthesize a scale-only homography on disk so the rest of the
+    # pipeline sees a single code path (a YAML path).
+    if args.homography_config is None:
+        if args.pixels_per_meter is None:
+            raise SystemExit("provide --homography_config or --pixels_per_meter")
+        out_dir = Path(args.output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        args.homography_config = str(
+            _scale_homography_yaml(args.pixels_per_meter, out_dir / "homography.yaml")
+        )
+        print(f"Using scale-only homography ({args.pixels_per_meter} px/m)")
+
     requested = [m.strip() for m in args.models.split(",") if m.strip()]
     for m in requested:
         if m not in ALL_MODELS:
