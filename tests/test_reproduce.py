@@ -76,26 +76,32 @@ def test_run_recipe_dry_run_does_not_execute(tmp_path: Path) -> None:
 
 
 def test_run_recipe_only_selects_one_step(tmp_path: Path) -> None:
-    p = _write(tmp_path, {
-        "name": "t",
-        "steps": [
-            {"name": "bad", "cmd": ["false"]},
-            {"name": "good", "cmd": ["true"]},
-        ],
-    })
+    p = _write(
+        tmp_path,
+        {
+            "name": "t",
+            "steps": [
+                {"name": "bad", "cmd": ["false"]},
+                {"name": "good", "cmd": ["true"]},
+            ],
+        },
+    )
     r = load_recipe(p)
     rc = run_recipe(r, only="good")
     assert rc == 0
 
 
 def test_run_recipe_from_step_skips_earlier(tmp_path: Path) -> None:
-    p = _write(tmp_path, {
-        "name": "t",
-        "steps": [
-            {"name": "bad", "cmd": ["false"]},
-            {"name": "good", "cmd": ["true"]},
-        ],
-    })
+    p = _write(
+        tmp_path,
+        {
+            "name": "t",
+            "steps": [
+                {"name": "bad", "cmd": ["false"]},
+                {"name": "good", "cmd": ["true"]},
+            ],
+        },
+    )
     r = load_recipe(p)
     rc = run_recipe(r, from_step="good")
     assert rc == 0
