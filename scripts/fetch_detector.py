@@ -18,7 +18,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-BASE = "https://huggingface.co/datasets/iisc-aim/UVH-26/resolve/main/weights"
+BASE = "https://huggingface.co/iisc-aim/UVH-26/resolve/main/weights"
 
 VARIANTS = {
     "YOLOv11-S": "UVH-26-MV-YOLOv11-S.pt",
