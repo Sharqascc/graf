@@ -1,0 +1,80 @@
+# Recipe for reproducing the paper's primary result.
+#
+# `graf reproduce configs/recipes/paper_v1.yaml` runs these steps in
+# order. Each step is a subprocess command. Recipes are data-only;
+# any non-trivial step lives in scripts/ and is invoked from here.
+
+name: paper_v1
+description: VNTraffic post-purge classification comparison
+
+steps:
+  - name: fetch-vntraffic
+    cmd: [python, scripts/fetch_vntraffic.py, --data-root, data/external/vntraffic]
+    produces: data/external/vntraffic/VNTraffic/VNTraffic_GroundTruth.txt
+
+  - name: prepare-tracks
+    cmd: [python, scripts/prepare_vntraffic.py, --dataset-root, data/external/vntraffic]
+    produces: data/raw/vntraffic_tracks.jsonl
+
+  - name: filter-tracks
+    cmd:
+      - python
+      - scripts/filter_tracks.py
+      - --input
+      - data/raw/vntraffic_tracks.jsonl
+      - --output
+      - data/raw/vntraffic_tracks_all85_min20.jsonl
+      - --min-frames
+      - "20"
+    produces: data/raw/vntraffic_tracks_all85_min20.jsonl
+
+  - name: build-graphs
+    cmd:
+      - python
+      - scripts/build_graphs.py
+      - --tracks
+      - data/raw/vntraffic_tracks_all85_min20.jsonl
+      - --output_dir
+      - data/processed/graphs/vntraffic_all85
+      - --homography_config
+      - data/raw/vntraffic_homography.yaml
+      - --radius
+      - "10.0"
+    produces: data/processed/graphs/vntraffic_all85
+
+  - name: compare
+    cmd:
+      - python
+      - scripts/compare_baselines.py
+      - --tracks
+      - data/raw/vntraffic_tracks_all85_min20.jsonl
+      - --graphs_dir
+      - data/processed/graphs/vntraffic_all85
+      - --homography_config
+      - data/raw/vntraffic_homography.yaml
+      - --output_dir
+      - outputs/purged_sustained_r10
+      - --models
+      - majority,logreg,rf,single_feature
+      - --num_folds
+      - "10"
+      - --split
+      - blocked
+      - --label-source
+      - ttc
+      - --label-strategy
+      - sustained
+      - --run-length
+      - "5"
+      - --ttc-threshold-seconds
+      - "1.5"
+      - --ttc-distance-threshold
+      - "3.0"
+      - --calibrate-threshold
+      - --calibration-objective
+      - accuracy
+      - --single-feature-name
+      - edge_attr_nonzero_frac
+      - --bootstrap-resamples
+      - "10000"
+    produces: outputs/purged_sustained_r10/comparison.json

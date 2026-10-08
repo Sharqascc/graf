@@ -186,3 +186,23 @@ def test_train_conflict_pairs_parser_defaults():
     assert args.num_folds == 5
     assert args.seed == 42
     assert args.output_dir == "outputs/models_conflict_pairs"
+
+
+def test_main_dispatch_reproduce(monkeypatch):
+    fake_return = 11
+    captured = {}
+
+    def fake_run_reproduce(recipe_path, dry_run=False, only=None, from_step=None):
+        captured["recipe_path"] = recipe_path
+        captured["dry_run"] = dry_run
+        captured["only"] = only
+        captured["from_step"] = from_step
+        return fake_return
+
+    monkeypatch.setattr("graf.cli.run_reproduce", fake_run_reproduce)
+
+    exit_code = main(["reproduce", "r.yaml", "--dry-run", "--only", "s1"])
+    assert exit_code == fake_return
+    assert captured["recipe_path"] == "r.yaml"
+    assert captured["dry_run"] is True
+    assert captured["only"] == "s1"
