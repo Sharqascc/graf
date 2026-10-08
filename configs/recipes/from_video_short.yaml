@@ -1,0 +1,104 @@
+# Short-window pipeline: 10 seconds at stride=1, then classify.
+#
+# Runs the full video-to-classification chain on a compact window.
+# The window is short enough and sampled densely enough that the
+# sustained run_length=5 label produces a non-degenerate class split.
+# For full-video throughput use from_video.yaml; for a fast
+# pipeline-seam check (that does not produce a meaningful label) use
+# from_video_quick.yaml.
+
+name: from_video_short
+description: Video (10s window) -> detections -> tracks -> graphs -> classification
+
+steps:
+  - name: extract-frames
+    cmd:
+      - python
+      - scripts/extract_frames.py
+      - --video_path
+      - data/raw/videos/mrc_intersection.mp4
+      - --output_dir
+      - data/interim/frames/from_video_short
+      - --start-time
+      - "40"
+      - --duration
+      - "10"
+      - --stride
+      - "1"
+    produces: data/interim/frames/from_video_short
+
+  - name: detect
+    cmd:
+      - python
+      - scripts/run_detection.py
+      - --frames_dir
+      - data/interim/frames/from_video_short/mrc_intersection
+      - --output_dir
+      - data/interim/detections/from_video_short
+      - --config
+      - configs/detection/uvh26.yaml
+      - --video-id
+      - mrc_intersection
+
+  - name: track
+    cmd:
+      - python
+      - scripts/run_tracking.py
+      - --detections
+      - data/interim/detections/from_video_short/detections.jsonl
+      - --output_dir
+      - data/interim/tracks/from_video_short
+
+  - name: build-trajectories
+    cmd:
+      - python
+      - scripts/build_trajectories.py
+      - --tracks
+      - data/interim/tracks/from_video_short/tracks.jsonl
+      - --output
+      - data/interim/trajectories/from_video_short.json
+      - --pixels_per_meter
+      - "100.0"
+
+  - name: build-graphs
+    cmd:
+      - python
+      - scripts/build_graphs.py
+      - --tracks
+      - data/interim/tracks/from_video_short/tracks.jsonl
+      - --output_dir
+      - data/processed/graphs/from_video_short
+      - --pixels_per_meter
+      - "100.0"
+      - --radius
+      - "10.0"
+
+  - name: compare
+    cmd:
+      - python
+      - scripts/compare_baselines.py
+      - --tracks
+      - data/interim/tracks/from_video_short/tracks.jsonl
+      - --graphs_dir
+      - data/processed/graphs/from_video_short
+      - --pixels_per_meter
+      - "100.0"
+      - --output_dir
+      - outputs/from_video_short
+      - --models
+      - majority,rf,single_feature
+      - --num_folds
+      - "5"
+      - --split
+      - blocked
+      - --label-source
+      - ttc
+      - --label-strategy
+      - sustained
+      - --run-length
+      - "5"
+      - --ttc-threshold-seconds
+      - "1.5"
+      - --ttc-distance-threshold
+      - "3.0"
+    produces: outputs/from_video_short/comparison.json
