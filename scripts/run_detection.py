@@ -1,4 +1,4 @@
-"""Run YOLOv8 detection on a directory of frame images.
+"""Run YOLOv8 or UVH-26 detection on a directory of frame images.
 
 Reads a YAML config (default: ``configs/detection/yolov8.yaml``) with keys:
 
@@ -6,7 +6,9 @@ Reads a YAML config (default: ``configs/detection/yolov8.yaml``) with keys:
     conf_threshold   minimum detection confidence
     iou_threshold    NMS IoU threshold
     imgsz            inference image size (square)
-    classes          list of COCO class names to keep (null = all mapped)
+    classes          list of native class names to keep (null = all mapped)
+    class_map        mapping from detector-native class names to GRAF actor
+                     classes. Defaults to COCO_TO_GRAF when absent.
 
 Any of ``--model``, ``--imgsz``, ``--conf``, ``--iou`` override the
 corresponding config value. Detections whose COCO class does not map to a
@@ -20,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -54,6 +57,19 @@ def load_config(path: str | Path) -> dict:
     return data
 
 
+def frame_index(path: Path) -> int:
+    """Frame index from a filename.
+
+    Accepts numeric stems ("000000") and prefixed ones ("f_00001",
+    "frame_0005") by taking the trailing run of digits. Falls back to
+    -1 if the stem has no trailing digits, so the caller can decide.
+    """
+    m = re.search(r"(\d+)$", path.stem)
+    if not m:
+        return -1
+    return int(m.group(1))
+
+
 def resolve(cfg: dict, key: str, cli_value, default):
     """CLI value wins; else config; else default."""
     if cli_value is not None:
@@ -75,6 +91,11 @@ def parse_args(argv=None) -> argparse.Namespace:
     )
     p.add_argument("--model", default=None, help="Override config 'weights'")
     p.add_argument("--stride", type=int, default=1, help="Process every Nth frame")
+    p.add_argument(
+        "--video-id",
+        default="video",
+        help="Identifier written into each detection record",
+    )
     p.add_argument("--imgsz", type=int, default=None, help="Override config 'imgsz'")
     p.add_argument(
         "--conf", type=float, default=None, help="Override config 'conf_threshold'"
@@ -94,6 +115,7 @@ def main(argv=None) -> int:
     conf = resolve(cfg, "conf_threshold", args.conf, 0.25)
     iou = resolve(cfg, "iou_threshold", args.iou, 0.5)
     classes_filter = cfg.get("classes")  # None -> keep all mapped
+    class_map = cfg.get("class_map") or COCO_TO_GRAF
 
     # Lazy import — ultralytics is an optional 'detection' extra.
     from ultralytics import YOLO
@@ -102,15 +124,18 @@ def main(argv=None) -> int:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    frame_paths = sorted(frames_dir.glob("*.jpg"))
+    frame_paths = sorted(frames_dir.glob("*.jpg")) + sorted(frames_dir.glob("*.png"))
     model = YOLO(weights)
     out_path = output_dir / "detections.jsonl"
 
     written = 0
     with out_path.open("w") as f:
-        for frame_idx, frame_path in enumerate(frame_paths):
-            if frame_idx % args.stride != 0:
+        for i, frame_path in enumerate(frame_paths):
+            if i % args.stride != 0:
                 continue
+            frame_idx = frame_index(frame_path)
+            if frame_idx < 0:
+                frame_idx = i
             results = model.predict(
                 str(frame_path),
                 imgsz=imgsz,
@@ -122,16 +147,16 @@ def main(argv=None) -> int:
             if boxes is None:
                 continue
             for box in boxes:
-                class_name = results.names[int(box.cls[0])]
-                if class_name not in COCO_TO_GRAF:
+                native_name = results.names[int(box.cls[0])]
+                if native_name not in class_map:
                     continue
-                if classes_filter and class_name not in classes_filter:
+                if classes_filter and native_name not in classes_filter:
                     continue
                 record = {
-                    "video_id": "sample_video",
+                    "video_id": args.video_id,
                     "frame_idx": frame_idx,
                     "actor_id": None,
-                    "class_name": COCO_TO_GRAF[class_name],
+                    "class_name": class_map[native_name],
                     "confidence": float(box.conf[0]),
                     "bbox_xyxy": box.xyxy[0].tolist(),
                 }

@@ -1,0 +1,75 @@
+# End-to-end pipeline from a raw video to per-frame graphs.
+#
+# `graf reproduce configs/recipes/from_video.yaml` runs:
+#   extract frames -> detect (UVH-26) -> track -> build graphs
+#
+# The video path is set in `video_path` below; change it to run on a
+# different clip. The homography is scale-only at 100 px/m, matching
+# the paper's VNTraffic setup; swap in a site-specific 4-point config
+# for a metric pipeline.
+
+name: from_video
+description: Video -> detections -> tracks -> graphs
+
+steps:
+  - name: extract-frames
+    cmd:
+      - python
+      - scripts/extract_frames.py
+      - --video_path
+      - data/raw/videos/mrc_intersection.mp4
+      - --output_dir
+      - data/interim/frames/from_video
+      - --stride
+      - "1"
+    produces: data/interim/frames/from_video
+
+  - name: detect
+    cmd:
+      - python
+      - scripts/run_detection.py
+      - --frames_dir
+      - data/interim/frames/from_video/mrc_intersection
+      - --output_dir
+      - data/interim/detections/from_video
+      - --config
+      - configs/detection/uvh26.yaml
+      - --video-id
+      - mrc_intersection
+    produces: data/interim/detections/from_video/detections.jsonl
+
+  - name: track
+    cmd:
+      - python
+      - scripts/run_tracking.py
+      - --detections
+      - data/interim/detections/from_video/detections.jsonl
+      - --output_dir
+      - data/interim/tracks/from_video
+    produces: data/interim/tracks/from_video/tracks.jsonl
+
+  - name: build-trajectories
+    cmd:
+      - python
+      - scripts/build_trajectories.py
+      - --tracks
+      - data/interim/tracks/from_video/tracks.jsonl
+      - --output
+      - data/interim/trajectories/from_video.json
+      - --pixels_per_meter
+      - "100.0"
+    produces: data/interim/trajectories/from_video.json
+
+  - name: build-graphs
+    cmd:
+      - python
+      - scripts/build_graphs.py
+      - --tracks
+      - data/interim/tracks/from_video/tracks.jsonl
+      - --output_dir
+      - data/processed/graphs/from_video
+      - --pixels_per_meter
+      - "100.0"
+      - --radius
+      - "10.0"
+    produces: data/processed/graphs/from_video

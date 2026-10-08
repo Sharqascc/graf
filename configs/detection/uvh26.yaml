@@ -1,0 +1,24 @@
+# Detection config for the UVH-26 detector (IISc Bengaluru).
+#
+# UVH-26 provides 14 India-specific vehicle classes. The class_map
+# collapses them into the GRAF actor vocabulary used by the tracking
+# and graph stages.
+weights: data/models/UVH-26-MV-YOLOv11-S.pt
+conf_threshold: 0.50
+iou_threshold: 0.50
+imgsz: 1280
+class_map:
+  Hatchback: car
+  Sedan: car
+  SUV: car
+  MUV: car
+  Bus: bus
+  Truck: truck
+  Three-wheeler: three_wheeler
+  Two-wheeler: two_wheeler
+  LCV: truck
+  Mini-bus: bus
+  tempo-traveller: van
+  bicycle: bicycle
+  Van: van
+  Others: other
