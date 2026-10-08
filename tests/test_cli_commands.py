@@ -206,3 +206,71 @@ def test_main_dispatch_reproduce(monkeypatch):
     assert captured["recipe_path"] == "r.yaml"
     assert captured["dry_run"] is True
     assert captured["only"] == "s1"
+
+
+def test_main_dispatch_doctor(monkeypatch):
+    fake_return = 3
+    captured = {}
+
+    def fake_run_doctor(root=None):
+        captured["root"] = root
+        return fake_return
+
+    monkeypatch.setattr("graf.cli.run_doctor", fake_run_doctor)
+
+    exit_code = main(["doctor", "--root", "/tmp/x"])
+    assert exit_code == fake_return
+    assert captured["root"] == "/tmp/x"
+
+
+def test_main_dispatch_fetch_detector(monkeypatch):
+    fake_return = 4
+    captured = {}
+
+    def fake_run_fetch_detector(model, output_dir):
+        captured["model"] = model
+        captured["output_dir"] = output_dir
+        return fake_return
+
+    monkeypatch.setattr("graf.cli.run_fetch_detector", fake_run_fetch_detector)
+
+    exit_code = main(
+        ["fetch-detector", "--model", "YOLOv11-X", "--output-dir", "/tmp/m"]
+    )
+    assert exit_code == fake_return
+    assert captured["model"] == "YOLOv11-X"
+    assert captured["output_dir"] == "/tmp/m"
+
+
+def test_main_dispatch_detect_video(monkeypatch):
+    fake_return = 5
+    captured = {}
+
+    def fake_run_detect_video(frames_dir, model, output_dir, samples, conf, imgsz):
+        captured.update(locals())
+        return fake_return
+
+    monkeypatch.setattr("graf.cli.run_detect_video", fake_run_detect_video)
+
+    exit_code = main(
+        [
+            "detect-video",
+            "--frames-dir",
+            "/tmp/f",
+            "--model",
+            "/tmp/m.pt",
+            "--output-dir",
+            "/tmp/o",
+            "--samples",
+            "3",
+            "--conf",
+            "0.4",
+            "--imgsz",
+            "960",
+        ]
+    )
+    assert exit_code == fake_return
+    assert captured["frames_dir"] == "/tmp/f"
+    assert captured["samples"] == 3
+    assert captured["conf"] == 0.4
+    assert captured["imgsz"] == 960
