@@ -1,12 +1,8 @@
 # Recipe for reproducing the paper's primary result.
 #
 # `graf reproduce configs/recipes/paper_v1.yaml` runs these steps in
-# order. Each step is either:
-#   cmd:    a subprocess command (list of argv tokens)
-#   python: inline Python code (a string, exec'd)
-#
-# Steps are independent; run a subset with --only <name> or resume with
-# --from-step <name>.
+# order. Each step is a subprocess command. Recipes are data-only;
+# any non-trivial step lives in scripts/ and is invoked from here.
 
 name: paper_v1
 description: VNTraffic post-purge classification comparison
@@ -21,27 +17,15 @@ steps:
     produces: data/raw/vntraffic_tracks.jsonl
 
   - name: filter-tracks
-    python: |
-      import json
-      from collections import defaultdict
-      from pathlib import Path
-
-      src = Path("data/raw/vntraffic_tracks.jsonl")
-      dst = Path("data/raw/vntraffic_tracks_all85_min20.jsonl")
-      counts = defaultdict(int)
-      rows = []
-      for line in src.read_text().splitlines():
-          if not line.strip():
-              continue
-          r = json.loads(line)
-          counts[r["track_id"]] += 1
-          rows.append(r)
-      keep = {tid for tid, n in counts.items() if n >= 20}
-      with dst.open("w") as f:
-          for r in rows:
-              if r["track_id"] in keep:
-                  f.write(json.dumps(r) + "\n")
-      print(f"filtered to {len(keep)} tracks (from {len(counts)})")
+    cmd:
+      - python
+      - scripts/filter_tracks.py
+      - --input
+      - data/raw/vntraffic_tracks.jsonl
+      - --output
+      - data/raw/vntraffic_tracks_all85_min20.jsonl
+      - --min-frames
+      - "20"
     produces: data/raw/vntraffic_tracks_all85_min20.jsonl
 
   - name: build-graphs

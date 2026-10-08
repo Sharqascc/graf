@@ -1,9 +1,13 @@
-"""Run a recipe: a sequence of subprocess and inline-Python steps.
+"""Run a recipe: a sequence of subprocess commands.
 
-A recipe is a YAML file with a name and a list of steps. Each step is
-either a subprocess command or a block of inline Python. The recipe is
-descriptive, not interpretive: what you see in the YAML is exactly what
-runs, in order.
+A recipe is a YAML file with a name and a list of steps. Each step is a
+subprocess command (a list of argv tokens) plus optional metadata.
+
+Recipes are deliberately data-only. There is no support for inline
+code, embedded shell strings, or Python expressions. Any step that
+needs more than a command invocation becomes a script under scripts/.
+This keeps the recipe file purely declarative and avoids embedding
+executable content in configuration.
 
 Usage from the CLI:
 
@@ -12,13 +16,13 @@ Usage from the CLI:
     graf reproduce configs/recipes/paper_v1.yaml --only compare
     graf reproduce configs/recipes/paper_v1.yaml --from-step build-graphs
 """
+
 from __future__ import annotations
 
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -26,9 +30,7 @@ import yaml
 @dataclass
 class Step:
     name: str
-    kind: str  # "cmd" or "python"
-    cmd: list[str] | None
-    code: str | None
+    cmd: list[str]
     produces: Path | None
 
 
@@ -58,25 +60,18 @@ def load_recipe(path: str | Path) -> Recipe:
         name = s.get("name")
         if not name:
             raise ValueError(f"step {i} missing 'name'")
-        has_cmd = "cmd" in s
-        has_py = "python" in s
-        if has_cmd == has_py:
+        if "cmd" not in s:
+            raise ValueError(f"step {name!r}: missing 'cmd'")
+        if "python" in s:
             raise ValueError(
-                f"step {name!r}: must have exactly one of 'cmd' or 'python'"
+                f"step {name!r}: inline 'python' is not supported; "
+                "write a script under scripts/ and call it via 'cmd'"
             )
+        cmd = s["cmd"]
+        if not isinstance(cmd, list) or not all(isinstance(x, str) for x in cmd):
+            raise ValueError(f"step {name!r}: 'cmd' must be a list of strings")
         produces = Path(s["produces"]) if "produces" in s else None
-        if has_cmd:
-            cmd = s["cmd"]
-            if not isinstance(cmd, list) or not all(isinstance(x, str) for x in cmd):
-                raise ValueError(f"step {name!r}: 'cmd' must be a list of strings")
-            steps.append(Step(name=name, kind="cmd", cmd=cmd, code=None,
-                              produces=produces))
-        else:
-            code = s["python"]
-            if not isinstance(code, str):
-                raise ValueError(f"step {name!r}: 'python' must be a string")
-            steps.append(Step(name=name, kind="python", cmd=None, code=code,
-                              produces=produces))
+        steps.append(Step(name=name, cmd=cmd, produces=produces))
 
     return Recipe(
         name=str(raw.get("name", p.stem)),
@@ -114,7 +109,6 @@ def run_recipe(
     only: str | None = None,
     from_step: str | None = None,
     cwd: Path | None = None,
-    env: dict[str, str] | None = None,
 ) -> int:
     """Run the selected steps. Returns 0 on success, 1 on first failure."""
     steps = _select(recipe, only, from_step)
@@ -125,38 +119,23 @@ def run_recipe(
         print(f"  {recipe.description}")
     print(f"  {len(steps)} step(s) selected")
     if dry_run:
-        print("  (dry run — nothing will execute)")
+        print("  (dry run - nothing will execute)")
     print()
 
     for i, step in enumerate(steps, 1):
-        prefix = f"[{i}/{len(steps)}] {step.name}"
-        print(f"{prefix}  ({step.kind})")
+        print(f"[{i}/{len(steps)}] {step.name}")
         if step.produces is not None:
             print(f"    produces: {step.produces}")
         if dry_run:
-            if step.kind == "cmd":
-                print(f"    cmd: {' '.join(step.cmd or [])}")
-            else:
-                first = (step.code or "").splitlines()
-                print(f"    python: {len(first)} lines")
+            print(f"    cmd: {' '.join(step.cmd)}")
             print()
             continue
 
-        if step.kind == "cmd":
-            assert step.cmd is not None
-            result = subprocess.run(step.cmd, cwd=str(workdir), env=env)
-            if result.returncode != 0:
-                print(f"    FAILED: exit {result.returncode}", file=sys.stderr)
-                return 1
-        else:
-            assert step.code is not None
-            ns: dict[str, Any] = {"__name__": f"recipe_step_{step.name}"}
-            try:
-                exec(compile(step.code, f"<recipe:{step.name}>", "exec"), ns)
-            except Exception as e:
-                print(f"    FAILED: {type(e).__name__}: {e}", file=sys.stderr)
-                return 1
-        print(f"    ok")
+        result = subprocess.run(step.cmd, cwd=str(workdir))
+        if result.returncode != 0:
+            print(f"    FAILED: exit {result.returncode}", file=sys.stderr)
+            return 1
+        print("    ok")
         print()
 
     print("all steps completed")
