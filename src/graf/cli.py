@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
+from graf.doctor import run_checks as run_doctor_checks
 from graf.reproduce import load_recipe, run_recipe
 from graf.training.conflict_pairs import run_cross_validation
 from graf.utils.export_graph_samples import export_graph_samples
@@ -74,7 +76,109 @@ def build_parser() -> argparse.ArgumentParser:
         help="Start from the step with this name (inclusive)",
     )
 
+    doctor = subparsers.add_parser(
+        "doctor",
+        help="Check environment, data, and detector weights",
+    )
+    doctor.add_argument(
+        "--root",
+        type=str,
+        default=None,
+        help="Repository root (defaults to the package's repo root)",
+    )
+
+    fetch_det = subparsers.add_parser(
+        "fetch-detector",
+        help="Download detector weights (UVH-26 variants)",
+    )
+    fetch_det.add_argument(
+        "--model",
+        default="YOLOv11-S",
+        help="Which UVH-26 variant (default: YOLOv11-S)",
+    )
+    fetch_det.add_argument(
+        "--output-dir",
+        default="data/models",
+        help="Where to write weights",
+    )
+
+    detect = subparsers.add_parser(
+        "detect-video",
+        help="Run a detector over a frames directory (no ground truth needed)",
+    )
+    detect.add_argument("--frames-dir", required=True)
+    detect.add_argument("--model", required=True, help="Path to .pt weights")
+    detect.add_argument("--output-dir", required=True)
+    detect.add_argument("--samples", type=int, default=6)
+    detect.add_argument("--conf", type=float, default=0.25)
+    detect.add_argument("--imgsz", type=int, default=640)
+
     return parser
+
+
+def _repo_root() -> Path:
+    """Return the repository root: two levels above src/graf/."""
+    return Path(__file__).resolve().parents[2]
+
+
+def run_doctor(root: str | None = None) -> int:
+    if root is None:
+        root_path = _repo_root()
+    else:
+        root_path = Path(root).resolve()
+    try:
+        return run_doctor_checks(root_path)
+    except Exception as e:
+        logger.error("Doctor failed: %s", e)
+        return 1
+
+
+def run_fetch_detector(model: str, output_dir: str) -> int:
+    script = _repo_root() / "scripts" / "fetch_detector.py"
+    if not script.exists():
+        logger.error("script not found: %s", script)
+        return 1
+    cmd = [sys.executable, str(script), "--model", model, "--output-dir", output_dir]
+    try:
+        return subprocess.run(cmd).returncode
+    except Exception as e:
+        logger.error("fetch-detector failed: %s", e)
+        return 1
+
+
+def run_detect_video(
+    frames_dir: str,
+    model: str,
+    output_dir: str,
+    samples: int,
+    conf: float,
+    imgsz: int,
+) -> int:
+    script = _repo_root() / "scripts" / "detect_video.py"
+    if not script.exists():
+        logger.error("script not found: %s", script)
+        return 1
+    cmd = [
+        sys.executable,
+        str(script),
+        "--frames_dir",
+        frames_dir,
+        "--model",
+        model,
+        "--output_dir",
+        output_dir,
+        "--samples",
+        str(samples),
+        "--conf",
+        str(conf),
+        "--imgsz",
+        str(imgsz),
+    ]
+    try:
+        return subprocess.run(cmd).returncode
+    except Exception as e:
+        logger.error("detect-video failed: %s", e)
+        return 1
 
 
 def run_reproduce(
@@ -160,6 +264,19 @@ def main(argv: list[str] | None = None) -> int:
         return run_status(args.root, args.depth)
     if args.command == "demo-graphs":
         return run_demo_graphs(args.outdir)
+    if args.command == "doctor":
+        return run_doctor(args.root)
+    if args.command == "fetch-detector":
+        return run_fetch_detector(args.model, args.output_dir)
+    if args.command == "detect-video":
+        return run_detect_video(
+            frames_dir=args.frames_dir,
+            model=args.model,
+            output_dir=args.output_dir,
+            samples=args.samples,
+            conf=args.conf,
+            imgsz=args.imgsz,
+        )
     if args.command == "reproduce":
         return run_reproduce(
             recipe_path=args.recipe,
