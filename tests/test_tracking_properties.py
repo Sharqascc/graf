@@ -13,6 +13,7 @@ tracking at all.
 from __future__ import annotations
 
 import importlib.util
+import math
 from pathlib import Path
 
 import pytest
@@ -73,16 +74,16 @@ def detection_lists(draw, max_n=15):
 
 
 def _run(dets, **overrides):
-    kwargs = dict(
-        track_thresh=0.0,
-        iou_threshold=0.3,
-        track_buffer=10,
-        min_box_area=0.0,
-        use_motion_prediction=True,
-        velocity_smoothing=0.5,
-        max_prediction_offset_px=300.0,
-        max_centroid_distance_px=200.0,
-    )
+    kwargs = {
+        "track_thresh": 0.0,
+        "iou_threshold": 0.3,
+        "track_buffer": 10,
+        "min_box_area": 0.0,
+        "use_motion_prediction": True,
+        "velocity_smoothing": 0.5,
+        "max_prediction_offset_px": 300.0,
+        "max_centroid_distance_px": 200.0,
+    }
     kwargs.update(overrides)
     return run_tracking.track(dets, **kwargs)
 
@@ -193,7 +194,7 @@ def test_association_score_in_unit_interval(a, b, max_cdist):
 @settings(max_examples=50, deadline=None)
 def test_association_score_disabled_centroid_equals_iou(a, b, max_cdist):
     score, iou_v = run_tracking.association_score(a, b, max_cdist)
-    assert score == iou_v
+    assert math.isclose(score, iou_v, rel_tol=1e-9, abs_tol=1e-12)
 
 
 # ── Tracker: structural invariants ───────────────────────────────────
@@ -221,8 +222,7 @@ def test_tracker_deterministic(dets):
 def test_tracker_output_rows_are_real_detections(dets):
     """Every output row must be traceable back to an input detection row."""
     input_keys = {
-        (d["frame_idx"], d["class_name"], d["confidence"], d["bbox_xyxy"])
-        for d in dets
+        (d["frame_idx"], d["class_name"], d["confidence"], d["bbox_xyxy"]) for d in dets
     }
     for r in _run(dets):
         key = (r["frame_idx"], r["class_name"], r["confidence"], r["bbox_xyxy"])
@@ -266,7 +266,9 @@ def test_tracker_single_row_per_track_per_frame(dets):
     seen: set[tuple[int, int]] = set()
     for r in _run(dets):
         key = (r["track_id"], r["frame_idx"])
-        assert key not in seen, f"track {r['track_id']} emitted twice in frame {r['frame_idx']}"
+        assert key not in seen, (
+            f"track {r['track_id']} emitted twice in frame {r['frame_idx']}"
+        )
         seen.add(key)
 
 

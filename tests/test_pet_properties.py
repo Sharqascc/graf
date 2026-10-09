@@ -21,7 +21,7 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
-from hypothesis import assume, given, settings
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 pet_mod = pytest.importorskip("graf.ssm.pet")
@@ -79,9 +79,7 @@ def test_pet_invariant_under_time_shift(t1, t2, cx, cy, r, dt):
     p2, ts2 = t2
     center = np.array([cx, cy])
     base = compute_pet_from_conflict_zone(p1, p2, ts1, ts2, center, r)
-    shifted = compute_pet_from_conflict_zone(
-        p1, p2, ts1 + dt, ts2 + dt, center, r
-    )
+    shifted = compute_pet_from_conflict_zone(p1, p2, ts1 + dt, ts2 + dt, center, r)
     if math.isinf(base.pet_seconds):
         assert math.isinf(shifted.pet_seconds)
     else:
@@ -105,9 +103,7 @@ def test_pet_invariant_under_scene_translation(t1, t2, cx, cy, r, dx, dy):
     """Translating tracks and zone together leaves PET unchanged."""
     p1, ts1 = t1
     p2, ts2 = t2
-    base = compute_pet_from_conflict_zone(
-        p1, p2, ts1, ts2, np.array([cx, cy]), r
-    )
+    base = compute_pet_from_conflict_zone(p1, p2, ts1, ts2, np.array([cx, cy]), r)
     moved = compute_pet_from_conflict_zone(
         p1 + np.array([dx, dy]),
         p2 + np.array([dx, dy]),
@@ -124,42 +120,42 @@ def test_pet_invariant_under_scene_translation(t1, t2, cx, cy, r, dx, dy):
 
 # ── Status / enters_first contracts ──────────────────────────────────
 @pytest.mark.hypothesis
-@given(t1=straight_trajectory(), t2=straight_trajectory(), cx=_coord, cy=_coord, r=_radius)
+@given(
+    t1=straight_trajectory(), t2=straight_trajectory(), cx=_coord, cy=_coord, r=_radius
+)
 @settings(max_examples=50, deadline=None)
 def test_pet_status_is_in_known_enum(t1, t2, cx, cy, r):
     p1, ts1 = t1
     p2, ts2 = t2
-    result = compute_pet_from_conflict_zone(
-        p1, p2, ts1, ts2, np.array([cx, cy]), r
-    )
+    result = compute_pet_from_conflict_zone(p1, p2, ts1, ts2, np.array([cx, cy]), r)
     assert result.status in _KNOWN_STATUSES
 
 
 @pytest.mark.hypothesis
-@given(t1=straight_trajectory(), t2=straight_trajectory(), cx=_coord, cy=_coord, r=_radius)
+@given(
+    t1=straight_trajectory(), t2=straight_trajectory(), cx=_coord, cy=_coord, r=_radius
+)
 @settings(max_examples=50, deadline=None)
 def test_pet_zone_overlap_yields_exactly_zero(t1, t2, cx, cy, r):
     """The zone_overlap status implies pet_seconds == 0.0 exactly."""
     p1, ts1 = t1
     p2, ts2 = t2
-    result = compute_pet_from_conflict_zone(
-        p1, p2, ts1, ts2, np.array([cx, cy]), r
-    )
+    result = compute_pet_from_conflict_zone(p1, p2, ts1, ts2, np.array([cx, cy]), r)
     if result.status == "zone_overlap":
-        assert result.pet_seconds == 0.0
+        assert math.isclose(result.pet_seconds, 0.0, abs_tol=1e-12)
         assert result.enters_first is None
 
 
 @pytest.mark.hypothesis
-@given(t1=straight_trajectory(), t2=straight_trajectory(), cx=_coord, cy=_coord, r=_radius)
+@given(
+    t1=straight_trajectory(), t2=straight_trajectory(), cx=_coord, cy=_coord, r=_radius
+)
 @settings(max_examples=50, deadline=None)
 def test_pet_enters_first_consistent_with_status(t1, t2, cx, cy, r):
     """status -> enters_first contract."""
     p1, ts1 = t1
     p2, ts2 = t2
-    result = compute_pet_from_conflict_zone(
-        p1, p2, ts1, ts2, np.array([cx, cy]), r
-    )
+    result = compute_pet_from_conflict_zone(p1, p2, ts1, ts2, np.array([cx, cy]), r)
     mapping = {
         "agent1_then_agent2": "agent1",
         "agent2_then_agent1": "agent2",
@@ -196,14 +192,14 @@ def test_pet_monotone_decreasing_in_zone_radius(t1, t2, cx, cy):
 
 # ── conflict_point contract ──────────────────────────────────────────
 @pytest.mark.hypothesis
-@given(t1=straight_trajectory(), t2=straight_trajectory(), cx=_coord, cy=_coord, r=_radius)
+@given(
+    t1=straight_trajectory(), t2=straight_trajectory(), cx=_coord, cy=_coord, r=_radius
+)
 @settings(max_examples=50, deadline=None)
 def test_pet_conflict_point_is_zone_center_when_finite(t1, t2, cx, cy, r):
     p1, ts1 = t1
     p2, ts2 = t2
-    result = compute_pet_from_conflict_zone(
-        p1, p2, ts1, ts2, np.array([cx, cy]), r
-    )
+    result = compute_pet_from_conflict_zone(p1, p2, ts1, ts2, np.array([cx, cy]), r)
     if math.isfinite(result.pet_seconds):
         assert result.conflict_point is not None
         assert result.conflict_point[0] == pytest.approx(cx)

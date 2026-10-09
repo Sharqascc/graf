@@ -141,9 +141,7 @@ def test_get_pair_radius_order_independent(a, b):
 
 @pytest.mark.hypothesis
 @given(
-    unknown=st.text(min_size=1, max_size=8).filter(
-        lambda s: s not in _KNOWN_CLASSES
-    ),
+    unknown=st.text(min_size=1, max_size=8).filter(lambda s: s not in _KNOWN_CLASSES),
     default=st.floats(0.1, 100.0),
 )
 @settings(max_examples=20, deadline=None)
