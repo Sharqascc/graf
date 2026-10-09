@@ -67,7 +67,7 @@ jobs:
         run: |
           pytest -q --cov=src --cov=scripts --cov-report=term-missing \
             --cov-fail-under=65 \
-            --ignore=tests/test_property_based.py
+            -m "not hypothesis"
 
   property-tests:
     name: "3 · Property tests (Hypothesis)"
@@ -96,7 +96,7 @@ jobs:
           pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
           pip install torch-geometric
       - name: Run property tests
-        run: pytest -q tests/test_property_based.py -m hypothesis
+        run: pytest -q -m hypothesis
 
   invariants:
     name: "4 · Invariants (pre-push suite)"
@@ -200,7 +200,7 @@ jobs:
         run: |
           docker run --rm graf:ci python -m pytest -q \
             --cov=src --cov=scripts --cov-fail-under=65 \
-            --ignore=tests/test_property_based.py
+            -m "not hypothesis"
 
   dependency-review:
     name: "6 · Dependency review"
