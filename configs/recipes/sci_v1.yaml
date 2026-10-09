@@ -1,0 +1,71 @@
+# Recipe for SCI second-site tracking.
+#
+# Runs the pipeline that turns the SCI intersection video into a tracks
+# JSONL suitable for tracking-quality analysis. The video is fetched
+# separately by the sci-pipeline workflow and placed at
+# data/raw/videos/sci.mp4 before this recipe is run.
+#
+# Default window: 90 seconds starting at 5 minutes, stride 3
+# (= 10 fps effective from 30 fps native). Short enough to run on a
+# CPU GitHub Actions runner in ~15-25 minutes, long enough to sample
+# the intersection's traffic.
+
+name: sci_v1
+description: SCI second-site — extract frames, UVH-26 detection, tracking
+
+steps:
+  - name: extract-frames
+    cmd:
+      - python
+      - scripts/extract_frames.py
+      - --video_path
+      - data/raw/videos/sci.mp4
+      - --output_dir
+      - data/interim/frames/sci
+      - --start-time
+      - "300"
+      - --duration
+      - "90"
+      - --stride
+      - "3"
+    produces: data/interim/frames/sci
+
+  - name: detect
+    cmd:
+      - python
+      - scripts/run_detection.py
+      - --frames_dir
+      - data/interim/frames/sci/sci
+      - --output_dir
+      - data/interim/detections/sci
+      - --config
+      - configs/detection/uvh26.yaml
+      - --video-id
+      - sci
+    produces: data/interim/detections/sci/detections.jsonl
+
+  - name: track
+    cmd:
+      - python
+      - scripts/run_tracking.py
+      - --detections
+      - data/interim/detections/sci/detections.jsonl
+      - --output_dir
+      - data/interim/tracks/sci
+      - --iou_threshold
+      - "0.3"
+      - --track_buffer
+      - "30"
+    produces: data/interim/tracks/sci/tracks.jsonl
+
+  - name: quality-summary
+    cmd:
+      - python
+      - scripts/track_quality_summary.py
+      - --detections
+      - data/interim/detections/sci/detections.jsonl
+      - --tracks
+      - data/interim/tracks/sci/tracks.jsonl
+      - --output
+      - data/interim/tracks/sci/summary.json
+    produces: data/interim/tracks/sci/summary.json
