@@ -60,9 +60,7 @@ def summarise(detections: list[dict], tracks: list[dict]) -> dict:
             gaps.append(0)
     discontinuous = sum(1 for g in gaps if g > 3)
 
-    detection_classes = Counter(
-        str(d.get("class_name", "unknown")) for d in detections
-    )
+    detection_classes = Counter(str(d.get("class_name", "unknown")) for d in detections)
     class_counts = Counter(by_track_class.values())
 
     def _pct(n: int, total: int) -> float:

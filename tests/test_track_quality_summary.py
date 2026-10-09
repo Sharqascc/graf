@@ -100,11 +100,16 @@ def test_main_writes_summary(tmp_path):
     dets.write_text("\n".join(json.dumps(_det(i)) for i in range(3)) + "\n")
     trks.write_text("\n".join(json.dumps(_trk(i, 1)) for i in range(3)) + "\n")
 
-    rc = tqs.main([
-        "--detections", str(dets),
-        "--tracks", str(trks),
-        "--output", str(out),
-    ])
+    rc = tqs.main(
+        [
+            "--detections",
+            str(dets),
+            "--tracks",
+            str(trks),
+            "--output",
+            str(out),
+        ]
+    )
     assert rc == 0
     assert out.exists()
     data = json.loads(out.read_text())
@@ -113,9 +118,14 @@ def test_main_writes_summary(tmp_path):
 
 
 def test_main_missing_inputs_returns_1(tmp_path):
-    rc = tqs.main([
-        "--detections", str(tmp_path / "missing.jsonl"),
-        "--tracks", str(tmp_path / "also_missing.jsonl"),
-        "--output", str(tmp_path / "out.json"),
-    ])
+    rc = tqs.main(
+        [
+            "--detections",
+            str(tmp_path / "missing.jsonl"),
+            "--tracks",
+            str(tmp_path / "also_missing.jsonl"),
+            "--output",
+            str(tmp_path / "out.json"),
+        ]
+    )
     assert rc == 1
