@@ -1,8 +1,9 @@
 # Detection config for the UVH-26 detector (IISc Bengaluru).
 #
 # UVH-26 provides 14 India-specific vehicle classes. The class_map
-# collapses them into the GRAF actor vocabulary used by the tracking
-# and graph stages.
+# collapses them into the GRAF actor vocabulary defined by
+# ACTOR_CLASSES in src/graf/graph/edges.py. Every mapped value MUST
+# appear in that list; tests/test_detection_config.py enforces this.
 weights: data/models/UVH-26-MV-YOLOv11-S.pt
 conf_threshold: 0.50
 iou_threshold: 0.50
@@ -14,11 +15,11 @@ class_map:
   MUV: car
   Bus: bus
   Truck: truck
-  Three-wheeler: three_wheeler
+  Three-wheeler: auto_rickshaw
   Two-wheeler: two_wheeler
   LCV: truck
   Mini-bus: bus
-  tempo-traveller: van
+  tempo-traveller: car
   bicycle: bicycle
-  Van: van
+  Van: car
   Others: other
