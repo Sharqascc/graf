@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+
 from graf.graph.edges import ACTOR_CLASSES
 
 REPO = Path(__file__).resolve().parents[1]
