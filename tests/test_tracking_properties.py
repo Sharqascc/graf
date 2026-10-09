@@ -25,7 +25,8 @@ _ROOT = Path(__file__).resolve().parents[1]
 _SPEC = importlib.util.spec_from_file_location(
     "run_tracking_under_test", _ROOT / "scripts" / "run_tracking.py"
 )
-assert _SPEC is not None and _SPEC.loader is not None
+assert _SPEC is not None
+assert _SPEC.loader is not None
 run_tracking = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(run_tracking)
 
@@ -213,7 +214,9 @@ def test_tracker_ids_unique_per_frame(dets):
 @given(dets=detection_lists())
 @settings(max_examples=50, deadline=None)
 def test_tracker_deterministic(dets):
-    assert _run(dets) == _run(dets)
+    first = _run(dets)
+    second = _run(dets)
+    assert first == second
 
 
 @pytest.mark.hypothesis
