@@ -124,6 +124,7 @@ The `graf` command is the entry point for the pipeline.
 | `graf status` | Print pipeline status tree |
 | `graf demo-graphs --outdir outputs/` | Write a toy PyG graph sample |
 | `graf train-conflict-pairs --tracks ... --graphs_dir ... --homography_config ...` | Train a GCN on conflict-pair labels |
+| `graf compare --tracks X --graphs-dir Y --homography-config Z` | Compare baseline classifiers (majority, logreg, rf, single_feature) with optional threshold calibration |
 
 ### Recipes
 

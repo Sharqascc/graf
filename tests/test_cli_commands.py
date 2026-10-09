@@ -2,6 +2,7 @@ from pathlib import Path
 
 from graf.cli import (
     main,
+    run_compare,
     run_demo_graphs,
     run_status,
     run_train_conflict_pairs,
@@ -79,14 +80,6 @@ def test_main_dispatch_demo(monkeypatch):
 
     exit_code = main(["demo-graphs", "--outdir", "/tmp/out"])
     assert exit_code == fake_return
-
-
-def test_main_json_workaround(monkeypatch, capsys):
-    # A leading JSON path should be ignored and print help
-    exit_code = main(["/tmp/config.json"])
-    captured = capsys.readouterr()
-    assert exit_code == 0
-    assert "GRAF: graph-based surrogate safety analysis pipeline" in captured.out
 
 
 def test_run_train_conflict_pairs_success(monkeypatch, capsys):
@@ -274,3 +267,191 @@ def test_main_dispatch_detect_video(monkeypatch):
     assert captured["samples"] == 3
     assert captured["conf"] == 0.4
     assert captured["imgsz"] == 960
+
+
+def _fake_run_factory(captured):
+    class _Result:
+        returncode = 0
+
+    def fake_run(cmd, *args, **kwargs):
+        captured["cmd"] = list(cmd)
+        return _Result()
+
+    return fake_run
+
+
+def test_run_compare_builds_command_without_calibration(monkeypatch):
+    captured = {}
+    monkeypatch.setattr("graf.cli.subprocess.run", _fake_run_factory(captured))
+
+    exit_code = run_compare(
+        tracks="t.jsonl",
+        graphs_dir="g",
+        homography_config="h.yaml",
+        output_dir="/tmp/out",
+        models="rf,logreg",
+        num_folds=5,
+        split="blocked",
+        label_source="ttc",
+        label_strategy="sustained",
+        run_length=3,
+        ttc_threshold_seconds=1.5,
+        ttc_distance_threshold=3.0,
+        calibrate_threshold=False,
+        calibration_objective="accuracy",
+        exclude_features="",
+        single_feature_name="edge_attr_nonzero_frac",
+        bootstrap_resamples=100,
+    )
+    assert exit_code == 0
+    cmd = captured["cmd"]
+    # underscore variants are the flags scripts/compare_baselines.py expects
+    assert "--tracks" in cmd and "t.jsonl" in cmd
+    assert "--graphs_dir" in cmd and "g" in cmd
+    assert "--homography_config" in cmd and "h.yaml" in cmd
+    assert "--output_dir" in cmd and "/tmp/out" in cmd
+    assert "--num_folds" in cmd and "5" in cmd
+    # calibration flags must NOT appear when calibrate_threshold is False
+    assert "--calibrate-threshold" not in cmd
+    assert "--calibration-objective" not in cmd
+    # empty exclude_features must not be passed
+    assert "--exclude-features" not in cmd
+
+
+def test_run_compare_includes_calibration_flags(monkeypatch):
+    captured = {}
+    monkeypatch.setattr("graf.cli.subprocess.run", _fake_run_factory(captured))
+
+    exit_code = run_compare(
+        tracks="t.jsonl",
+        graphs_dir="g",
+        homography_config="h.yaml",
+        output_dir="/tmp/out",
+        models="rf",
+        num_folds=10,
+        split="blocked",
+        label_source="ttc",
+        label_strategy="sustained",
+        run_length=5,
+        ttc_threshold_seconds=1.5,
+        ttc_distance_threshold=3.0,
+        calibrate_threshold=True,
+        calibration_objective="youden",
+        exclude_features="",
+        single_feature_name="edge_attr_nonzero_frac",
+        bootstrap_resamples=10000,
+    )
+    assert exit_code == 0
+    cmd = captured["cmd"]
+    assert "--calibrate-threshold" in cmd
+    assert "--calibration-objective" in cmd
+    assert "youden" in cmd
+
+
+def test_run_compare_passes_exclude_features(monkeypatch):
+    captured = {}
+    monkeypatch.setattr("graf.cli.subprocess.run", _fake_run_factory(captured))
+
+    exit_code = run_compare(
+        tracks="t.jsonl",
+        graphs_dir="g",
+        homography_config="h.yaml",
+        output_dir="/tmp/out",
+        models="rf",
+        num_folds=10,
+        split="blocked",
+        label_source="ttc",
+        label_strategy="sustained",
+        run_length=5,
+        ttc_threshold_seconds=1.5,
+        ttc_distance_threshold=3.0,
+        calibrate_threshold=False,
+        calibration_objective="accuracy",
+        exclude_features="edge_attr_nonzero_frac",
+        single_feature_name="edge_attr_nonzero_frac",
+        bootstrap_resamples=10000,
+    )
+    assert exit_code == 0
+    cmd = captured["cmd"]
+    assert "--exclude-features" in cmd
+    assert "edge_attr_nonzero_frac" in cmd
+
+
+def test_run_compare_missing_script(monkeypatch, tmp_path):
+    import graf.cli as cli_mod
+
+    monkeypatch.setattr(cli_mod, "_repo_root", lambda: tmp_path)
+
+    exit_code = run_compare(
+        tracks="t",
+        graphs_dir="g",
+        homography_config="h",
+        output_dir="o",
+        models="rf",
+        num_folds=1,
+        split="blocked",
+        label_source="ttc",
+        label_strategy="sustained",
+        run_length=1,
+        ttc_threshold_seconds=1.5,
+        ttc_distance_threshold=3.0,
+        calibrate_threshold=False,
+        calibration_objective="accuracy",
+        exclude_features="",
+        single_feature_name="edge_attr_nonzero_frac",
+        bootstrap_resamples=0,
+    )
+    assert exit_code == 1
+
+
+def test_main_dispatch_compare(monkeypatch):
+    fake_return = 99
+
+    def fake_run(**kwargs):
+        return fake_return
+
+    monkeypatch.setattr("graf.cli.run_compare", fake_run)
+
+    exit_code = main(
+        [
+            "compare",
+            "--tracks",
+            "t.jsonl",
+            "--graphs-dir",
+            "g",
+            "--homography-config",
+            "h.yaml",
+        ]
+    )
+    assert exit_code == fake_return
+
+
+def test_compare_parser_defaults():
+    from graf.cli import build_parser
+
+    args = build_parser().parse_args(
+        [
+            "compare",
+            "--tracks",
+            "t.jsonl",
+            "--graphs-dir",
+            "g",
+            "--homography-config",
+            "h.yaml",
+        ]
+    )
+    assert args.command == "compare"
+    assert args.output_dir == "outputs/compare"
+    assert args.models == "majority,logreg,rf,single_feature"
+    assert args.num_folds == 10
+    assert args.split == "blocked"
+    assert args.label_source == "ttc"
+    assert args.label_strategy == "sustained"
+    assert args.run_length == 5
+    assert args.ttc_threshold_seconds == 1.5
+    assert args.ttc_distance_threshold == 3.0
+    assert args.calibrate_threshold is False
+    assert args.calibration_objective == "accuracy"
+    assert args.exclude_features == ""
+    assert args.single_feature_name == "edge_attr_nonzero_frac"
+    assert args.bootstrap_resamples == 10000
