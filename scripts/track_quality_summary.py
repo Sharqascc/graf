@@ -28,6 +28,7 @@ import json
 import statistics
 import sys
 from collections import Counter, defaultdict
+from itertools import pairwise
 from pathlib import Path
 
 
@@ -55,7 +56,7 @@ def summarise(detections: list[dict], tracks: list[dict]) -> dict:
     for fs in by_track.values():
         fs_sorted = sorted(fs)
         if len(fs_sorted) >= 2:
-            gaps.append(max(b - a for a, b in zip(fs_sorted, fs_sorted[1:])))
+            gaps.append(max(b - a for a, b in pairwise(fs_sorted)))
         else:
             gaps.append(0)
     discontinuous = sum(1 for g in gaps if g > 3)

@@ -66,7 +66,7 @@ def test_summarise_single_long_track():
 
 
 def test_summarise_detects_discontinuity():
-    frames = list(range(0, 11)) + [20, 21, 22]
+    frames = [*range(0, 11), 20, 21, 22]
     tracks = [_trk(f, 1) for f in frames]
     s = tqs.summarise([], tracks)
     assert s["discontinuous_tracks_gap_gt_3"] == 1
