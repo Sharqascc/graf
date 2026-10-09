@@ -268,6 +268,7 @@ def test_main_dispatch_detect_video(monkeypatch):
     assert captured["conf"] == 0.4
     assert captured["imgsz"] == 960
 
+
 def _fake_run_factory(captured):
     class _Result:
         returncode = 0

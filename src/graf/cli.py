@@ -79,12 +79,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Comma-separated subset of models to compare",
     )
     compare.add_argument("--num-folds", type=int, default=10)
-    compare.add_argument(
-        "--split", choices=["blocked", "random"], default="blocked"
-    )
-    compare.add_argument(
-        "--label-source", choices=["ttc", "proximity"], default="ttc"
-    )
+    compare.add_argument("--split", choices=["blocked", "random"], default="blocked")
+    compare.add_argument("--label-source", choices=["ttc", "proximity"], default="ttc")
     compare.add_argument("--label-strategy", default="sustained")
     compare.add_argument("--run-length", type=int, default=5)
     compare.add_argument("--ttc-threshold-seconds", type=float, default=1.5)
