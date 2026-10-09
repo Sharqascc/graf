@@ -55,6 +55,76 @@ def build_parser() -> argparse.ArgumentParser:
     train_cp.add_argument("--num_folds", type=int, default=5)
     train_cp.add_argument("--seed", type=int, default=42)
 
+    compare = subparsers.add_parser(
+        "compare",
+        help="Compare baseline classifiers on VNTraffic-style tracks",
+    )
+    compare.add_argument("--tracks", required=True, help="JSONL tracks file")
+    compare.add_argument(
+        "--graphs-dir", required=True, help="Directory of .pt graph files"
+    )
+    compare.add_argument(
+        "--homography-config",
+        required=True,
+        help="YAML with homography matrix",
+    )
+    compare.add_argument(
+        "--output-dir",
+        default="outputs/compare",
+        help="Directory for comparison.json",
+    )
+    compare.add_argument(
+        "--models",
+        default="majority,logreg,rf,single_feature",
+        help="Comma-separated subset of models to compare",
+    )
+    compare.add_argument("--num-folds", type=int, default=10)
+    compare.add_argument(
+        "--split", choices=["blocked", "random"], default="blocked"
+    )
+    compare.add_argument(
+        "--label-source", choices=["ttc", "proximity"], default="ttc"
+    )
+    compare.add_argument("--label-strategy", default="sustained")
+    compare.add_argument("--run-length", type=int, default=5)
+    compare.add_argument("--ttc-threshold-seconds", type=float, default=1.5)
+    compare.add_argument("--ttc-distance-threshold", type=float, default=3.0)
+    compare.add_argument(
+        "--calibrate-threshold",
+        action="store_true",
+        help="Fit decision thresholds on an inner calibration split",
+    )
+    compare.add_argument(
+        "--calibration-objective",
+        choices=["accuracy", "youden"],
+        default="accuracy",
+        help=(
+            "Objective optimized on the inner calibration split when "
+            "--calibrate-threshold is set. 'accuracy' is prior-aware and "
+            "matches the metric reported here; 'youden' maximizes "
+            "TPR - FPR and can pick thresholds above 0.5 on imbalanced data."
+        ),
+    )
+    compare.add_argument(
+        "--exclude-features",
+        default="",
+        help=(
+            "Comma-separated feature names to drop before fitting "
+            "logreg/rf. Ignored for single_feature."
+        ),
+    )
+    compare.add_argument(
+        "--single-feature-name",
+        default="edge_attr_nonzero_frac",
+        help="Column used by the single_feature baseline",
+    )
+    compare.add_argument(
+        "--bootstrap-resamples",
+        type=int,
+        default=10000,
+        help="Percentile bootstrap resamples for CIs. Set to 0 to disable.",
+    )
+
     reproduce = subparsers.add_parser(
         "reproduce",
         help="Run a recipe file (a sequence of pipeline steps)",
@@ -181,6 +251,73 @@ def run_detect_video(
         return 1
 
 
+def run_compare(
+    tracks: str,
+    graphs_dir: str,
+    homography_config: str,
+    output_dir: str,
+    models: str,
+    num_folds: int,
+    split: str,
+    label_source: str,
+    label_strategy: str,
+    run_length: int,
+    ttc_threshold_seconds: float,
+    ttc_distance_threshold: float,
+    calibrate_threshold: bool,
+    calibration_objective: str,
+    exclude_features: str,
+    single_feature_name: str,
+    bootstrap_resamples: int,
+) -> int:
+    script = _repo_root() / "scripts" / "compare_baselines.py"
+    if not script.exists():
+        logger.error("script not found: %s", script)
+        return 1
+    cmd = [
+        sys.executable,
+        str(script),
+        "--tracks",
+        tracks,
+        "--graphs_dir",
+        graphs_dir,
+        "--homography_config",
+        homography_config,
+        "--output_dir",
+        output_dir,
+        "--models",
+        models,
+        "--num_folds",
+        str(num_folds),
+        "--split",
+        split,
+        "--label-source",
+        label_source,
+        "--label-strategy",
+        label_strategy,
+        "--run-length",
+        str(run_length),
+        "--ttc-threshold-seconds",
+        str(ttc_threshold_seconds),
+        "--ttc-distance-threshold",
+        str(ttc_distance_threshold),
+        "--single-feature-name",
+        single_feature_name,
+        "--bootstrap-resamples",
+        str(bootstrap_resamples),
+    ]
+    if exclude_features:
+        cmd += ["--exclude-features", exclude_features]
+    if calibrate_threshold:
+        cmd.append("--calibrate-threshold")
+        cmd += ["--calibration-objective", calibration_objective]
+    try:
+        return subprocess.run(cmd).returncode
+    except Exception as e:
+        logger.error("compare failed: %s", e)
+        return 1
+
+
 def run_reproduce(
     recipe_path: str,
     dry_run: bool = False,
@@ -253,10 +390,6 @@ def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
-    # Temporary workaround for JSON config invocation; can be removed later
-    if argv and argv[0].startswith("/") and argv[0].endswith(".json"):
-        argv = []
-
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -276,6 +409,26 @@ def main(argv: list[str] | None = None) -> int:
             samples=args.samples,
             conf=args.conf,
             imgsz=args.imgsz,
+        )
+    if args.command == "compare":
+        return run_compare(
+            tracks=args.tracks,
+            graphs_dir=args.graphs_dir,
+            homography_config=args.homography_config,
+            output_dir=args.output_dir,
+            models=args.models,
+            num_folds=args.num_folds,
+            split=args.split,
+            label_source=args.label_source,
+            label_strategy=args.label_strategy,
+            run_length=args.run_length,
+            ttc_threshold_seconds=args.ttc_threshold_seconds,
+            ttc_distance_threshold=args.ttc_distance_threshold,
+            calibrate_threshold=args.calibrate_threshold,
+            calibration_objective=args.calibration_objective,
+            exclude_features=args.exclude_features,
+            single_feature_name=args.single_feature_name,
+            bootstrap_resamples=args.bootstrap_resamples,
         )
     if args.command == "reproduce":
         return run_reproduce(
