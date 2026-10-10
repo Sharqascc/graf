@@ -5,8 +5,9 @@ on:
     inputs:
       video_url:
         description: >-
-          Direct download URL for the SCI video. If blank, uses the
-          SCI_VIDEO_URL repository secret.
+          Optional. If blank, downloads sci.mp4 from the sci-v1 release
+          in this repository. Set only to fetch the video from a
+          different location.
         required: false
         default: ""
 
@@ -56,18 +57,32 @@ jobs:
 
       - name: Download SCI video
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VIDEO_URL_INPUT: ${{ inputs.video_url }}
           VIDEO_URL_SECRET: ${{ secrets.SCI_VIDEO_URL }}
         run: |
           set -euo pipefail
-          URL="${VIDEO_URL_INPUT:-${VIDEO_URL_SECRET:-}}"
-          if [ -z "$URL" ]; then
-            echo "::error::No video URL. Provide video_url in the workflow_dispatch form, or set the SCI_VIDEO_URL repository secret."
-            exit 1
-          fi
           mkdir -p data/raw/videos
-          curl -fL --retry 3 --retry-delay 5 \
-            --output data/raw/videos/sci.mp4 "$URL"
+
+          # Preferred path: the video is a release asset in this repo, so
+          # `gh release download` handles auth (via GITHUB_TOKEN) and
+          # retries. Falls back to a plain curl for the case where
+          # SCI_VIDEO_URL points somewhere else entirely.
+          if [ -n "${VIDEO_URL_INPUT:-}" ] || [ -n "${VIDEO_URL_SECRET:-}" ]; then
+            URL="${VIDEO_URL_INPUT:-${VIDEO_URL_SECRET}}"
+            echo "downloading from URL"
+            curl -fL --retry 3 --retry-delay 5 \
+              --output data/raw/videos/sci.mp4 "$URL"
+          else
+            echo "downloading sci.mp4 from release sci-v1"
+            gh release download sci-v1 \
+              --pattern sci.mp4 \
+              --dir data/raw/videos \
+              --clobber
+            # gh names the file after the asset, which is already sci.mp4
+          fi
+
+          ls -l data/raw/videos/
           echo "Downloaded $(stat -c%s data/raw/videos/sci.mp4) bytes"
 
       - name: Run SCI recipe
