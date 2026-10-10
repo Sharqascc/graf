@@ -46,6 +46,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements/base.txt -r requirements/dev.txt
           pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install torch-geometric
           pip install ultralytics
           pip install -e . --no-deps
 
