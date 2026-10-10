@@ -39,9 +39,7 @@ def test_erratum_points_at_current_result():
 def test_readme_marks_number_retracted():
     text = _README.read_text()
     assert "87.5%" in text
-    assert "retracted" in text.lower(), (
-        "README must mark the 87.5% number as retracted"
-    )
+    assert "retracted" in text.lower(), "README must mark the 87.5% number as retracted"
     assert "baselines_sustained_r5_post_purge.md" in text
 
 
@@ -49,6 +47,4 @@ def test_erratum_before_body():
     """The erratum must appear in the top 30 lines of the file."""
     lines = _DOC.read_text().splitlines()
     top = chr(10).join(lines[:30])
-    assert "Erratum" in top, (
-        "erratum must appear near the top of the doc, not buried"
-    )
+    assert "Erratum" in top, "erratum must appear near the top of the doc, not buried"
