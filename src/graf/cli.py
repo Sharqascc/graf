@@ -121,6 +121,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Percentile bootstrap resamples for CIs. Set to 0 to disable.",
     )
 
+    audit = subparsers.add_parser(
+        "audit",
+        help="Check a comparison.json against the reviewer checklist",
+    )
+    audit.add_argument(
+        "comparison_json",
+        help="Path to a comparison.json produced by scripts/compare_baselines.py",
+    )
+
     reproduce = subparsers.add_parser(
         "reproduce",
         help="Run a recipe file (a sequence of pipeline steps)",
@@ -314,6 +323,22 @@ def run_compare(
         return 1
 
 
+def run_audit(comparison_json: str) -> int:
+    """Print the reviewer checklist for a comparison.json file."""
+    try:
+        from graf.audit import audit_file, format_report
+    except ImportError as e:
+        logger.error("audit module unavailable: %s", e)
+        return 1
+    try:
+        checks, code = audit_file(comparison_json)
+    except FileNotFoundError as e:
+        logger.error("%s", e)
+        return 1
+    print(format_report(checks, comparison_json))
+    return code
+
+
 def run_reproduce(
     recipe_path: str,
     dry_run: bool = False,
@@ -426,6 +451,8 @@ def main(argv: list[str] | None = None) -> int:
             single_feature_name=args.single_feature_name,
             bootstrap_resamples=args.bootstrap_resamples,
         )
+    if args.command == "audit":
+        return run_audit(args.comparison_json)
     if args.command == "reproduce":
         return run_reproduce(
             recipe_path=args.recipe,
