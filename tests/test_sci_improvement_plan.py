@@ -46,9 +46,7 @@ def test_phases_are_numbered_sequentially():
     regex to the Phases section so it does not double-count."""
     text = _PLAN.read_text()
     phases_section = text.split("## Phases", 1)[1]
-    phases_section = phases_section.split(
-        "## What this plan commits", 1
-    )[0]
+    phases_section = phases_section.split("## What this plan commits", 1)[0]
     found = re.findall(r"^### Phase (\d+) ", phases_section, re.MULTILINE)
     assert found == ["0", "1", "2", "3", "4"], f"phases: {found}"
 
