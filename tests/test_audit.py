@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -130,7 +129,7 @@ def test_audit_file_returns_exit_1_on_fail(tmp_path):
 def test_audit_file_returns_exit_0_on_pass(tmp_path):
     p = tmp_path / "c.json"
     p.write_text(json.dumps(_full_payload()))
-    checks, code = audit_file(p)
+    _checks, code = audit_file(p)
     assert code == 0
 
 

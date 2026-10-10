@@ -98,7 +98,6 @@ def _features_for_windows(window_ds, indices, *, exclude_names=None) -> np.ndarr
     return GraphFeatureExtractor.transform(graphs)
 
 
-
 def _majority_baseline_accuracy(train_labels, val_labels) -> float:
     """Accuracy of a majority-class predictor fitted on train_labels.
 

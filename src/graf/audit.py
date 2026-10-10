@@ -93,8 +93,7 @@ def _check_leakage_reported(payload: dict) -> Check:
     if not results:
         return Check("#1b", "leakage reported per result", WARN, "no results")
     missing = [
-        r.get("model", "?") for r in results
-        if r.get("leakage_after_purge") is None
+        r.get("model", "?") for r in results if r.get("leakage_after_purge") is None
     ]
     if missing:
         return Check(
@@ -141,10 +140,7 @@ def _check_calibration_pairing(payload: dict) -> Check:
             f"calibration_objective={obj!r} not in (accuracy, youden)",
         )
     results = payload.get("results") or []
-    unpaired = [
-        r.get("model", "?") for r in results
-        if not r.get("fold_thresholds")
-    ]
+    unpaired = [r.get("model", "?") for r in results if not r.get("fold_thresholds")]
     if unpaired:
         return Check(
             "#2",
@@ -169,7 +165,9 @@ def _check_majority_baseline(payload: dict) -> Check:
     labels = payload.get("labels") or {}
     if "majority_baseline" not in labels:
         return Check(
-            "#6", "majority baseline present", FAIL,
+            "#6",
+            "majority baseline present",
+            FAIL,
             "labels.majority_baseline missing",
         )
     return Check(
@@ -187,13 +185,16 @@ def _check_result_shape(payload: dict) -> Check:
         return Check("#7", "per-fold data present", WARN, "no results")
     needed = ("fold_accuracy", "fold_auc", "fold_majority")
     missing = [
-        f"{r.get('model','?')}:{[k for k in needed if k not in r]}"
+        f"{r.get('model', '?')}:{[k for k in needed if k not in r]}"
         for r in results
         if any(k not in r for k in needed)
     ]
     if missing:
         return Check(
-            "#7", "per-fold data present", WARN, "; ".join(missing),
+            "#7",
+            "per-fold data present",
+            WARN,
+            "; ".join(missing),
         )
     return Check(
         "#7",
