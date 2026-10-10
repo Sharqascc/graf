@@ -1,5 +1,36 @@
 # Experiment Results
 
+> **Erratum (2026-10).** The 87.5% cross-validated accuracy reported
+> below was produced from local data that is no longer available and
+> has not been reproduced. It should not be cited as a current result
+> of this repository.
+>
+> Two things changed after the original run:
+>
+> 1. **The data is gone.** The video, tracks, and calibrated graphs
+>    referenced here were never committed. They are not on the
+>    Zenodo record and not reconstructable from the repo. See the
+>    reproducibility note at the bottom of this file.
+> 2. **The cross-validation splitter changed.** A boundary-leak fix
+>    landed in PR #39. The 87.5% number predates it. Every current
+>    result in this repo uses the post-fix splitter, which purges
+>    adjacent windows at fold boundaries (see
+>    `docs/external_review_2026_09.md` finding #1).
+>
+> **What replaces it.** The paper's current primary result is in
+> `docs/paper/baselines_sustained_r5_post_purge.md`. Its headline is
+> the opposite of the conclusion below: the single-feature cue beats
+> the trained models, and no model beats the majority baseline on
+> accuracy at this class prior. The full current picture is in
+> `docs/paper/results.md`.
+>
+> **What survives from this doc.** The pipeline stages and the
+> reproduction commands below are still correct -- they run the same
+> scripts the paper uses today. The self-contained smoke test
+> (`tests/test_end_to_end_synthetic.py`) still passes. What does not
+> survive is the 87.5% number and the optimistic conclusion drawn
+> from it.
+
 ## Sample Video: Sama Savli Intersection
 
 ### Configuration

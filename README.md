@@ -51,9 +51,11 @@ results are reproduced.
 | Tracking quality metrics (MOTA / IDF1 / ID switches) | Not implemented |
 | Reproducible real-video accuracy | Run `graf reproduce configs/recipes/paper_v1.yaml` |
 
-The 87.5% cross-validation accuracy in `docs/experiment_results.md` was produced
-from local data that is not committed. See the reproducibility note there for
-how to run a self-contained smoke test instead.
+The 87.5% cross-validation accuracy in `docs/experiment_results.md` is
+**retracted** -- the data it was produced from is not committed and the
+splitter has since changed. See the erratum at the top of that file. The
+paper's current primary result is in
+`docs/paper/baselines_sustained_r5_post_purge.md`.
 
 ## Known issues and caveats
 
