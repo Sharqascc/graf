@@ -41,8 +41,15 @@ def test_plan_has_required_sections():
 
 
 def test_phases_are_numbered_sequentially():
+    """Only the Phases section defines phases. The Decision rules
+    section also uses ``### Phase N -> Phase M`` headings; scope the
+    regex to the Phases section so it does not double-count."""
     text = _PLAN.read_text()
-    found = re.findall(r"^### Phase (\d+)", text, re.MULTILINE)
+    phases_section = text.split("## Phases", 1)[1]
+    phases_section = phases_section.split(
+        "## What this plan commits", 1
+    )[0]
+    found = re.findall(r"^### Phase (\d+) ", phases_section, re.MULTILINE)
     assert found == ["0", "1", "2", "3", "4"], f"phases: {found}"
 
 
