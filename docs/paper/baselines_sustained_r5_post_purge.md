@@ -65,3 +65,15 @@ The two CIs overlap heavily and the cue's point estimate is higher. The
 pre-registered decision rule fires **outcome 1**: the trivial cue matches
 or beats the model. Neither the RF nor the cue beats the majority
 baseline on accuracy. Two negative findings, both pre-registered.
+
+## Calibration-objective follow-up
+
+The threshold calibration above used `--calibration-objective accuracy`
+(the prior-aware choice). A companion run with `--calibration-objective
+youden` is recorded in
+[`calibration_objective_post_purge.md`](calibration_objective_post_purge.md).
+
+Summary: accuracy-objective dominates Youden's J for every model, but
+neither objective gets any model above the majority baseline on this
+prior. The primary result (AUC ordering) is unchanged by the choice,
+because AUC is threshold-independent.
