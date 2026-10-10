@@ -72,15 +72,29 @@ The full audit and its resolution log is in
 
 ### Data availability
 
-The real-video results depend on three gitignored, generated artifacts:
+The real-video results depend on three derived artifacts:
 
 - `data/raw/vntraffic_homography.yaml`
-- `data/interim/vntraffic_tracks_all85_min20.jsonl`
+- `data/raw/vntraffic_tracks_all85_min20.jsonl`
 - `data/processed/graphs/vntraffic_all85/`
 
-These were generated on an ephemeral Colab VM that has since been recycled.
-The pipeline is unchanged; the numbers can be reproduced once the source
-videos are re-ingested.
+These are not tracked (see `data/README.md`) but they are reproducible
+end-to-end. The VNTraffic source is public (Zenodo record 18195750); the
+whole chain — fetch, prepare tracks, filter, build graphs, run the
+baseline comparison — takes roughly 15 minutes on a CPU:
+
+```bash
+graf reproduce configs/recipes/paper_v1.yaml
+```
+
+This regenerates the inputs and writes
+`outputs/purged_sustained_r10/comparison.json`. Verify the run against
+the reviewer checklist with
+`graf audit outputs/purged_sustained_r10/comparison.json`.
+
+The only data not regenerable from the repo is a second-site video (SCI);
+its handling is documented under
+`.github/workflows/sci-pipeline.yml`.
 
 ### Trivial-cue baseline
 
