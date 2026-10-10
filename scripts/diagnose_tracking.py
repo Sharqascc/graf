@@ -72,10 +72,10 @@ def classify_motion(
     jump_ratio: float = 3.0,
 ) -> str:
     if net_displacement_px > stationary_px:
-        return 'moving'
+        return "moving"
     if jitter_ratio >= jump_ratio:
-        return 'stationary_jumping'
-    return 'stationary_held'
+        return "stationary_jumping"
+    return "stationary_held"
 
 
 def diagnose_track(
@@ -84,10 +84,10 @@ def diagnose_track(
     stationary_px: float = 5.0,
     jump_ratio: float = 3.0,
 ) -> TrackDiag:
-    rows = sorted(rows, key=lambda r: int(r['frame_idx']))
-    centers = [_center(r['bbox_xyxy']) for r in rows]
-    areas = [_area(r['bbox_xyxy']) for r in rows]
-    classes = Counter(str(r.get('class_name', 'unknown')) for r in rows)
+    rows = sorted(rows, key=lambda r: int(r["frame_idx"]))
+    centers = [_center(r["bbox_xyxy"]) for r in rows]
+    areas = [_area(r["bbox_xyxy"]) for r in rows]
+    classes = Counter(str(r.get("class_name", "unknown")) for r in rows)
 
     cx_first, cy_first = centers[0]
     cx_last, cy_last = centers[-1]
@@ -104,8 +104,8 @@ def diagnose_track(
         track_id=int(track_id),
         class_name=classes.most_common(1)[0][0],
         n_frames=len(rows),
-        frame_first=int(rows[0]['frame_idx']),
-        frame_last=int(rows[-1]['frame_idx']),
+        frame_first=int(rows[0]["frame_idx"]),
+        frame_last=int(rows[-1]["frame_idx"]),
         cx_first=float(cx_first),
         cy_first=float(cy_first),
         cx_last=float(cx_last),
@@ -125,7 +125,7 @@ def diagnose_all(
 ) -> list[TrackDiag]:
     by_track: dict[int, list[dict]] = defaultdict(list)
     for r in tracks:
-        by_track[int(r['track_id'])].append(r)
+        by_track[int(r["track_id"])].append(r)
     diags = [
         diagnose_track(tid, rows, stationary_px, jump_ratio)
         for tid, rows in by_track.items()
@@ -142,66 +142,64 @@ def summarise(diags: list[TrackDiag]) -> dict:
     for cls, ds in by_class.items():
         counts = Counter(d.classification for d in ds)
         out[cls] = {
-            'n_tracks': len(ds),
-            'classification_counts': dict(counts),
-            'median_net_displacement_px': statistics.median(
+            "n_tracks": len(ds),
+            "classification_counts": dict(counts),
+            "median_net_displacement_px": statistics.median(
                 d.net_displacement_px for d in ds
             ),
-            'median_jitter_ratio': statistics.median(
-                d.jitter_ratio for d in ds
-            ),
+            "median_jitter_ratio": statistics.median(d.jitter_ratio for d in ds),
         }
     return out
 
 
 def interpret(diags: list[TrackDiag]) -> str:
     if not diags:
-        return 'No tracks in input.'
+        return "No tracks in input."
     longest = diags[0]
     lines = [
-        f'Longest track {longest.track_id} '
-        f'(class={longest.class_name}, n_frames={longest.n_frames}):',
-        f'  net_displacement_px: {longest.net_displacement_px:.1f}',
-        f'  path_length_px:      {longest.path_length_px:.1f}',
-        f'  jitter_ratio:        {longest.jitter_ratio:.1f}',
-        f'  classification:      {longest.classification}',
-        '',
+        f"Longest track {longest.track_id} "
+        f"(class={longest.class_name}, n_frames={longest.n_frames}):",
+        f"  net_displacement_px: {longest.net_displacement_px:.1f}",
+        f"  path_length_px:      {longest.path_length_px:.1f}",
+        f"  jitter_ratio:        {longest.jitter_ratio:.1f}",
+        f"  classification:      {longest.classification}",
+        "",
     ]
-    if longest.classification == 'stationary_held':
+    if longest.classification == "stationary_held":
         lines.append(
-            'INTERPRETATION: The longest track is a stationary object '
-            'held correctly. Phase 1 (static-object filter) is the '
-            'fix per docs/sci_tracking_improvement_plan.md.'
+            "INTERPRETATION: The longest track is a stationary object "
+            "held correctly. Phase 1 (static-object filter) is the "
+            "fix per docs/sci_tracking_improvement_plan.md."
         )
-    elif longest.classification == 'stationary_jumping':
+    elif longest.classification == "stationary_jumping":
         lines.append(
-            'INTERPRETATION: The longest track is stationary overall '
-            'but its center path is much longer than its net movement. '
-            'The tracker is jumping between objects. Phase 2 '
-            '(association logic) is the fix per '
-            'docs/sci_tracking_improvement_plan.md.'
+            "INTERPRETATION: The longest track is stationary overall "
+            "but its center path is much longer than its net movement. "
+            "The tracker is jumping between objects. Phase 2 "
+            "(association logic) is the fix per "
+            "docs/sci_tracking_improvement_plan.md."
         )
     else:
         lines.append(
-            'INTERPRETATION: The longest track is moving. Neither the '
-            'static filter nor an obvious association fix applies '
-            'directly; inspect the per-frame centers further.'
+            "INTERPRETATION: The longest track is moving. Neither the "
+            "static filter nor an obvious association fix applies "
+            "directly; inspect the per-frame centers further."
         )
     return chr(10).join(lines)
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument('--tracks', required=True)
-    ap.add_argument('--output_dir', required=True)
-    ap.add_argument('--stationary_px', type=float, default=5.0)
-    ap.add_argument('--jump_ratio', type=float, default=3.0)
-    ap.add_argument('--top_n', type=int, default=10)
+    ap.add_argument("--tracks", required=True)
+    ap.add_argument("--output_dir", required=True)
+    ap.add_argument("--stationary_px", type=float, default=5.0)
+    ap.add_argument("--jump_ratio", type=float, default=3.0)
+    ap.add_argument("--top_n", type=int, default=10)
     args = ap.parse_args(argv)
 
     track_path = Path(args.tracks)
     if not track_path.exists():
-        print(f'error: {track_path} not found', file=sys.stderr)
+        print(f"error: {track_path} not found", file=sys.stderr)
         return 1
 
     tracks = _load_jsonl(track_path)
@@ -211,23 +209,21 @@ def main(argv=None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     report = {
-        'input': str(track_path),
-        'n_tracks': len(diags),
-        'n_rows': len(tracks),
-        'stationary_px': args.stationary_px,
-        'jump_ratio': args.jump_ratio,
-        'top_tracks': [asdict(d) for d in diags[: args.top_n]],
-        'by_class': summarise(diags),
+        "input": str(track_path),
+        "n_tracks": len(diags),
+        "n_rows": len(tracks),
+        "stationary_px": args.stationary_px,
+        "jump_ratio": args.jump_ratio,
+        "top_tracks": [asdict(d) for d in diags[: args.top_n]],
+        "by_class": summarise(diags),
     }
-    (out_dir / 'diagnosis.json').write_text(
-        json.dumps(report, indent=2) + chr(10)
-    )
+    (out_dir / "diagnosis.json").write_text(json.dumps(report, indent=2) + chr(10))
 
     print(interpret(diags))
     print()
-    print('wrote ' + str(out_dir / 'diagnosis.json'))
+    print("wrote " + str(out_dir / "diagnosis.json"))
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())
