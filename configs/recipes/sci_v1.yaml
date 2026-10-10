@@ -5,10 +5,11 @@
 # separately by the sci-pipeline workflow and placed at
 # data/raw/videos/sci.mp4 before this recipe is run.
 #
-# Default window: 90 seconds starting at 5 minutes, stride 3
-# (= 10 fps effective from 30 fps native). Short enough to run on a
-# CPU GitHub Actions runner in ~15-25 minutes, long enough to sample
-# the intersection's traffic.
+# Default window: 90 seconds starting at 5 minutes, stride 1
+# (= full 30 fps native). The tracker's motion model is tuned for
+# this cadence; the stride-3 variant produced 71% discontinuous
+# tracks, most likely because the effective 10 fps made vehicles
+# appear to jump between consecutive frames.
 
 name: sci_v1
 description: SCI second-site — extract frames, UVH-26 detection, tracking
@@ -27,7 +28,7 @@ steps:
       - --duration
       - "90"
       - --stride
-      - "3"
+      - "1"
     produces: data/interim/frames/sci
 
   - name: detect
