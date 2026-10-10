@@ -98,32 +98,6 @@ def _features_for_windows(window_ds, indices, *, exclude_names=None) -> np.ndarr
     return GraphFeatureExtractor.transform(graphs)
 
 
-def train_tabular_fold(
-    name: str,
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_val: np.ndarray,
-    seed: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Fit one sklearn-compatible baseline, return (val_scores, val_labels)."""
-    model = _make_model(name, seed)
-    model.fit(X_train, y_train)
-
-    # sklearn models return (N, 2) proba with column 1 = positive class
-    try:
-        proba = model.predict_proba(X_val)
-        if proba.ndim == 2 and proba.shape[1] == 2:
-            scores = proba[:, 1]
-        elif proba.ndim == 2 and proba.shape[1] == 1:
-            scores = proba[:, 0]
-        else:
-            scores = proba.reshape(-1)
-    except Exception:
-        # Fallback: hard predictions as 0/1 scores
-        scores = np.asarray(model.predict(X_val), dtype=np.float32)
-
-    return np.asarray(scores, dtype=np.float64), np.asarray(y_train)  # placeholder
-
 
 def _majority_baseline_accuracy(train_labels, val_labels) -> float:
     """Accuracy of a majority-class predictor fitted on train_labels.

@@ -2,6 +2,7 @@ from pathlib import Path
 
 from graf.cli import (
     main,
+    run_audit,
     run_compare,
     run_demo_graphs,
     run_status,
@@ -455,3 +456,55 @@ def test_compare_parser_defaults():
     assert args.exclude_features == ""
     assert args.single_feature_name == "edge_attr_nonzero_frac"
     assert args.bootstrap_resamples == 10000
+
+def test_run_audit_pass(tmp_path, capsys):
+    import json
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({
+        "setup": {
+            "label_source": "ttc", "label_strategy": "sustained",
+            "run_length": 5, "ttc_threshold_seconds": 1.5,
+            "ttc_distance_threshold": 3.0, "split": "blocked",
+            "calibrate_threshold": False, "calibration_objective": "accuracy",
+            "purge_gap_frames": 10,
+        },
+        "labels": {"majority_baseline": 0.779},
+        "results": [{
+            "model": "rf",
+            "fold_accuracy": [0.7], "fold_auc": [0.75], "fold_majority": [0.77],
+            "leakage_after_purge": {"leaked": 0, "total": 249},
+        }],
+    }))
+    rc = run_audit(str(p))
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "Reviewer checklist" in out
+
+
+def test_run_audit_fail(tmp_path, capsys):
+    import json
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({
+        "setup": {"label_source": "ttc"},
+        "labels": {"majority_baseline": 0.779},
+        "results": [],
+    }))
+    rc = run_audit(str(p))
+    assert rc == 1
+
+
+def test_run_audit_missing_file(tmp_path):
+    rc = run_audit(str(tmp_path / "nope.json"))
+    assert rc == 1
+
+
+def test_main_dispatch_audit(monkeypatch, tmp_path):
+    fake_return = 77
+
+    def fake_run_audit(comparison_json):
+        return fake_return
+
+    monkeypatch.setattr("graf.cli.run_audit", fake_run_audit)
+
+    exit_code = main(["audit", str(tmp_path / "c.json")])
+    assert exit_code == fake_return
