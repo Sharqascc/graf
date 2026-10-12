@@ -15,12 +15,23 @@ Usage from the CLI:
     graf reproduce configs/recipes/paper_v1.yaml --dry-run
     graf reproduce configs/recipes/paper_v1.yaml --only compare
     graf reproduce configs/recipes/paper_v1.yaml --from-step build-graphs
+    graf reproduce configs/recipes/paper_v1.yaml --allow-missing
+
+Preflight
+---------
+Before running anything, the runner validates that each selected step's
+`requires:` paths either exist on disk or are produced by an earlier
+selected step. Missing inputs abort the run with a single message
+listing every problem. Pass `--allow-missing` to skip this check.
+
+`graf validate <recipe>` runs the same check without executing.
 """
 
 from __future__ import annotations
 
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -32,6 +43,7 @@ class Step:
     name: str
     cmd: list[str]
     produces: Path | None
+    requires: tuple[Path, ...] = ()
 
 
 @dataclass
@@ -71,7 +83,11 @@ def load_recipe(path: str | Path) -> Recipe:
         if not isinstance(cmd, list) or not all(isinstance(x, str) for x in cmd):
             raise ValueError(f"step {name!r}: 'cmd' must be a list of strings")
         produces = Path(s["produces"]) if "produces" in s else None
-        steps.append(Step(name=name, cmd=cmd, produces=produces))
+        requires_raw = s.get("requires", [])
+        if not isinstance(requires_raw, list):
+            raise ValueError(f"step {name!r}: 'requires' must be a list of paths")
+        requires = tuple(Path(p) for p in requires_raw)
+        steps.append(Step(name=name, cmd=cmd, produces=produces, requires=requires))
 
     return Recipe(
         name=str(raw.get("name", p.stem)),
@@ -102,12 +118,43 @@ def _select(recipe: Recipe, only: str | None, from_step: str | None) -> list[Ste
     return steps
 
 
+def validate_recipe(
+    recipe: Recipe,
+    *,
+    cwd: Path | None = None,
+    only: str | None = None,
+    from_step: str | None = None,
+) -> list[str]:
+    """Return a list of human-readable problems; empty list means runnable.
+
+    For each selected step, every path in `requires:` must either exist
+    on disk now, or be the `produces:` of an earlier selected step. The
+    check is order-sensitive: a step that produces a path satisfies the
+    requires of every step after it, but not of any step before it.
+    """
+    steps = _select(recipe, only, from_step)
+    workdir = cwd or Path.cwd()
+    problems: list[str] = []
+    produced: set[str] = set()
+    for step in steps:
+        for req in step.requires:
+            if (workdir / req).exists():
+                continue
+            if str(req) in produced:
+                continue
+            problems.append(f"step '{step.name}': required input missing: {req}")
+        if step.produces is not None:
+            produced.add(str(step.produces))
+    return problems
+
+
 def run_recipe(
     recipe: Recipe,
     *,
     dry_run: bool = False,
     only: str | None = None,
     from_step: str | None = None,
+    allow_missing: bool = False,
     cwd: Path | None = None,
 ) -> int:
     """Run the selected steps. Returns 0 on success, 1 on first failure."""
@@ -122,6 +169,20 @@ def run_recipe(
         print("  (dry run - nothing will execute)")
     print()
 
+    # Preflight: check every selected step's declared inputs.
+    if not dry_run and not allow_missing:
+        problems = validate_recipe(recipe, cwd=workdir, only=only, from_step=from_step)
+        if problems:
+            print("preflight failed:", file=sys.stderr)
+            for p in problems:
+                print(f"  {p}", file=sys.stderr)
+            print(
+                "\nFix the missing inputs, or pass --allow-missing to skip.",
+                file=sys.stderr,
+            )
+            return 1
+
+    t_total = time.time()
     for i, step in enumerate(steps, 1):
         print(f"[{i}/{len(steps)}] {step.name}")
         if step.produces is not None:
@@ -131,12 +192,17 @@ def run_recipe(
             print()
             continue
 
+        t_step = time.time()
         result = subprocess.run(step.cmd, cwd=str(workdir))
+        elapsed = time.time() - t_step
         if result.returncode != 0:
-            print(f"    FAILED: exit {result.returncode}", file=sys.stderr)
+            print(
+                f"    FAILED: exit {result.returncode}  ({elapsed:.1f}s)",
+                file=sys.stderr,
+            )
             return 1
-        print("    ok")
+        print(f"    ok  ({elapsed:.1f}s)")
         print()
 
-    print("all steps completed")
+    print(f"all steps completed  ({time.time() - t_total:.1f}s total)")
     return 0

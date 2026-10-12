@@ -39,6 +39,8 @@ steps:
       - configs/detection/uvh26.yaml
       - --video-id
       - mrc_intersection
+    requires:
+      - data/interim/frames/from_video_short
 
   - name: track
     cmd:
@@ -48,6 +50,8 @@ steps:
       - data/interim/detections/from_video_short/detections.jsonl
       - --output_dir
       - data/interim/tracks/from_video_short
+    requires:
+      - data/interim/detections/from_video_short/detections.jsonl
 
   - name: build-trajectories
     cmd:
@@ -59,6 +63,8 @@ steps:
       - data/interim/trajectories/from_video_short.json
       - --pixels_per_meter
       - "100.0"
+    requires:
+      - data/interim/tracks/from_video_short/tracks.jsonl
 
   - name: build-graphs
     cmd:
@@ -72,6 +78,8 @@ steps:
       - "100.0"
       - --radius
       - "10.0"
+    requires:
+      - data/interim/tracks/from_video_short/tracks.jsonl
 
   - name: compare
     cmd:
@@ -101,4 +109,7 @@ steps:
       - "1.5"
       - --ttc-distance-threshold
       - "3.0"
+    requires:
+      - data/interim/tracks/from_video_short/tracks.jsonl
+      - data/processed/graphs/from_video_short
     produces: outputs/from_video_short/comparison.json

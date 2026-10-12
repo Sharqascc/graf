@@ -3,10 +3,11 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from graf.doctor import run_checks as run_doctor_checks
-from graf.reproduce import load_recipe, run_recipe
+from graf.reproduce import load_recipe, run_recipe, validate_recipe
 from graf.training.conflict_pairs import run_cross_validation
 from graf.utils.export_graph_samples import export_graph_samples
 from graf.utils.logger import get_logger
@@ -20,6 +21,11 @@ def build_parser() -> argparse.ArgumentParser:
         prog="graf",
         description="GRAF: graph-based surrogate safety analysis pipeline",
     )
+    try:
+        _version = version("graf")
+    except PackageNotFoundError:
+        _version = "unknown"
+    parser.add_argument("--version", action="version", version=f"graf {_version}")
     subparsers = parser.add_subparsers(dest="command")
 
     status = subparsers.add_parser("status", help="Show pipeline status")
@@ -150,6 +156,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Start from the step with this name (inclusive)",
     )
+    reproduce.add_argument(
+        "--allow-missing",
+        action="store_true",
+        help="Skip the preflight check for missing inputs",
+    )
 
     doctor = subparsers.add_parser(
         "doctor",
@@ -187,6 +198,17 @@ def build_parser() -> argparse.ArgumentParser:
     detect.add_argument("--samples", type=int, default=6)
     detect.add_argument("--conf", type=float, default=0.25)
     detect.add_argument("--imgsz", type=int, default=640)
+
+    subparsers.add_parser(
+        "recipes",
+        help="List available recipes with descriptions",
+    )
+
+    validate = subparsers.add_parser(
+        "validate",
+        help="Preflight a recipe: check that all required inputs exist",
+    )
+    validate.add_argument("recipe", help="Path to a recipe YAML")
 
     return parser
 
@@ -344,13 +366,62 @@ def run_reproduce(
     dry_run: bool = False,
     only: str | None = None,
     from_step: str | None = None,
+    allow_missing: bool = False,
 ) -> int:
     try:
         recipe = load_recipe(recipe_path)
     except (FileNotFoundError, ValueError) as e:
         logger.error("Could not load recipe: %s", e)
         return 1
-    return run_recipe(recipe, dry_run=dry_run, only=only, from_step=from_step)
+    return run_recipe(
+        recipe,
+        dry_run=dry_run,
+        only=only,
+        from_step=from_step,
+        allow_missing=allow_missing,
+    )
+
+
+def run_recipes() -> int:
+    """List the recipes under configs/recipes/ with their descriptions."""
+    recipes_dir = _repo_root() / "configs" / "recipes"
+    if not recipes_dir.is_dir():
+        logger.error("no recipes directory at %s", recipes_dir)
+        return 1
+    files = sorted(recipes_dir.glob("*.yaml"))
+    if not files:
+        print(f"no recipes in {recipes_dir}")
+        return 0
+    rel = recipes_dir.relative_to(_repo_root())
+    print(f"recipes in {rel}:")
+    for f in files:
+        try:
+            r = load_recipe(f)
+            desc = r.description or "(no description)"
+            print(f"  {f.name:<30} {desc}")
+        except Exception as e:
+            print(f"  {f.name:<30} (unreadable: {e})")
+    print()
+    print("Run with: graf reproduce configs/recipes/<name>")
+    return 0
+
+
+def run_validate(recipe_path: str) -> int:
+    """Preflight a recipe without running it. Returns 0 if runnable."""
+    try:
+        recipe = load_recipe(recipe_path)
+    except (FileNotFoundError, ValueError) as e:
+        logger.error("Could not load recipe: %s", e)
+        return 1
+    problems = validate_recipe(recipe)
+    if not problems:
+        n = len(recipe.steps)
+        print(f"{recipe_path}: OK ({n} step(s), all inputs present)")
+        return 0
+    print(f"{recipe_path}: {len(problems)} problem(s)")
+    for p in problems:
+        print(f"  {p}")
+    return 1
 
 
 def run_status(root: str, depth: int = 4) -> int:
@@ -453,12 +524,17 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.command == "audit":
         return run_audit(args.comparison_json)
+    if args.command == "recipes":
+        return run_recipes()
+    if args.command == "validate":
+        return run_validate(args.recipe)
     if args.command == "reproduce":
         return run_reproduce(
             recipe_path=args.recipe,
             dry_run=args.dry_run,
             only=args.only,
             from_step=args.from_step,
+            allow_missing=args.allow_missing,
         )
     if args.command == "train-conflict-pairs":
         return run_train_conflict_pairs(
@@ -475,8 +551,24 @@ def main(argv: list[str] | None = None) -> int:
             seed=args.seed,
         )
 
-    parser.print_help()
+    _print_welcome(parser)
     return 0
+
+
+def _print_welcome(parser: argparse.ArgumentParser) -> None:
+    """Friendly output when graf is run with no subcommand."""
+    print("GRAF: graph-based surrogate safety analysis pipeline")
+    print()
+    print("Get started:")
+    print("  graf doctor                    check your environment")
+    print("  graf recipes                   list available recipes")
+    print("  graf reproduce <recipe>        run a recipe")
+    print()
+    print("Everything else:")
+    print("  graf --help                    full command list")
+    print("  graf --version                 version")
+    print()
+    print("Docs: README.md  |  Recipes: configs/recipes/")
 
 
 if __name__ == "__main__":
