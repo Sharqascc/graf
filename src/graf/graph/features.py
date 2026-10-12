@@ -7,6 +7,9 @@ from torch_geometric.data import Data
 from torch_geometric.utils import subgraph
 
 from .edges import EDGE_FEATURE_ORDER
+from graf.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 NODE_BASE_FEATURE_ORDER: Final[list[str]] = [
     "x",
@@ -470,11 +473,21 @@ def graph_to_tensors(graph: dict) -> dict:
 
 
 def _compat_to_list(value):
+    """Convert a torch Tensor to a nested list; pass anything else through."""
     try:
         import torch
-
-        if isinstance(value, torch.Tensor):
-            return value.tolist()
-    except Exception:
-        pass
-    return value
+    except ImportError:
+        # torch is an optional dependency for this module. If it is not
+        # installed, the value cannot be a Tensor, so pass it through.
+        return value
+    if not isinstance(value, torch.Tensor):
+        return value
+    try:
+        return value.tolist()
+    except Exception as e:
+        # A Tensor that cannot be converted to a list is a real problem.
+        # Log it and return an empty list rather than silently returning
+        # the Tensor itself (which would violate the return-type
+        # contract that callers rely on).
+        logger.warning("tensor.tolist() failed: %s", e)
+        return []

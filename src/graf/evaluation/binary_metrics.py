@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from graf.utils.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 def _to_list(values: Iterable) -> list[float]:
@@ -48,7 +52,13 @@ def binary_classification_metrics(
 
         metrics["roc_auc"] = float(roc_auc_score(y_true, probs))
         metrics["pr_auc"] = float(average_precision_score(y_true, probs))
-    except Exception:
-        pass
+    except Exception as e:
+        # AUC is undefined on single-class inputs and can fail on
+        # degenerate probability arrays. Log and set the keys to
+        # None explicitly so callers see 'not computed' rather than
+        # a KeyError or a missing field.
+        logger.warning("roc_auc/pr_auc unavailable: %s", e)
+        metrics.setdefault("roc_auc", None)
+        metrics.setdefault("pr_auc", None)
 
     return metrics

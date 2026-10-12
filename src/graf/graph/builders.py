@@ -600,63 +600,6 @@ def build_graph_for_frame(
         "edges": edges,
     }
 
-    nodes = []
-    for i, row in enumerate(records):
-        feats = data.x[i].tolist() if i < data.x.size(0) else []
-        nodes.append(
-            {
-                "node_id": i,
-                "track_id": int(row.get("track_id", i)),
-                "actor_class": row.get("actor_class", infer_actor_class(row)),
-                "x": float(row.get("x", row.get("x_m", 0.0))),
-                "y": float(row.get("y", row.get("y_m", 0.0))),
-                "features": feats,
-            }
-        )
-
-    edges = []
-    seen = set()
-    edge_index = (
-        data.edge_index.t().tolist()
-        if getattr(data, "edge_index", None) is not None and data.edge_index.numel()
-        else []
-    )
-    edge_attr = (
-        data.edge_attr.tolist()
-        if getattr(data, "edge_attr", None) is not None and data.edge_attr.numel()
-        else []
-    )
-
-    for k, (src0, dst0) in enumerate(edge_index):
-        if src0 == dst0:
-            continue
-        key = tuple(sorted((int(src0), int(dst0))))
-        if key in seen:
-            continue
-        seen.add(key)
-
-        feat = edge_attr[k] if k < len(edge_attr) else []
-        edges.append(
-            {
-                "src": int(src0) + 1,
-                "dst": int(dst0) + 1,
-                "src_node": int(src0),
-                "dst_node": int(dst0),
-                "features": feat,
-            }
-        )
-
-    return {
-        "directed": True,
-        "frame_id": int(records[0].get("frame_id", 0)) if records else None,
-        "video_id": records[0].get("video_id") if records else None,
-        "radius": radius,
-        "num_nodes": len(nodes),
-        "num_edges": len(edges),
-        "nodes": nodes,
-        "edges": edges,
-    }
-
 
 def build_interaction_graph(
     actors: Iterable[dict[str, Any]],

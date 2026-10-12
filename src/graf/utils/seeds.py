@@ -22,4 +22,6 @@ def set_global_seed(seed: int, deterministic: bool = True) -> None:
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
     except Exception:
+        # torch is optional; if it is not installed, the Python and
+        # numpy seeds above are still set. No action needed.
         pass
