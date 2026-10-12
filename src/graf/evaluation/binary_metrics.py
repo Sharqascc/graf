@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from graf.utils.logger import get_logger
 
+from graf.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -19,7 +19,15 @@ def sigmoid(x: float) -> float:
 
 def binary_classification_metrics(
     y_true: Iterable, logits: Iterable, threshold: float = 0.5
-) -> dict[str, float]:
+) -> dict[str, float | None]:
+    """Compute accuracy, precision, recall, F1, and (when defined)
+    roc_auc and pr_auc.
+
+    roc_auc and pr_auc are undefined on single-class inputs. When
+    they cannot be computed, the keys are set to None and a warning
+    is logged, so callers see 'not computed' rather than a missing
+    key or a silently dropped field.
+    """
     y_true = [int(v) for v in y_true]
     logits = _to_list(logits)
     probs = [sigmoid(v) for v in logits]
@@ -58,7 +66,7 @@ def binary_classification_metrics(
         # None explicitly so callers see 'not computed' rather than
         # a KeyError or a missing field.
         logger.warning("roc_auc/pr_auc unavailable: %s", e)
-        metrics.setdefault("roc_auc", None)
-        metrics.setdefault("pr_auc", None)
+        metrics["roc_auc"] = None
+        metrics["pr_auc"] = None
 
     return metrics
