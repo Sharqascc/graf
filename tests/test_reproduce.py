@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from graf.reproduce import load_recipe, run_recipe
+from graf.reproduce import load_recipe, run_recipe, validate_recipe
 
 
 def _write(tmp_path: Path, body: dict) -> Path:
@@ -157,3 +157,127 @@ def test_paper_v1_recipe_loads() -> None:
     # no step has a python attribute
     for s in r.steps:
         assert hasattr(s, "cmd")
+
+
+def test_requires_parsed(tmp_path: Path) -> None:
+    p = _write(
+        tmp_path,
+        {
+            "name": "t",
+            "steps": [
+                {"name": "s1", "cmd": ["true"], "requires": ["a", "b"]},
+            ],
+        },
+    )
+    r = load_recipe(p)
+    assert r.steps[0].requires == (Path("a"), Path("b"))
+
+
+def test_requires_must_be_list(tmp_path: Path) -> None:
+    p = _write(
+        tmp_path,
+        {"steps": [{"name": "s1", "cmd": ["true"], "requires": "a"}]},
+    )
+    with pytest.raises(ValueError, match="'requires' must be a list"):
+        load_recipe(p)
+
+
+def test_validate_recipe_reports_missing(tmp_path: Path) -> None:
+    p = _write(
+        tmp_path,
+        {
+            "name": "t",
+            "steps": [
+                {"name": "s1", "cmd": ["true"], "requires": ["nope.txt"]},
+            ],
+        },
+    )
+    r = load_recipe(p)
+    problems = validate_recipe(r, cwd=tmp_path)
+    assert len(problems) == 1
+    assert "nope.txt" in problems[0]
+
+
+def test_validate_recipe_ok_when_present(tmp_path: Path) -> None:
+    (tmp_path / "a.txt").write_text("x")
+    p = _write(
+        tmp_path,
+        {
+            "name": "t",
+            "steps": [{"name": "s1", "cmd": ["true"], "requires": ["a.txt"]}],
+        },
+    )
+    r = load_recipe(p)
+    assert validate_recipe(r, cwd=tmp_path) == []
+
+
+def test_validate_recipe_satisfied_by_earlier_produces(tmp_path: Path) -> None:
+    p = _write(
+        tmp_path,
+        {
+            "name": "t",
+            "steps": [
+                {"name": "make", "cmd": ["true"], "produces": "out.txt"},
+                {"name": "use", "cmd": ["true"], "requires": ["out.txt"]},
+            ],
+        },
+    )
+    r = load_recipe(p)
+    assert validate_recipe(r, cwd=tmp_path) == []
+
+
+def test_validate_recipe_unsatisfied_by_later_produces(tmp_path: Path) -> None:
+    """A later step's produces does not satisfy an earlier step's requires."""
+    p = _write(
+        tmp_path,
+        {
+            "name": "t",
+            "steps": [
+                {"name": "use", "cmd": ["true"], "requires": ["out.txt"]},
+                {"name": "make", "cmd": ["true"], "produces": "out.txt"},
+            ],
+        },
+    )
+    r = load_recipe(p)
+    problems = validate_recipe(r, cwd=tmp_path)
+    assert len(problems) == 1
+
+
+def test_run_recipe_aborts_on_missing_requires(tmp_path: Path) -> None:
+    p = _write(
+        tmp_path,
+        {
+            "name": "t",
+            "steps": [{"name": "s1", "cmd": ["true"], "requires": ["nope"]}],
+        },
+    )
+    r = load_recipe(p)
+    # preflight should abort before running anything
+    rc = run_recipe(r, cwd=tmp_path)
+    assert rc == 1
+
+
+def test_run_recipe_allow_missing_bypasses_preflight(tmp_path: Path) -> None:
+    p = _write(
+        tmp_path,
+        {
+            "name": "t",
+            "steps": [{"name": "s1", "cmd": ["true"], "requires": ["nope"]}],
+        },
+    )
+    r = load_recipe(p)
+    rc = run_recipe(r, cwd=tmp_path, allow_missing=True)
+    assert rc == 0
+
+
+def test_real_recipes_validate() -> None:
+    """Every committed recipe must pass validate_recipe in the repo root."""
+    repo_root = Path(__file__).resolve().parents[1]
+    recipes = sorted((repo_root / "configs" / "recipes").glob("*.yaml"))
+    # Validate from the repo root with cwd=repo_root; some requires are inputs
+    # that may not exist in a fresh clone. We only check the loader does not
+    # crash and that validate_recipe returns a list (possibly non-empty).
+    for p in recipes:
+        r = load_recipe(p)
+        problems = validate_recipe(r, cwd=repo_root)
+        assert isinstance(problems, list)

@@ -186,11 +186,14 @@ def test_main_dispatch_reproduce(monkeypatch):
     fake_return = 11
     captured = {}
 
-    def fake_run_reproduce(recipe_path, dry_run=False, only=None, from_step=None):
+    def fake_run_reproduce(
+        recipe_path, dry_run=False, only=None, from_step=None, allow_missing=False
+    ):
         captured["recipe_path"] = recipe_path
         captured["dry_run"] = dry_run
         captured["only"] = only
         captured["from_step"] = from_step
+        captured["allow_missing"] = allow_missing
         return fake_return
 
     monkeypatch.setattr("graf.cli.run_reproduce", fake_run_reproduce)
@@ -200,6 +203,7 @@ def test_main_dispatch_reproduce(monkeypatch):
     assert captured["recipe_path"] == "r.yaml"
     assert captured["dry_run"] is True
     assert captured["only"] == "s1"
+    assert captured["allow_missing"] is False
 
 
 def test_main_dispatch_doctor(monkeypatch):
@@ -527,3 +531,40 @@ def test_main_dispatch_audit(monkeypatch, tmp_path):
 
     exit_code = main(["audit", str(tmp_path / "c.json")])
     assert exit_code == fake_return
+
+
+def test_main_dispatch_recipes(monkeypatch):
+    fake_return = 12
+
+    def fake_run_recipes():
+        return fake_return
+
+    monkeypatch.setattr("graf.cli.run_recipes", fake_run_recipes)
+    assert main(["recipes"]) == fake_return
+
+
+def test_main_dispatch_validate(monkeypatch):
+    fake_return = 13
+    captured = {}
+
+    def fake_run_validate(recipe_path):
+        captured["recipe_path"] = recipe_path
+        return fake_return
+
+    monkeypatch.setattr("graf.cli.run_validate", fake_run_validate)
+    assert main(["validate", "r.yaml"]) == fake_return
+    assert captured["recipe_path"] == "r.yaml"
+
+
+def test_main_dispatch_reproduce_allow_missing(monkeypatch):
+    captured = {}
+
+    def fake_run_reproduce(
+        recipe_path, dry_run=False, only=None, from_step=None, allow_missing=False
+    ):
+        captured["allow_missing"] = allow_missing
+        return 0
+
+    monkeypatch.setattr("graf.cli.run_reproduce", fake_run_reproduce)
+    assert main(["reproduce", "r.yaml", "--allow-missing"]) == 0
+    assert captured["allow_missing"] is True
