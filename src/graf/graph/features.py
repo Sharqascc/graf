@@ -6,8 +6,9 @@ import torch
 from torch_geometric.data import Data
 from torch_geometric.utils import subgraph
 
-from .edges import EDGE_FEATURE_ORDER
 from graf.utils.logger import get_logger
+
+from .edges import EDGE_FEATURE_ORDER
 
 logger = get_logger(__name__)
 

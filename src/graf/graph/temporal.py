@@ -4,6 +4,7 @@ from collections.abc import Iterable
 
 import torch
 from torch_geometric.data import Data
+
 from graf.utils.logger import get_logger
 
 logger = get_logger(__name__)
