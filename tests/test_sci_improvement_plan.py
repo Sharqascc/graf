@@ -88,3 +88,23 @@ def test_plan_states_phase_1_thresholds():
     assert "2 metres" in text or "2 m" in text, (
         "Phase 1 must state the displacement threshold"
     )
+
+
+def test_addendum_records_phase_1_2_result():
+    """Addendum 1 must exist and cite both the baseline and the new run."""
+    text = _PLAN.read_text()
+    assert "Addendum 1" in text, "addendum 1 missing from plan"
+    assert "38557140055" in text, "Phase 1+2 run id not cited"
+    assert "38048010561" in text, "baseline run id not cited"
+
+
+def test_addendum_confirms_phase_3_per_decision_rule():
+    """The addendum must confirm Phase 3, not re-tune the gates."""
+    text = _PLAN.read_text()
+    marker = "## Addendum 1"
+    section = text.split(marker, 1)[1]
+    section = section.split("## Cross-reference", 1)[0]
+    assert "Phase 3" in section, "addendum does not name the next phase"
+    assert "65.9%" in section, "addendum does not cite the decision metric"
+    # must explicitly disclaim re-tuning
+    assert "not a re-tune" in section or "not a retune" in section
