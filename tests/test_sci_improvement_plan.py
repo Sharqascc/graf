@@ -89,6 +89,7 @@ def test_plan_states_phase_1_thresholds():
         "Phase 1 must state the displacement threshold"
     )
 
+
 def test_addendum_records_phase_1_2_result():
     """Addendum 1 must exist and cite both the baseline and the new run."""
     text = _PLAN.read_text()
@@ -107,4 +108,3 @@ def test_addendum_confirms_phase_3_per_decision_rule():
     assert "65.9%" in section, "addendum does not cite the decision metric"
     # must explicitly disclaim re-tuning
     assert "not a re-tune" in section or "not a retune" in section
-
