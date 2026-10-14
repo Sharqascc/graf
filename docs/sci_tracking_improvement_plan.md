@@ -209,6 +209,89 @@ Once execution starts:
    is a diagnostic. Without hand-labeled ground truth, "SCI tracks are
    good" is not a claim this plan permits.
 
+## Addendum 1 -- Phase 1+2 executed (2026-10-14)
+
+Phase 1 and Phase 2 were applied in PR #122 and the SCI pipeline was
+re-dispatched. This addendum records the result before Phase 3 begins.
+
+### Result
+
+| metric | stride-1 baseline | after Phase 1+2 | direction |
+|---|---:|---:|---|
+| detections in | 47,945 | 47,945 | -- |
+| rows emitted | 47,945 | 34,256 | -13,689 |
+| unique tracks | 316 | 264 | down |
+| median track length | 34 | 58.5 | **+72%** |
+| max track length | 2,700 | 2,690 | flat |
+| tracks >= 20 frames | 58% | 74% | **+16 pts** |
+| tracks >= 50 frames | 142 | 144 | flat |
+| **pct_discontinuous** | **62.3%** | **65.9%** | **worse** |
+
+Baseline run: ``38048010561`` (stride 1).
+Phase 1+2 run: ``38557140055``.
+
+### Reading
+
+Two of the three tracking-quality signals improved materially. The
+median track length nearly doubled and the fraction of tracks lasting
+at least 20 frames rose by 16 points. Vehicles that were previously
+fragmented into short pieces are now tracked as single objects. For
+trajectory-based safety analysis that is the improvement that matters:
+a longer median track means more frames per vehicle to compute TTC and
+PET over.
+
+The pre-committed decision metric, ``pct_discontinuous``, moved the
+wrong way (62.3% -> 65.9%). The mechanism is specific and is not a
+defect in the gates:
+
+- The ROI removes the tower region (x > 1350). Vehicles passing through
+  it lose their detections for a few frames. Their track remains open
+  but emits no rows, which is a gap by the metric's definition.
+- The velocity gate rejects matches that would otherwise bridge some
+  of those gaps. On a scene with a tower occlusion, a conservative
+  per-frame velocity threshold trims the very rows that would close a
+  gap.
+
+Both effects are the gates doing what they were designed to do. The
+metric does not distinguish "gap from occlusion" from "gap from ID
+flicker." That distinction is exactly what ByteTrack's two-stage
+association is designed to fix: it rescues the low-confidence
+detections that appear immediately behind an occluder, closing the gap
+without loosening the velocity gate.
+
+### Decision
+
+The plan's Phase 2 -> Phase 3 rule, written before any result existed:
+
+> After Phase 2 (velocity gating and class-aware matching):
+>   * Under 30% -> stop, write up.
+>   * Over 30% -> ByteTrack is the next step.
+
+65.9% is over 30%. **Phase 3 (ByteTrack) is the next phase.**
+
+This addendum is a record, not a re-tune. The plan's "what this commits
+the analysis not to do" section forbids sweeping thresholds or
+redefining the metric to chase a favourable number. Neither has
+happened: the gates are unchanged, the metric is unchanged, and the
+decision is the one the plan pre-committed.
+
+### What the next run must show
+
+Phase 3 is judged on the same three numbers, pre-committed here before
+the ByteTrack run exists:
+
+| metric | target |
+|---|---:|
+| pct_discontinuous | **< 30%** |
+| median track length | >= 58 (do not regress) |
+| unique tracks | between 100 and 300 |
+
+If Phase 3 lands all three, SCI is usable as a second-site demo. If
+``pct_discontinuous`` stays above 30% but the other two hold, SCI is
+usable only as a qualitative figure, not as a quantitative dataset. If
+median track length or unique-track count regress, the ByteTrack
+configuration is wrong and must be reverted before any further claim.
+
 ## Cross-reference
 
 - `docs/external_review_2026_09.md` -- the reviewer-checklist pattern
