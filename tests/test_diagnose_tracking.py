@@ -81,13 +81,21 @@ def test_diagnose_moving_track():
 
 
 def test_diagnose_jumping_track():
-    # Alternates between two far-apart positions; net stays small,
-    # path is large.
+    """Oscillates between two far-apart positions around a fixed point.
+
+    The frame count is odd on purpose so the first and last centers
+    coincide: net displacement is zero, path length is large. With an
+    even count the first and last centers differ by one oscillation
+    amplitude, which the classifier correctly reports as 'moving' --
+    that is the separate test above, and conflating the two would
+    hide the distinction this test exists to check.
+    """
     rows = []
-    for i in range(50):
+    for i in range(51):
         cx = 100.0 if i % 2 == 0 else 200.0
         rows.append(_row(i, cx=cx, cy=100.0))
     d = dt.diagnose_track(1, rows)
+    assert d.net_displacement_px == 0.0
     assert d.classification == "stationary_jumping"
     assert d.jitter_ratio > 3.0
 
