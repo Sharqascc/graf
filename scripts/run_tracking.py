@@ -25,6 +25,15 @@ Config keys honoured
     use_motion_prediction      bool; enable velocity-compensated IoU
     velocity_smoothing         EMA alpha in (0, 1]; 1.0 = latest velocity
     max_prediction_offset_px   per-axis cap on the predicted shift
+    max_centroid_distance_px   centroid fallback distance (px)
+    roi                        polygon over the active roadway;
+                               detections outside are dropped
+    max_velocity_px_per_frame  velocity gate: reject matches whose
+                               per-frame displacement exceeds this
+    max_scale_ratio            scale gate: reject matches whose bbox
+                               area ratio exceeds this
+    min_track_displacement_px  displacement filter: drop tracks whose
+                               net centroid movement is below this
 
 CLI flags override config values.
 """
@@ -104,6 +113,112 @@ def association_score(
     return max(iou_score, centroid_score), iou_score
 
 
+def _load_roi(cfg: dict) -> list[tuple[float, float]] | None:
+    """Read an optional ROI polygon from a config dict.
+
+    The config key ``roi`` is a list of [x, y] points forming a closed
+    polygon in pixel coordinates. Returns None if absent or empty.
+    """
+    raw = cfg.get("roi")
+    if not raw:
+        return None
+    polygon: list[tuple[float, float]] = []
+    for point in raw:
+        if not isinstance(point, (list, tuple)) or len(point) != 2:
+            raise ValueError(f"ROI point must be [x, y], got {point!r}")
+        polygon.append((float(point[0]), float(point[1])))
+    if len(polygon) < 3:
+        raise ValueError(f"ROI polygon needs >=3 points, got {len(polygon)}")
+    return polygon
+
+
+def _point_in_polygon(x: float, y: float, polygon: list[tuple[float, float]]) -> bool:
+    """Ray-casting point-in-polygon test."""
+    inside = False
+    n = len(polygon)
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon[i]
+        xj, yj = polygon[j]
+        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+def _detection_in_roi(det: dict, polygon: list[tuple[float, float]]) -> bool:
+    """True if the detection's bbox bottom-center is inside the polygon.
+
+    Bottom-center is the ground-contact point used elsewhere in the
+    pipeline (see ``prepare_vntraffic.py``).
+    """
+    x1, _y1, x2, y2 = det["bbox_xyxy"]
+    cx = (x1 + x2) / 2.0
+    return _point_in_polygon(cx, y2, polygon)
+
+
+def _velocity_gate_ok(
+    prev_bbox: BBox,
+    det_bbox: BBox,
+    dt_frames: int,
+    max_px_per_frame: float,
+) -> bool:
+    """Reject matches whose per-frame centroid displacement is too large.
+
+    Uses the last *real* bbox, not the motion-predicted probe, so the
+    gate measures physical motion, not the prediction's optimism.
+    Returns True if the match is physically plausible.
+    """
+    if max_px_per_frame <= 0:
+        return True
+    dt = max(1, int(dt_frames))
+    return centroid_distance(prev_bbox, det_bbox) <= max_px_per_frame * dt
+
+
+def _scale_gate_ok(prev_bbox: BBox, det_bbox: BBox, max_ratio: float) -> bool:
+    """Reject matches whose bbox area ratio exceeds max_ratio.
+
+    Both directions are checked. Prevents a small parked vehicle from
+    absorbing a large moving one of the same class.
+    """
+    if max_ratio <= 1.0:
+        return True
+    a_prev = box_area(prev_bbox)
+    a_det = box_area(det_bbox)
+    if a_prev <= 0.0 or a_det <= 0.0:
+        return True
+    ratio = max(a_prev / a_det, a_det / a_prev)
+    return ratio <= max_ratio
+
+
+def _apply_displacement_filter(
+    tracks: list[dict],
+    min_displacement_px: float,
+) -> list[dict]:
+    """Drop tracks whose net centroid movement is below the threshold.
+
+    Net displacement is first-frame to last-frame centroid distance,
+    not summed path length. A phantom track oscillating around a fixed
+    point has small net displacement even when its path is long; this
+    filter removes that exact shape.
+    """
+    if min_displacement_px <= 0:
+        return tracks
+    by_track: dict[int, list[dict]] = defaultdict(list)
+    for r in tracks:
+        by_track[int(r["track_id"])].append(r)
+
+    keep_ids: set[int] = set()
+    for tid, rows in by_track.items():
+        rows_sorted = sorted(rows, key=lambda r: int(r["frame_idx"]))
+        first_c = bbox_center(tuple(rows_sorted[0]["bbox_xyxy"]))
+        last_c = bbox_center(tuple(rows_sorted[-1]["bbox_xyxy"]))
+        net = math.hypot(last_c[0] - first_c[0], last_c[1] - first_c[1])
+        if net >= min_displacement_px:
+            keep_ids.add(tid)
+    return [r for r in tracks if int(r["track_id"]) in keep_ids]
+
+
 def load_config(path: str | Path) -> dict:
     path = Path(path)
     if not path.exists():
@@ -149,6 +264,24 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--velocity_smoothing", type=float, default=None)
     p.add_argument("--max_prediction_offset_px", type=float, default=None)
     p.add_argument("--max_centroid_distance_px", type=float, default=None)
+    p.add_argument(
+        "--max_velocity_px_per_frame",
+        type=float,
+        default=None,
+        help="Velocity gate: reject matches with larger per-frame motion",
+    )
+    p.add_argument(
+        "--max_scale_ratio",
+        type=float,
+        default=None,
+        help="Scale gate: reject matches with larger bbox-area ratio",
+    )
+    p.add_argument(
+        "--min_track_displacement_px",
+        type=float,
+        default=None,
+        help="Displacement filter: drop tracks with less net movement",
+    )
     return p.parse_args(argv)
 
 
@@ -212,6 +345,10 @@ def track(
     velocity_smoothing: float = 0.5,
     max_prediction_offset_px: float = 300.0,
     max_centroid_distance_px: float = 200.0,
+    roi: list[tuple[float, float]] | None = None,
+    max_velocity_px_per_frame: float = 0.0,
+    max_scale_ratio: float = 0.0,
+    min_track_displacement_px: float = 0.0,
 ) -> list[dict]:
     """Run motion-aware greedy IoU tracking; return per-frame track rows."""
     if not 0.0 < velocity_smoothing <= 1.0:
@@ -226,12 +363,23 @@ def track(
         raise ValueError(
             f"max_centroid_distance_px must be >= 0, got {max_centroid_distance_px}"
         )
+    if max_velocity_px_per_frame < 0:
+        raise ValueError(
+            f"max_velocity_px_per_frame must be >= 0, got {max_velocity_px_per_frame}"
+        )
+    if max_scale_ratio < 0:
+        raise ValueError(f"max_scale_ratio must be >= 0, got {max_scale_ratio}")
+    if min_track_displacement_px < 0:
+        raise ValueError(
+            f"min_track_displacement_px must be >= 0, got {min_track_displacement_px}"
+        )
 
     detections = [
         d
         for d in detections
         if d.get("confidence", 1.0) >= track_thresh
         and box_area(d["bbox_xyxy"]) >= min_box_area
+        and (roi is None or _detection_in_roi(d, roi))
     ]
 
     by_frame: dict[int, list[dict]] = defaultdict(list)
@@ -260,6 +408,18 @@ def track(
             for i in unmatched:
                 det = dets[i]
                 if det["class_name"] != state["class_name"]:
+                    continue
+                dt_frames = int(frame_idx) - int(state["last_matched_frame"])
+                if not _velocity_gate_ok(
+                    state["bbox_xyxy"],
+                    det["bbox_xyxy"],
+                    dt_frames,
+                    max_velocity_px_per_frame,
+                ):
+                    continue
+                if not _scale_gate_ok(
+                    state["bbox_xyxy"], det["bbox_xyxy"], max_scale_ratio
+                ):
                     continue
                 score, _ = association_score(
                     probe_bbox, det["bbox_xyxy"], max_centroid_distance_px
@@ -318,7 +478,7 @@ def track(
         for tid in stale:
             del active_tracks[tid]
 
-    return tracks
+    return _apply_displacement_filter(tracks, min_track_displacement_px)
 
 
 def main(argv=None) -> int:
@@ -360,6 +520,20 @@ def main(argv=None) -> int:
     if not use_motion_prediction and args.max_centroid_distance_px is None:
         max_centroid_distance_px = 0.0
 
+    roi = _load_roi(cfg)
+    max_velocity_px_per_frame = float(
+        resolve(cfg, "max_velocity_px_per_frame", args.max_velocity_px_per_frame, 0.0)
+    )
+    max_scale_ratio = float(resolve(cfg, "max_scale_ratio", args.max_scale_ratio, 0.0))
+    min_track_displacement_px = float(
+        resolve(
+            cfg,
+            "min_track_displacement_px",
+            args.min_track_displacement_px,
+            0.0,
+        )
+    )
+
     with Path(args.detections).open() as f:
         detections = [json.loads(line) for line in f if line.strip()]
 
@@ -373,6 +547,10 @@ def main(argv=None) -> int:
         velocity_smoothing=velocity_smoothing,
         max_prediction_offset_px=max_prediction_offset_px,
         max_centroid_distance_px=max_centroid_distance_px,
+        roi=roi,
+        max_velocity_px_per_frame=max_velocity_px_per_frame,
+        max_scale_ratio=max_scale_ratio,
+        min_track_displacement_px=min_track_displacement_px,
     )
 
     out_path = Path(args.output_dir) / "tracks.jsonl"

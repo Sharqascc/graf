@@ -1,0 +1,43 @@
+# Tracking config for the SCI intersection.
+#
+# The scene has three artifacts the default config handles poorly:
+#   1. A tower on the right of frame that occludes passing vehicles.
+#   2. A parked two-wheeler row along the bottom-right that never moves.
+#   3. A dense cluster of visually identical auto-rickshaws whose motion
+#      is slow and similar; the greedy IoU matcher shuffles identity.
+#
+# Phase 0 (docs/sci_tracking_improvement_plan.md) found a single
+# 2,700-frame phantom track with 2.8 px net movement and 314 px path
+# length. That is the signature of case (3). The gates below address
+# each case.
+
+track_thresh: 0.5
+iou_threshold: 0.3
+track_buffer: 10          # was 30; a long buffer lets a lost track
+                          # re-match to a different rickshaw
+min_box_area: 10.0
+use_motion_prediction: true
+velocity_smoothing: 0.5
+max_prediction_offset_px: 300.0
+max_centroid_distance_px: 200.0
+
+# Phase 1 -- restrict detections to the active roadway.
+# Polygon in pixel coordinates, 1600x720 frame. Excludes the tower
+# (right of x=1350) and the parked row (below y=560, right of x=900).
+roi:
+  - [50, 150]
+  - [1350, 150]
+  - [1350, 560]
+  - [900, 560]
+  - [900, 720]
+  - [50, 720]
+
+# Phase 2 -- physically plausible matches only.
+# Velocity gate: at 30 fps and 100 px/m, 60 px/frame is ~65 km/h.
+max_velocity_px_per_frame: 60.0
+# Scale gate: reject same-class matches whose bbox area differs >2x.
+max_scale_ratio: 2.0
+
+# Phase 1 -- drop tracks whose net centroid movement is under 20 px.
+# At 100 px/m that is 0.2 m; anything smaller is stationary.
+min_track_displacement_px: 20.0
