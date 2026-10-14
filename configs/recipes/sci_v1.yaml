@@ -53,10 +53,8 @@ steps:
       - data/interim/detections/sci/detections.jsonl
       - --output_dir
       - data/interim/tracks/sci
-      - --iou_threshold
-      - "0.3"
-      - --track_buffer
-      - "30"
+      - --config
+      - configs/tracking/sci.yaml
     produces: data/interim/tracks/sci/tracks.jsonl
 
   - name: quality-summary
