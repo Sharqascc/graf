@@ -1,0 +1,84 @@
+name: Diagnose SCI tracking
+
+on:
+  workflow_dispatch:
+    inputs:
+      sci_run_id:
+        description: >-
+          SCI pipeline run id whose artifact to diagnose.
+          Default is the stride-1 run from 2026-10-10.
+        required: false
+        default: "38048010561"
+
+concurrency:
+  group: diagnose-sci-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  diagnose:
+    name: Diagnose SCI tracks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install minimal dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas scipy
+
+      - name: Download SCI tracks artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sci-tracks-${{ inputs.sci_run_id }}
+          run-id: ${{ inputs.sci_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: sci-artifacts
+
+      - name: Locate tracks.jsonl
+        id: locate
+        run: |
+          set -euo pipefail
+          echo "artifacts tree:"
+          find sci-artifacts -type f | sort
+          TRACKS=$(find sci-artifacts -name tracks.jsonl -type f | head -n1)
+          if [ -z "$TRACKS" ]; then
+            echo "::error::no tracks.jsonl in artifact"
+            exit 1
+          fi
+          echo "tracks=$TRACKS" >> "$GITHUB_OUTPUT"
+          echo "found: $TRACKS"
+
+      - name: Run diagnose_tracking.py
+        run: |
+          python scripts/diagnose_tracking.py \
+            --tracks "${{ steps.locate.outputs.tracks }}" \
+            --output_dir outputs/phase0
+
+      - name: Show diagnosis.json
+        if: always()
+        run: |
+          if [ -f outputs/phase0/diagnosis.json ]; then
+            cat outputs/phase0/diagnosis.json
+          else
+            echo "(no diagnosis.json produced)"
+          fi
+
+      - name: Upload diagnosis artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sci-diagnosis-${{ inputs.sci_run_id }}
+          path: outputs/phase0/diagnosis.json
+          if-no-files-found: warn
+          retention-days: 90
