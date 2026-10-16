@@ -568,3 +568,326 @@ def test_main_dispatch_reproduce_allow_missing(monkeypatch):
     monkeypatch.setattr("graf.cli.run_reproduce", fake_run_reproduce)
     assert main(["reproduce", "r.yaml", "--allow-missing"]) == 0
     assert captured["allow_missing"] is True
+
+
+# ------------------------------------------------------------------
+# Coverage additions for cli.py (targeting uncovered lines)
+# ------------------------------------------------------------------
+
+
+def test_build_parser_handles_missing_package_metadata(monkeypatch):
+    """--version falls back to 'unknown' when graf is not installed."""
+    from importlib.metadata import PackageNotFoundError
+
+    import graf.cli as cli_mod
+
+    def fake_version(name):
+        raise PackageNotFoundError(name)
+
+    monkeypatch.setattr("graf.cli.version", fake_version)
+    parser = cli_mod.build_parser()
+    assert parser is not None
+
+
+def test_run_doctor_default_root(monkeypatch):
+    """run_doctor(None) uses the repo root and calls run_doctor_checks."""
+    import graf.cli as cli_mod
+
+    captured = {}
+
+    def fake_checks(root):
+        captured["root"] = root
+        return 0
+
+    monkeypatch.setattr("graf.cli.run_doctor_checks", fake_checks)
+    rc = cli_mod.run_doctor(None)
+    assert rc == 0
+    assert captured["root"] == cli_mod._repo_root()
+
+
+def test_run_doctor_explicit_root(monkeypatch, tmp_path):
+    import graf.cli as cli_mod
+
+    captured = {}
+
+    def fake_checks(root):
+        captured["root"] = root
+        return 0
+
+    monkeypatch.setattr("graf.cli.run_doctor_checks", fake_checks)
+    rc = cli_mod.run_doctor(str(tmp_path))
+    assert rc == 0
+    assert captured["root"] == tmp_path.resolve()
+
+
+def test_run_doctor_exception(monkeypatch, tmp_path):
+    import graf.cli as cli_mod
+
+    def fake_checks(root):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("graf.cli.run_doctor_checks", fake_checks)
+    rc = cli_mod.run_doctor(str(tmp_path))
+    assert rc == 1
+
+
+def test_run_fetch_detector_missing_script(monkeypatch, tmp_path):
+    import graf.cli as cli_mod
+
+    monkeypatch.setattr(cli_mod, "_repo_root", lambda: tmp_path)
+    rc = cli_mod.run_fetch_detector("YOLOv11-S", "/tmp/models")
+    assert rc == 1
+
+
+def test_run_fetch_detector_success(monkeypatch, tmp_path):
+    import graf.cli as cli_mod
+
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "fetch_detector.py").write_text("# placeholder")
+    monkeypatch.setattr(cli_mod, "_repo_root", lambda: tmp_path)
+
+    captured = {}
+
+    class _R:
+        returncode = 0
+
+    def fake_run(cmd, *args, **kwargs):
+        captured["cmd"] = cmd
+        return _R()
+
+    monkeypatch.setattr("graf.cli.subprocess.run", fake_run)
+    rc = cli_mod.run_fetch_detector("YOLOv11-S", "/tmp/models")
+    assert rc == 0
+    joined = " ".join(captured["cmd"])
+    assert "fetch_detector.py" in joined
+    assert "YOLOv11-S" in captured["cmd"]
+    assert "/tmp/models" in captured["cmd"]
+
+
+def test_run_fetch_detector_subprocess_exception(monkeypatch, tmp_path):
+    import graf.cli as cli_mod
+
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "fetch_detector.py").write_text("# placeholder")
+    monkeypatch.setattr(cli_mod, "_repo_root", lambda: tmp_path)
+
+    def fake_run(cmd, *args, **kwargs):
+        raise OSError("nope")
+
+    monkeypatch.setattr("graf.cli.subprocess.run", fake_run)
+    rc = cli_mod.run_fetch_detector("YOLOv11-S", "/tmp/models")
+    assert rc == 1
+
+
+def test_run_detect_video_missing_script(monkeypatch, tmp_path):
+    import graf.cli as cli_mod
+
+    monkeypatch.setattr(cli_mod, "_repo_root", lambda: tmp_path)
+    rc = cli_mod.run_detect_video("/tmp/f", "/tmp/m.pt", "/tmp/o", 3, 0.4, 640)
+    assert rc == 1
+
+
+def test_run_detect_video_success(monkeypatch, tmp_path):
+    import graf.cli as cli_mod
+
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "detect_video.py").write_text("# placeholder")
+    monkeypatch.setattr(cli_mod, "_repo_root", lambda: tmp_path)
+
+    captured = {}
+
+    class _R:
+        returncode = 0
+
+    def fake_run(cmd, *args, **kwargs):
+        captured["cmd"] = cmd
+        return _R()
+
+    monkeypatch.setattr("graf.cli.subprocess.run", fake_run)
+    rc = cli_mod.run_detect_video("/tmp/f", "/tmp/m.pt", "/tmp/o", 3, 0.4, 960)
+    assert rc == 0
+    j = " ".join(captured["cmd"])
+    for token in [
+        "detect_video.py",
+        "--frames_dir",
+        "/tmp/f",
+        "--model",
+        "/tmp/m.pt",
+        "--output_dir",
+        "/tmp/o",
+        "--samples",
+        "3",
+        "--conf",
+        "0.4",
+        "--imgsz",
+        "960",
+    ]:
+        assert token in captured["cmd"] or token in j
+
+
+def test_run_detect_video_subprocess_exception(monkeypatch, tmp_path):
+    import graf.cli as cli_mod
+
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "detect_video.py").write_text("# placeholder")
+    monkeypatch.setattr(cli_mod, "_repo_root", lambda: tmp_path)
+
+    def fake_run(cmd, *args, **kwargs):
+        raise OSError("nope")
+
+    monkeypatch.setattr("graf.cli.subprocess.run", fake_run)
+    rc = cli_mod.run_detect_video("/tmp/f", "/tmp/m.pt", "/tmp/o", 3, 0.4, 640)
+    assert rc == 1
+
+
+def test_run_compare_subprocess_exception(monkeypatch, tmp_path):
+    import graf.cli as cli_mod
+
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "compare_baselines.py").write_text("# placeholder")
+    monkeypatch.setattr(cli_mod, "_repo_root", lambda: tmp_path)
+
+    def fake_run(cmd, *args, **kwargs):
+        raise OSError("nope")
+
+    monkeypatch.setattr("graf.cli.subprocess.run", fake_run)
+    rc = cli_mod.run_compare(
+        tracks="/tmp/t.jsonl",
+        graphs_dir="/tmp/g",
+        homography_config="/tmp/h.yaml",
+        output_dir="/tmp/o",
+        models="rf",
+        num_folds=5,
+        split="blocked",
+        label_source="ttc",
+        label_strategy="sustained",
+        run_length=5,
+        ttc_threshold_seconds=1.5,
+        ttc_distance_threshold=3.0,
+        calibrate_threshold=False,
+        calibration_objective="accuracy",
+        exclude_features="",
+        single_feature_name="edge_attr_nonzero_frac",
+        bootstrap_resamples=100,
+    )
+    assert rc == 1
+
+
+def test_run_audit_import_error(monkeypatch):
+    """When graf.audit cannot be imported, run_audit returns 1."""
+    import sys as _sys
+
+    import graf.cli as cli_mod
+
+    monkeypatch.setitem(_sys.modules, "graf.audit", None)
+    rc = cli_mod.run_audit("/tmp/whatever.json")
+    assert rc == 1
+
+
+def test_run_reproduce_file_not_found(tmp_path):
+    import graf.cli as cli_mod
+
+    rc = cli_mod.run_reproduce(str(tmp_path / "missing.yaml"))
+    assert rc == 1
+
+
+def test_run_recipes_no_dir(monkeypatch, tmp_path):
+    import graf.cli as cli_mod
+
+    monkeypatch.setattr(cli_mod, "_repo_root", lambda: tmp_path)
+    rc = cli_mod.run_recipes()
+    assert rc == 1  # no configs/recipes/ directory
+
+
+def test_run_recipes_empty_dir(monkeypatch, tmp_path, capsys):
+    import graf.cli as cli_mod
+
+    (tmp_path / "configs" / "recipes").mkdir(parents=True)
+    monkeypatch.setattr(cli_mod, "_repo_root", lambda: tmp_path)
+    rc = cli_mod.run_recipes()
+    assert rc == 0
+    assert "no recipes" in capsys.readouterr().out
+
+
+def test_run_recipes_lists_files(monkeypatch, tmp_path, capsys):
+    import graf.cli as cli_mod
+
+    rdir = tmp_path / "configs" / "recipes"
+    rdir.mkdir(parents=True)
+    (rdir / "a.yaml").write_text(
+        "name: a\ndescription: test recipe\nsteps:\n  - name: s1\n    cmd: [echo, hi]\n"
+    )
+    (rdir / "b.yaml").write_text(
+        "name: b\nsteps:\n  - name: s2\n    cmd: [echo, bye]\n"
+    )
+    monkeypatch.setattr(cli_mod, "_repo_root", lambda: tmp_path)
+    rc = cli_mod.run_recipes()
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "a.yaml" in out
+    assert "test recipe" in out
+    assert "b.yaml" in out
+    assert "(no description)" in out
+
+
+def test_run_recipes_unreadable_file(monkeypatch, tmp_path, capsys):
+    import graf.cli as cli_mod
+
+    rdir = tmp_path / "configs" / "recipes"
+    rdir.mkdir(parents=True)
+    # no steps key -> load_recipe raises
+    (rdir / "bad.yaml").write_text("name: bad\n")
+    monkeypatch.setattr(cli_mod, "_repo_root", lambda: tmp_path)
+    rc = cli_mod.run_recipes()
+    assert rc == 0  # skips and prints "unreadable"
+    assert "unreadable" in capsys.readouterr().out
+
+
+def test_run_validate_ok(tmp_path, capsys):
+    import graf.cli as cli_mod
+
+    r = tmp_path / "r.yaml"
+    r.write_text("name: t\nsteps:\n  - name: s1\n    cmd: [echo, hi]\n")
+    rc = cli_mod.run_validate(str(r))
+    assert rc == 0
+    assert "OK" in capsys.readouterr().out
+
+
+def test_run_validate_missing_inputs(tmp_path, capsys):
+    import graf.cli as cli_mod
+
+    r = tmp_path / "r.yaml"
+    r.write_text(
+        "name: t\nsteps:\n  - name: s1\n    cmd: [echo, hi]\n"
+        "    requires: [missing-file.txt]\n"
+    )
+    rc = cli_mod.run_validate(str(r))
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "problem" in out
+    assert "missing-file.txt" in out
+
+
+def test_run_validate_bad_recipe(tmp_path):
+    import graf.cli as cli_mod
+
+    rc = cli_mod.run_validate(str(tmp_path / "does-not-exist.yaml"))
+    assert rc == 1
+
+
+def test_main_reads_sys_argv_when_none(monkeypatch):
+    """main(None) reads sys.argv[1:]; bare `graf` prints the welcome."""
+    import sys as _sys
+
+    import graf.cli as cli_mod
+
+    monkeypatch.setattr(_sys, "argv", ["graf"])
+    called = {}
+
+    def fake_welcome(parser):
+        called["welcome"] = True
+
+    monkeypatch.setattr(cli_mod, "_print_welcome", fake_welcome)
+    rc = cli_mod.main(None)
+    assert rc == 0
+    assert called.get("welcome")

@@ -281,3 +281,33 @@ def test_real_recipes_validate() -> None:
         r = load_recipe(p)
         problems = validate_recipe(r, cwd=repo_root)
         assert isinstance(problems, list)
+
+
+# ------------------------------------------------------------------
+# Coverage additions for reproduce.py
+# ------------------------------------------------------------------
+
+
+def test_load_recipe_rejects_step_missing_name(tmp_path: Path) -> None:
+    p = tmp_path / "r.yaml"
+    p.write_text("name: t\nsteps:\n  - cmd: [echo]\n")
+    with pytest.raises(ValueError, match="missing 'name'"):
+        load_recipe(p)
+
+
+def test_run_recipe_prints_description_and_produces(tmp_path: Path, capsys) -> None:
+    p = tmp_path / "r.yaml"
+    p.write_text(
+        "name: t\n"
+        "description: a test recipe\n"
+        "steps:\n"
+        "  - name: s1\n"
+        "    cmd: [true]\n"
+        "    produces: output.txt\n"
+    )
+    recipe = load_recipe(p)
+    rc = run_recipe(recipe, dry_run=True)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "a test recipe" in out
+    assert "output.txt" in out
