@@ -48,7 +48,7 @@ def binary_classification_metrics(
         else (2 * precision * recall) / (precision + recall)
     )
 
-    metrics = {
+    metrics: dict[str, float | None] = {
         "accuracy": accuracy,
         "precision": precision,
         "recall": recall,
