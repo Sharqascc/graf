@@ -913,3 +913,24 @@ def test_run_reproduce_invalid_recipe_direct(tmp_path):
     r.write_text("name: t\nsteps: not-a-list\n")
     rc = run_reproduce(str(r))
     assert rc == 1
+
+
+def test_print_welcome_output(capsys):
+    """_print_welcome prints the getting-started guidance.
+
+    The dispatch test monkeypatches _print_welcome, so the function body
+    never runs there. This test calls it directly and asserts on the
+    actual output. That closes the last coverage gap on cli.py.
+    """
+    from graf.cli import _print_welcome, build_parser
+
+    _print_welcome(build_parser())
+    out = capsys.readouterr().out
+    assert "GRAF" in out
+    assert "Get started" in out
+    assert "graf doctor" in out
+    assert "graf recipes" in out
+    assert "graf reproduce" in out
+    assert "Everything else" in out
+    assert "graf --help" in out
+    assert "graf --version" in out
