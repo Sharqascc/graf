@@ -302,7 +302,7 @@ def test_run_recipe_prints_description_and_produces(tmp_path: Path, capsys) -> N
         "description: a test recipe\n"
         "steps:\n"
         "  - name: s1\n"
-        "    cmd: [true]\n"
+        "    cmd: [echo, hi]\n"
         "    produces: output.txt\n"
     )
     recipe = load_recipe(p)

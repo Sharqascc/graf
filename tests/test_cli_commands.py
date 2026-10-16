@@ -891,3 +891,25 @@ def test_main_reads_sys_argv_when_none(monkeypatch):
     rc = cli_mod.main(None)
     assert rc == 0
     assert called.get("welcome")
+
+
+def test_run_reproduce_success_direct(tmp_path):
+    """Call run_reproduce directly with a valid recipe; exercises the
+    success path through to run_recipe (the dispatch test monkeypatches
+    run_reproduce, so the function body never runs there)."""
+    from graf.cli import run_reproduce
+
+    r = tmp_path / "r.yaml"
+    r.write_text('name: t\nsteps:\n  - name: s1\n    cmd: ["echo", "hi"]\n')
+    rc = run_reproduce(str(r), dry_run=True)
+    assert rc == 0
+
+
+def test_run_reproduce_invalid_recipe_direct(tmp_path):
+    """A recipe that exists but is malformed returns 1."""
+    from graf.cli import run_reproduce
+
+    r = tmp_path / "r.yaml"
+    r.write_text("name: t\nsteps: not-a-list\n")
+    rc = run_reproduce(str(r))
+    assert rc == 1
