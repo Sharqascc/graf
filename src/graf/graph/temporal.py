@@ -5,6 +5,10 @@ from collections.abc import Iterable
 import torch
 from torch_geometric.data import Data
 
+from graf.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def _require_attr(data: Data, name: str) -> torch.Tensor:
     value = getattr(data, name, None)
@@ -194,7 +198,11 @@ def build_temporal_window_graph(
     if labels:
         try:
             data.y = labels[-1]
-        except Exception:
-            pass
+        except Exception as e:
+            # PyG Data sometimes rejects attribute assignment on
+            # unusual dtypes. Log the failure rather than silently
+            # dropping the label; a window with no label changes the
+            # class balance downstream.
+            logger.warning("could not attach label to temporal graph: %s", e)
 
     return data

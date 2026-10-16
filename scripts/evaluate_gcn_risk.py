@@ -88,7 +88,7 @@ def main() -> None:
     write_jsonl(out_dir / "predictions.jsonl", rows)
 
     print(f"saved_eval_dir={out_dir}")
-    print({k: round(v, 4) for k, v in metrics.items()})
+    print({k: round(v, 4) if isinstance(v, float) else v for k, v in metrics.items()})
 
 
 if __name__ == "__main__":

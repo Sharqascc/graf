@@ -130,11 +130,15 @@ def build_graphs(rows: list[dict], graphs_dir: Path, video_id: str) -> int:
         try:
             data.video_id = video_id
         except Exception:
+            # PyG Data rejects arbitrary attribute assignment in some
+            # versions. The fixture does not depend on the attribute
+            # being present; skip silently.
             pass
         if not hasattr(data, "frame_id") or data.frame_id is None:
             try:
                 data.frame_id = frame_id
             except Exception:
+                # Same PyG attribute-set behaviour. Fine to skip.
                 pass
         out = graphs_dir / f"graph_f{frame_id:06d}.pt"
         torch.save(data, out)
