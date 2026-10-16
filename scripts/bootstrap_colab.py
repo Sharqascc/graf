@@ -38,6 +38,7 @@ from pathlib import Path
 # Small helpers
 # ----------------------------------------------------------------
 
+
 def _print_header() -> None:
     print("=" * 70)
     print("GRAF Colab bootstrap")
@@ -58,27 +59,40 @@ def _run(cmd: list[str] | str, cwd: Path | str | None = None) -> int:
 
 def _capture(cmd: list[str] | str, cwd: Path | str | None = None) -> str:
     if isinstance(cmd, list):
-        r = subprocess.run(cmd, cwd=str(cwd) if cwd else None,
-                           capture_output=True, text=True)
+        r = subprocess.run(
+            cmd, cwd=str(cwd) if cwd else None, capture_output=True, text=True
+        )
     else:
-        r = subprocess.run(cmd, shell=True, cwd=str(cwd) if cwd else None,
-                           capture_output=True, text=True)
+        r = subprocess.run(
+            cmd,
+            shell=True,
+            cwd=str(cwd) if cwd else None,
+            capture_output=True,
+            text=True,
+        )
     return (r.stdout + r.stderr).strip()
 
 
 def _quiet(cmd: list[str] | str, cwd: Path | str | None = None) -> int:
     if isinstance(cmd, list):
-        r = subprocess.run(cmd, cwd=str(cwd) if cwd else None,
-                           capture_output=True, text=True)
+        r = subprocess.run(
+            cmd, cwd=str(cwd) if cwd else None, capture_output=True, text=True
+        )
     else:
-        r = subprocess.run(cmd, shell=True, cwd=str(cwd) if cwd else None,
-                           capture_output=True, text=True)
+        r = subprocess.run(
+            cmd,
+            shell=True,
+            cwd=str(cwd) if cwd else None,
+            capture_output=True,
+            text=True,
+        )
     return r.returncode
 
 
 # ----------------------------------------------------------------
 # Step 1 — git identity
 # ----------------------------------------------------------------
+
 
 def step_git_identity(repo: Path) -> None:
     _section("git identity")
@@ -87,8 +101,7 @@ def step_git_identity(repo: Path) -> None:
     if email and name:
         print(f"  set: {name} <{email}>")
         return
-    _run(["git", "config", "user.email",
-          "graf-bot@users.noreply.github.com"], cwd=repo)
+    _run(["git", "config", "user.email", "graf-bot@users.noreply.github.com"], cwd=repo)
     _run(["git", "config", "user.name", "graf-bot"], cwd=repo)
     print("  set: graf-bot <graf-bot@users.noreply.github.com>")
 
@@ -96,6 +109,7 @@ def step_git_identity(repo: Path) -> None:
 # ----------------------------------------------------------------
 # Step 2 — Drive mount
 # ----------------------------------------------------------------
+
 
 def step_drive() -> None:
     _section("google drive")
@@ -107,6 +121,7 @@ def step_drive() -> None:
         return
     try:
         from google.colab import drive  # type: ignore[import-not-found]
+
         drive.mount("/content/drive")
         print("  mounted")
     except Exception as e:
@@ -118,12 +133,15 @@ def step_drive() -> None:
 # Step 3 — repo presence
 # ----------------------------------------------------------------
 
+
 def step_repo(repo: Path) -> bool:
     _section("repository")
     if not repo.exists():
         print(f"  cloning into {repo}")
-        r = _quiet(["git", "clone", "https://github.com/Sharqascc/graf.git",
-                    str(repo)], cwd="/content")
+        r = _quiet(
+            ["git", "clone", "https://github.com/Sharqascc/graf.git", str(repo)],
+            cwd="/content",
+        )
         if r != 0:
             print(f"  clone failed (rc={r})")
             return False
@@ -153,10 +171,10 @@ REQUIRED_MODULES = {
     "ruff": "ruff",
 }
 
+
 def step_deps(repo: Path) -> bool:
     _section("dependencies")
-    missing = [mod for mod in REQUIRED_MODULES
-               if find_spec(mod) is None]
+    missing = [mod for mod in REQUIRED_MODULES if find_spec(mod) is None]
     if not missing:
         print("  all present:", ", ".join(REQUIRED_MODULES.values()))
         return True
@@ -166,18 +184,37 @@ def step_deps(repo: Path) -> bool:
     # mypy, etc.). torch and torch-geometric are also installed via
     # the project's gpu extra, but for a CPU-only Colab session we
     # want the CPU wheels, so install them explicitly.
-    rc = _run([sys.executable, "-m", "pip", "install", "--quiet", "-e",
-               f"{repo}[dev]"])
+    rc = _run([sys.executable, "-m", "pip", "install", "--quiet", "-e", f"{repo}[dev]"])
     if rc != 0:
         print("  editable install failed")
         return False
 
     # CPU-only torch, torch-geometric, ultralytics
-    _run([sys.executable, "-m", "pip", "install", "--quiet",
-          "torch", "torchvision", "torchaudio",
-          "--index-url", "https://download.pytorch.org/whl/cpu"])
-    _run([sys.executable, "-m", "pip", "install", "--quiet",
-          "torch-geometric", "ultralytics"])
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--quiet",
+            "torch",
+            "torchvision",
+            "torchaudio",
+            "--index-url",
+            "https://download.pytorch.org/whl/cpu",
+        ]
+    )
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--quiet",
+            "torch-geometric",
+            "ultralytics",
+        ]
+    )
 
     still = [mod for mod in REQUIRED_MODULES if find_spec(mod) is None]
     if still:
@@ -191,6 +228,7 @@ def step_deps(repo: Path) -> bool:
 # Step 5 — GH_TOKEN
 # ----------------------------------------------------------------
 
+
 def step_token() -> bool:
     _section("GH_TOKEN")
     # 1. environment variable
@@ -201,6 +239,7 @@ def step_token() -> bool:
     if find_spec("google.colab") is not None:
         try:
             from google.colab import userdata  # type: ignore[import-not-found]
+
             tok = userdata.get("GH_TOKEN")
             if tok:
                 os.environ["GH_TOKEN"] = tok
@@ -217,6 +256,7 @@ def step_token() -> bool:
 # ----------------------------------------------------------------
 # Summary
 # ----------------------------------------------------------------
+
 
 def step_summary(repo: Path, ok_repo: bool, ok_deps: bool, ok_tok: bool) -> int:
     _section("summary")
@@ -238,6 +278,7 @@ def step_summary(repo: Path, ok_repo: bool, ok_deps: bool, ok_tok: bool) -> int:
 # ----------------------------------------------------------------
 # main
 # ----------------------------------------------------------------
+
 
 def main(argv=None) -> int:
     _print_header()

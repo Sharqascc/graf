@@ -159,6 +159,14 @@ DEP002 = [
   "torchaudio",
   "jupyter",
 ]
+# Colab's `google.colab` namespace is not a PyPI package — it is
+# provided by the Colab runtime and does not exist in a plain
+# Python environment. The imports in scripts/bootstrap_colab.py
+# are guarded by `find_spec('google.colab')` and only run there.
+DEP001 = [
+  "google",
+]
+
 
 [tool.deptry.package_module_name_map]
 # Map PyPI distribution name -> import module name for packages
