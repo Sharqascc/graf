@@ -571,5 +571,5 @@ def _print_welcome(parser: argparse.ArgumentParser) -> None:
     print("Docs: README.md  |  Recipes: configs/recipes/")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

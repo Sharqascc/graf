@@ -74,3 +74,72 @@ def test_run_checks_returns_int(tmp_path: Path, capsys) -> None:
     assert rc in (0, 1)
     out = capsys.readouterr().out
     assert "GRAF environment check" in out
+
+
+# ------------------------------------------------------------------
+# Coverage additions for doctor.py
+# ------------------------------------------------------------------
+
+
+def test_check_packages_reports_import_error(monkeypatch):
+    """A missing optional package is reported as a failed check."""
+    import importlib
+
+    from graf import doctor as doc_mod
+
+    real = importlib.import_module
+
+    def fake_import(name):
+        if name == "sklearn":
+            raise ImportError("nope")
+        return real(name)
+
+    monkeypatch.setattr("graf.doctor.importlib.import_module", fake_import)
+    checks = doc_mod.check_packages()
+    skl = next(c for c in checks if "scikit-learn" in c.name)
+    assert not skl.ok
+
+
+def test_check_detectors_no_pt_files(tmp_path):
+    from graf import doctor as doc_mod
+
+    (tmp_path / "data" / "models").mkdir(parents=True)
+    c = doc_mod.check_detectors(tmp_path)
+    assert not c.ok
+    assert "no .pt files" in c.detail
+
+
+def test_check_recipes_no_yaml(tmp_path):
+    from graf import doctor as doc_mod
+
+    (tmp_path / "configs" / "recipes").mkdir(parents=True)
+    c = doc_mod.check_recipes(tmp_path)
+    assert not c.ok
+    assert "no .yaml" in c.detail
+
+
+def test_run_checks_default_root(monkeypatch):
+    """run_checks(None) resolves the repo root and returns 0 on success."""
+    from graf import doctor as doc_mod
+
+    def pass_one(*a, **k):
+        return doc_mod.Check("x", True, "ok")
+
+    def pass_list(*a, **k):
+        return [doc_mod.Check("x", True, "ok")]
+
+    monkeypatch.setattr("graf.doctor.check_python", pass_one)
+    monkeypatch.setattr("graf.doctor.check_packages", pass_list)
+    monkeypatch.setattr("graf.doctor.check_dirs", pass_list)
+    monkeypatch.setattr("graf.doctor.check_detectors", pass_one)
+    monkeypatch.setattr("graf.doctor.check_recipes", pass_one)
+    rc = doc_mod.run_checks()
+    assert rc == 0
+
+
+def test_run_checks_returns_one_when_failures(tmp_path, capsys):
+    from graf import doctor as doc_mod
+
+    rc = doc_mod.run_checks(tmp_path)
+    assert rc == 1
+    assert "Run `graf fetch-detector`" in capsys.readouterr().out
