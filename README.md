@@ -57,11 +57,12 @@ results are reproduced.
 
 | Area | Status |
 |---|---|
-| Library code (`src/graf/`) | Complete; ~600 unit and property tests |
-| CLI (`graf`) | Entry point; 7 subcommands - see [CLI](#cli) |
+| Library code (`src/graf/`) | Complete; ~800 unit and property tests |
+| CLI (`graf`) | Entry point; 8 subcommands - see [CLI](#cli) |
+| **Entry-point test coverage** | **100% line coverage** on `cli.py`, `doctor.py`, `reproduce.py` |
 | Recipes | `configs/recipes/paper_v1.yaml` reproduces the paper's primary result |
 | Synthetic end-to-end test | `tests/test_end_to_end_synthetic.py` (~30 s on CPU) |
-| Detection | UVH-26 YOLOv11-S (India-specific); results in `docs/paper/detection_*.md` |
+| Detection | UVH-26 YOLOv11S (India-specific); results in `docs/paper/detection_*.md` |
 | Tracking quality metrics (MOTA / IDF1 / ID switches) | Not implemented |
 | Reproducible real-video accuracy | Run `graf reproduce configs/recipes/paper_v1.yaml` |
 
@@ -70,6 +71,22 @@ The 87.5% cross-validation accuracy in `docs/experiment_results.md` is
 splitter has since changed. See the erratum at the top of that file. The
 paper's current primary result is in
 `docs/paper/baselines_sustained_r5_post_purge.md`.
+
+### Test coverage
+
+The CLI entry point is covered line-by-line:
+
+| module | lines | coverage |
+|---|---:|---:|
+| `src/graf/cli.py` | 251 | **100%** |
+| `src/graf/doctor.py` | 75 | **100%** |
+| `src/graf/reproduce.py` | 120 | **100%** |
+
+These are the first files a reviewer runs (`graf doctor`,
+`graf reproduce`, `graf --help`), so they are held to full line
+coverage. A floor of 65% line coverage is enforced by CI on the rest
+of the codebase; other modules are exercised by integration tests
+and by running the pipeline end-to-end.
 
 ## Known issues and caveats
 
@@ -182,7 +199,7 @@ Three tiers, by cost:
 |---|---|---|---|
 | pre-commit | every `git commit` | hygiene, ruff, mypy, deptry | ~5-15 s |
 | pre-push | every `git push` | + determinism, data-leakage, metamorphic, differential | +~10 s |
-| CI | every push / PR | full suite (429 unit, 44 property) | ~2 min |
+| CI | every push / PR | full suite (~800 unit + property) | ~2 min |
 
 Skip the pre-push gate once with `git push --no-verify`.
 ### Local CI reproduction (tox)
@@ -192,7 +209,7 @@ Run the same checks CI runs, inside a fresh venv:
 ```bash
 pip install tox
 tox -e lint       # ruff check + ruff format --check + deptry  (~20 s)
-tox -e unit       # pytest --cov, 308 tests                   (~3-5 min first run)
+tox -e unit       # pytest --cov, full unit suite             (~3-5 min first run)
 tox -e property   # Hypothesis under HYPOTHESIS_PROFILE=ci    (~3-5 min first run)
 tox               # all three envs
 ```
