@@ -10,6 +10,20 @@ GRAF is a research pipeline for building graph representations of traffic intera
 
 ## Quickstart
 
+**On Colab (one-line bootstrap):**
+
+```python
+!git clone https://github.com/Sharqascc/graf.git /content/graf 2>/dev/null || true
+!python /content/graf/scripts/bootstrap_colab.py
+```
+
+That one command sets the git identity, mounts Drive, clones or
+syncs the repo, installs the runtime deps, and loads `GH_TOKEN`
+from Colab secrets. It is idempotent — safe to run at the start
+of every session.
+
+**On a local machine:**
+
 ```bash
 git clone https://github.com/Sharqascc/graf.git
 cd graf
