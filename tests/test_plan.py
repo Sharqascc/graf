@@ -11,7 +11,10 @@ _AGENTS = _REPO / "AGENTS.md"
 
 
 def _items(text):
-    return re.split(r"^### (\d+)\. ", text, flags=re.MULTILINE)[1:]
+    # Non-capturing group: re.split returns only the blocks, not the
+    # numbers. A capturing group would interleave them and put the
+    # digit string into the blocks list.
+    return re.split(r"^### (?:\d+)\. ", text, flags=re.MULTILINE)[1:]
 
 
 def test_plan_exists():
