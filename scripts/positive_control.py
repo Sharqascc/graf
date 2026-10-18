@@ -43,10 +43,7 @@ from scripts.label_strategies import (
 def _window_frames(window_ds) -> list[list[int]]:
     out: list[list[int]] = []
     for w in window_ds.windows:
-        frames = [
-            int(getattr(window_ds.base_dataset.get(i), "frame_id", i))
-            for i in w
-        ]
+        frames = [int(getattr(window_ds.base_dataset.get(i), "frame_id", i)) for i in w]
         out.append(frames)
     return out
 
@@ -79,6 +76,7 @@ def _check_data_y(window_ds, n_sample: int = 50) -> dict:
 
 def _check_frame_y(graphs_dir: Path, n_sample: int = 50) -> dict:
     import torch
+
     files = sorted(graphs_dir.glob("*.pt"))[:n_sample]
     populated = 0
     values: list[float] = []
@@ -194,7 +192,9 @@ def main(argv=None) -> int:
         run_length=args.run_length,
     )
     independent = _sustained_labels(stats, windows, args.run_length)
-    agree = sum(int(a) == int(b) for a, b in zip(harness, independent))
+    agree = sum(
+        int(a) == int(b) for a, b in zip(harness, independent, strict=True)
+    )
     report["sustained_agreement"] = {
         "n": len(harness),
         "n_match": agree,
@@ -224,9 +224,7 @@ def main(argv=None) -> int:
     report["tree_on_min_ttc"] = _tree_accuracy(x_min.reshape(-1, 1), y_true)
     print(f"  tree on min_ttc: {report['tree_on_min_ttc']}")
 
-    (out / "positive_control.json").write_text(
-        json.dumps(report, indent=2) + chr(10)
-    )
+    (out / "positive_control.json").write_text(json.dumps(report, indent=2) + chr(10))
     print("wrote positive_control.json")
     return 0
 
