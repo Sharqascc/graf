@@ -23,8 +23,7 @@ def test_plan_exists():
 
 def test_plan_items_are_sequential():
     text = _PLAN.read_text()
-    nums = [int(n) for n in re.findall(r"^### (\d+)\. ", text,
-                                        flags=re.MULTILINE)]
+    nums = [int(n) for n in re.findall(r"^### (\d+)\. ", text, flags=re.MULTILINE)]
     assert nums == list(range(1, len(nums) + 1)), nums
 
 
