@@ -206,7 +206,7 @@ def main(argv=None) -> int:
         dtype=float,
     )
     y_true = np.array(harness, dtype=int)
-    report["tree_on_n_critical"] = _tree_accuracy(n_crit, y_true)
+    report["tree_on_n_critical"] = _tree_accuracy(n_crit.reshape(-1, 1), y_true)
     print(f"  tree on n_critical: {report['tree_on_n_critical']}")
 
     frame_min: dict[int, float] = {}
