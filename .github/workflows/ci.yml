@@ -35,6 +35,19 @@ jobs:
       # different errors). Replicating pre-commit's per-hook isolated
       # environments with raw CLI invocations would drift; running
       # pre-commit itself cannot.
+      - name: Surface research plan in job summary
+        if: always()
+        run: |
+          if [ -f PLAN.md ]; then
+            {
+              echo "## Current research plan"
+              echo ""
+              grep -i 'current focus' PLAN.md | head -1
+              echo ""
+              cat PLAN.md
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - run: pre-commit run --all-files --show-diff-on-failure
 
   unit-tests:
