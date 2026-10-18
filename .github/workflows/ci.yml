@@ -15,6 +15,36 @@ env:
   PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
+  changes:
+    name: "0 · Detect changes"
+    # Skips heavy jobs (docker, invariants) on docs-only PRs.
+    # If this job fails or the output is empty, the gated
+    # jobs default to running (fail-closed, not fail-open).
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'configs/**'
+              - 'requirements/**'
+              - 'Dockerfile'
+              - 'pyproject.toml'
+              - 'conftest.py'
+              - '.pre-commit-config.yaml'
+              - '.github/workflows/ci.yml'
+              - 'Makefile'
+
   lint:
     name: "1 · Ruff"
     runs-on: ubuntu-latest
@@ -112,6 +142,8 @@ jobs:
         run: pytest -q -m hypothesis
 
   invariants:
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
     name: "4 · Invariants (pre-push suite)"
     # These tests were previously declared in .pre-commit-config.yaml with
     # `stages: [pre-push]`, which excluded them from CI: `pre-commit run
@@ -191,6 +223,8 @@ jobs:
         run: PYTHONPATH=src python scripts/import_smoke.py
 
   docker:
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
     name: "8 · Docker build + test"
     # Builds the reproducibility image and runs the same test
     # selection CI uses, inside the container. Keeps the Dockerfile
