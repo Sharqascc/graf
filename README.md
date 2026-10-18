@@ -51,6 +51,40 @@ The `graf` command is the entry point for the pipeline. See [CLI](#cli)
 for the full command list, and [Recipes](#recipes) for how the paper's
 results are reproduced.
 
+## Run it step by step
+
+For processing a new video through the pipeline, use the numbered runner:
+
+```bash
+graf run --list                        # show the 8 steps
+graf run all --site my_intersection    # run 1 through 8
+graf run 3 --site my_intersection      # just step 3
+graf run from-4 --site my_intersection # resume at step 4
+```
+
+| Step | Name | What it does |
+|---|---|---|
+| 1 | detect | UVH-26 detection on extracted frames |
+| 2 | track | greedy IoU association with gates |
+| 3 | trajectory | tracks -> world coordinates |
+| 4 | graph | tracks -> per-frame PyG graphs |
+| 5 | window | graphs -> rolling temporal windows |
+| 6 | train | windows -> fitted GCN + metrics_cv.json |
+| 7 | compare | windows -> comparison.json (baselines) |
+| 8 | audit | comparison.json -> reviewer checklist |
+
+Each step writes to a standard per-site directory
+(`data/interim/detections/<site>/`, `data/interim/tracks/<site>/`,
+...) so consecutive steps find their inputs automatically.
+Detection and tracking configs are auto-selected from
+`configs/<stage>/<site>.yaml` if they exist, otherwise
+`uvh26.yaml` (detection) or `bytetrack.yaml` (tracking).
+
+Steps 1 and 3 assume the user has already run `scripts/extract_frames.py`
+(produces the frames directory step 1 reads) and
+`scripts/filter_tracks.py` (produces the filtered tracks step 3 expects).
+See `docs/pipeline.md` for the complete stage order.
+
 ## Project status
 
 **Working end-to-end on synthetic data; not yet validated on real annotated video.**
