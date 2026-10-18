@@ -40,8 +40,14 @@ def test_heavy_jobs_gated_on_changes():
 def test_filters_cover_code_paths():
     jobs = _jobs()
     filters = str(jobs["changes"]["steps"])
-    for path in ("src/", "tests/", "scripts/", "Dockerfile",
-                 "pyproject.toml", "requirements/"):
+    for path in (
+        "src/",
+        "tests/",
+        "scripts/",
+        "Dockerfile",
+        "pyproject.toml",
+        "requirements/",
+    ):
         assert path in filters, f"filter for {path!r} missing"
 
 
