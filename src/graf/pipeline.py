@@ -21,9 +21,9 @@ additive.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -99,119 +99,192 @@ def _tracking_config(ctx: Context) -> str:
 
 
 def _build_1_detect(ctx: Context) -> list[Command]:
-    return [Command(
-        script="run_detection.py",
-        args=[
-            "--frames_dir", str(_frames_dir(ctx)),
-            "--output_dir", str(_detections_dir(ctx)),
-            "--config", _detection_config(ctx),
-            "--video-id", ctx.site,
-        ],
-    )]
+    return [
+        Command(
+            script="run_detection.py",
+            args=[
+                "--frames_dir",
+                str(_frames_dir(ctx)),
+                "--output_dir",
+                str(_detections_dir(ctx)),
+                "--config",
+                _detection_config(ctx),
+                "--video-id",
+                ctx.site,
+            ],
+        )
+    ]
 
 
 def _build_2_track(ctx: Context) -> list[Command]:
-    return [Command(
-        script="run_tracking.py",
-        args=[
-            "--detections", str(_detections_dir(ctx) / "detections.jsonl"),
-            "--output_dir", str(_tracks_dir(ctx)),
-            "--config", _tracking_config(ctx),
-        ],
-    )]
+    return [
+        Command(
+            script="run_tracking.py",
+            args=[
+                "--detections",
+                str(_detections_dir(ctx) / "detections.jsonl"),
+                "--output_dir",
+                str(_tracks_dir(ctx)),
+                "--config",
+                _tracking_config(ctx),
+            ],
+        )
+    ]
 
 
 def _build_3_trajectory(ctx: Context) -> list[Command]:
-    return [Command(
-        script="build_trajectories.py",
-        args=[
-            "--tracks", str(_tracks_dir(ctx) / "tracks.jsonl"),
-            "--output", str(_trajectories_file(ctx)),
-            "--homography_config", _homography_default(),
-        ],
-    )]
+    return [
+        Command(
+            script="build_trajectories.py",
+            args=[
+                "--tracks",
+                str(_tracks_dir(ctx) / "tracks.jsonl"),
+                "--output",
+                str(_trajectories_file(ctx)),
+                "--homography_config",
+                _homography_default(),
+            ],
+        )
+    ]
 
 
 def _build_4_graph(ctx: Context) -> list[Command]:
-    return [Command(
-        script="build_graphs.py",
-        args=[
-            "--tracks", str(_tracks_dir(ctx) / "tracks.jsonl"),
-            "--output_dir", str(_graphs_dir(ctx)),
-            "--homography_config", _homography_default(),
-            "--radius", "10.0",
-        ],
-    )]
+    return [
+        Command(
+            script="build_graphs.py",
+            args=[
+                "--tracks",
+                str(_tracks_dir(ctx) / "tracks.jsonl"),
+                "--output_dir",
+                str(_graphs_dir(ctx)),
+                "--homography_config",
+                _homography_default(),
+                "--radius",
+                "10.0",
+            ],
+        )
+    ]
 
 
 def _build_5_window(ctx: Context) -> list[Command]:
-    return [Command(
-        script="make_windows.py",
-        args=[
-            "--graphs_dir", str(_graphs_dir(ctx)),
-            "--output_dir", str(_windows_dir(ctx)),
-        ],
-    )]
+    return [
+        Command(
+            script="make_windows.py",
+            args=[
+                "--graphs_dir",
+                str(_graphs_dir(ctx)),
+                "--output_dir",
+                str(_windows_dir(ctx)),
+            ],
+        )
+    ]
 
 
 def _build_6_train(ctx: Context) -> list[Command]:
-    return [Command(
-        script="train_conflict_pairs.py",
-        args=[
-            "--tracks", str(_tracks_dir(ctx) / "tracks.jsonl"),
-            "--graphs_dir", str(_graphs_dir(ctx)),
-            "--homography_config", _homography_default(),
-            "--output_dir", str(_model_dir(ctx)),
-        ],
-    )]
+    return [
+        Command(
+            script="train_conflict_pairs.py",
+            args=[
+                "--tracks",
+                str(_tracks_dir(ctx) / "tracks.jsonl"),
+                "--graphs_dir",
+                str(_graphs_dir(ctx)),
+                "--homography_config",
+                _homography_default(),
+                "--output_dir",
+                str(_model_dir(ctx)),
+            ],
+        )
+    ]
 
 
 def _build_7_compare(ctx: Context) -> list[Command]:
-    return [Command(
-        script="compare_baselines.py",
-        args=[
-            "--tracks", str(_tracks_dir(ctx) / "tracks.jsonl"),
-            "--graphs_dir", str(_graphs_dir(ctx)),
-            "--homography_config", _homography_default(),
-            "--output_dir", str(_comparison_dir(ctx)),
-            "--calibrate-threshold",
-            "--calibration-objective", "accuracy",
-        ],
-    )]
+    return [
+        Command(
+            script="compare_baselines.py",
+            args=[
+                "--tracks",
+                str(_tracks_dir(ctx) / "tracks.jsonl"),
+                "--graphs_dir",
+                str(_graphs_dir(ctx)),
+                "--homography_config",
+                _homography_default(),
+                "--output_dir",
+                str(_comparison_dir(ctx)),
+                "--calibrate-threshold",
+                "--calibration-objective",
+                "accuracy",
+            ],
+        )
+    ]
 
 
 def _build_8_audit(ctx: Context) -> list[Command]:
-    return [Command(
-        script="_audit_inline",
-        args=[str(_comparison_dir(ctx) / "comparison.json")],
-    )]
+    return [
+        Command(
+            script="_audit_inline",
+            args=[str(_comparison_dir(ctx) / "comparison.json")],
+        )
+    ]
 
 
 STEPS: list[Step] = [
-    Step(1, "detect", "UVH-26 detection on extracted frames",
-         _build_1_detect,
-         lambda c: [_detections_dir(c) / "detections.jsonl"]),
-    Step(2, "track", "greedy IoU association with gates",
-         _build_2_track,
-         lambda c: [_tracks_dir(c) / "tracks.jsonl"]),
-    Step(3, "trajectory", "tracks -> world coordinates",
-         _build_3_trajectory,
-         lambda c: [_trajectories_file(c)]),
-    Step(4, "graph", "tracks -> per-frame PyG graphs",
-         _build_4_graph,
-         lambda c: [_graphs_dir(c)]),
-    Step(5, "window", "graphs -> rolling temporal windows",
-         _build_5_window,
-         lambda c: [_windows_dir(c)]),
-    Step(6, "train", "windows -> fitted GCN + metrics_cv.json",
-         _build_6_train,
-         lambda c: [_model_dir(c) / "metrics_cv.json"]),
-    Step(7, "compare", "windows -> comparison.json (baselines)",
-         _build_7_compare,
-         lambda c: [_comparison_dir(c) / "comparison.json"]),
-    Step(8, "audit", "comparison.json -> reviewer checklist",
-         _build_8_audit,
-         lambda c: []),
+    Step(
+        1,
+        "detect",
+        "UVH-26 detection on extracted frames",
+        _build_1_detect,
+        lambda c: [_detections_dir(c) / "detections.jsonl"],
+    ),
+    Step(
+        2,
+        "track",
+        "greedy IoU association with gates",
+        _build_2_track,
+        lambda c: [_tracks_dir(c) / "tracks.jsonl"],
+    ),
+    Step(
+        3,
+        "trajectory",
+        "tracks -> world coordinates",
+        _build_3_trajectory,
+        lambda c: [_trajectories_file(c)],
+    ),
+    Step(
+        4,
+        "graph",
+        "tracks -> per-frame PyG graphs",
+        _build_4_graph,
+        lambda c: [_graphs_dir(c)],
+    ),
+    Step(
+        5,
+        "window",
+        "graphs -> rolling temporal windows",
+        _build_5_window,
+        lambda c: [_windows_dir(c)],
+    ),
+    Step(
+        6,
+        "train",
+        "windows -> fitted GCN + metrics_cv.json",
+        _build_6_train,
+        lambda c: [_model_dir(c) / "metrics_cv.json"],
+    ),
+    Step(
+        7,
+        "compare",
+        "windows -> comparison.json (baselines)",
+        _build_7_compare,
+        lambda c: [_comparison_dir(c) / "comparison.json"],
+    ),
+    Step(
+        8,
+        "audit",
+        "comparison.json -> reviewer checklist",
+        _build_8_audit,
+        lambda c: [],
+    ),
 ]
 
 
@@ -243,12 +316,15 @@ def select_steps(target: str) -> list[Step]:
 
 
 def format_listing() -> str:
-    out = ["", "  #   step        description",
-           "  --  ----------  " + "-" * 45]
-    for s in STEPS:
-        out.append(
-            "  " + str(s.number) + "   " + s.name.ljust(11) + s.description
-        )
+    out = [
+        "",
+        "  #   step        description",
+        "  --  ----------  " + "-" * 45,
+    ]
+    out.extend(
+        "  " + str(s.number) + "   " + s.name.ljust(11) + s.description
+        for s in STEPS
+    )
     out.append("")
     return chr(10).join(out)
 

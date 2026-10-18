@@ -530,11 +530,12 @@ def run_pipeline(
 
     for step in steps:
         commands = step.build_commands(ctx)
-        print("[%d/8] %s ..." % (step.number, step.name))
+        print(f"[{step.number}/8] {step.name} ...")
         t0 = _time.time()
         for cmd in commands:
             if cmd.script == "_audit_inline":
                 from graf.audit import audit_file, format_report
+
                 path = cmd.args[0]
                 try:
                     checks, code = audit_file(path)
@@ -549,18 +550,18 @@ def run_pipeline(
                 if not script_path.exists():
                     logger.error("script not found: %s", script_path)
                     return 1
-                proc = subprocess.run(
-                    [sys.executable, str(script_path), *cmd.args]
-                )
+                proc = subprocess.run([sys.executable, str(script_path), *cmd.args])
                 if proc.returncode != 0:
                     logger.error(
                         "step %s failed with code %d",
-                        step.name, proc.returncode,
+                        step.name,
+                        proc.returncode,
                     )
                     return proc.returncode
         elapsed = _time.time() - t0
-        print("[%d/8] %s ok (%.1fs)" % (step.number, step.name, elapsed))
+        print(f"[{step.number}/8] {step.name} ok ({elapsed:.1f}s)")
     return 0
+
 
 def main(argv: list[str] | None = None) -> int:
     if argv is None:
