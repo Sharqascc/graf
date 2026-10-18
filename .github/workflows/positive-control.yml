@@ -1,0 +1,60 @@
+name: Positive control (item 2)
+
+on:
+  workflow_dispatch: {}
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  control:
+    name: Run positive control
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt -r requirements/dev.txt
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install torch-geometric
+      - name: Fetch VNTraffic + prepare
+        run: |
+          python scripts/fetch_vntraffic.py --data-root data/external/vntraffic
+          python scripts/prepare_vntraffic.py --dataset-root data/external/vntraffic
+          python scripts/filter_tracks.py \
+            --input data/raw/vntraffic_tracks.jsonl \
+            --output data/raw/vntraffic_tracks_all85_min20.jsonl \
+            --min-frames 20
+          python scripts/build_graphs.py \
+            --tracks data/raw/vntraffic_tracks_all85_min20.jsonl \
+            --output_dir data/processed/graphs/vntraffic_all85 \
+            --homography_config data/raw/vntraffic_homography.yaml \
+            --radius 10.0
+      - name: Run positive control
+        run: |
+          python scripts/positive_control.py \
+            --tracks data/raw/vntraffic_tracks_all85_min20.jsonl \
+            --graphs_dir data/processed/graphs/vntraffic_all85 \
+            --homography_config data/raw/vntraffic_homography.yaml \
+            --output_dir outputs/positive_control
+      - name: Show report
+        if: always()
+        run: |
+          if [ -f outputs/positive_control/positive_control.json ]; then
+            cat outputs/positive_control/positive_control.json
+          fi
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: positive-control-${{ github.run_id }}
+          path: outputs/positive_control/positive_control.json
+          if-no-files-found: warn
+          retention-days: 90
