@@ -36,8 +36,7 @@ def test_audit_names_the_nine_edge_columns():
 
 def test_audit_names_the_edge_indices_of_ttc():
     text = _AUDIT.read_text()
-    for idx in ("2  distance", "5  relative_speed",
-                "6  closing_speed", "11 ttc"):
+    for idx in ("2  distance", "5  relative_speed", "6  closing_speed", "11 ttc"):
         assert idx in text, f"audit must cite edge column {idx}"
 
 
@@ -51,7 +50,7 @@ def test_feature_names_have_no_literal_ttc_column():
     src = (_REPO / "src" / "graf" / "models" / "baselines.py").read_text()
     start = src.find("_FEATURE_NAMES")
     assert start >= 0
-    body = src[start:src.find("]", start)]
+    body = src[start : src.find("]", start)]
     assert chr(34) + "ttc" + chr(34) not in body, (
         "a feature named ttc was added; update the circularity audit"
     )
