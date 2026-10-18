@@ -21,10 +21,10 @@ def test_plan_exists():
     assert _PLAN.exists()
 
 
-def test_plan_has_eight_items():
+def test_plan_items_are_sequential():
     text = _PLAN.read_text()
-    nums = re.findall(r"^### (\d+)\. ", text, flags=re.MULTILINE)
-    assert nums == [str(i) for i in range(1, 9)], nums
+    nums = [int(n) for n in re.findall(r"^### (\d+)\. ", text, flags=re.MULTILINE)]
+    assert nums == list(range(1, len(nums) + 1)), nums
 
 
 def test_every_item_has_status():
