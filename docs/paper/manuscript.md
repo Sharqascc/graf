@@ -1458,7 +1458,7 @@ bibliography entry at time of writing.
 | `figures/fig2_pre_post_purge.pdf` | Pre- vs post-purge AUC for RF and the single-feature cue. |
 | `figures/fig3_cross_clip.pdf` | Cross-clip comparison. Direction replicates; CIs overlap. |
 | `figures/fig4_gcn_collapse.pdf` | The GCN matches the majority baseline on accuracy exactly. |
-
+| `figures/fig5_detector_comparison.pdf` | Detector comparison. UVH-26 vs COCO-pretrained YOLOv8 on Indian traffic. |
 ---
 
 ## Reproducibility statement
