@@ -192,9 +192,7 @@ def main(argv=None) -> int:
         run_length=args.run_length,
     )
     independent = _sustained_labels(stats, windows, args.run_length)
-    agree = sum(
-        int(a) == int(b) for a, b in zip(harness, independent, strict=True)
-    )
+    agree = sum(int(a) == int(b) for a, b in zip(harness, independent, strict=True))
     report["sustained_agreement"] = {
         "n": len(harness),
         "n_match": agree,
