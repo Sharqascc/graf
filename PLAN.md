@@ -1,6 +1,6 @@
 # Research plan
 
-**Status:** active. **Current focus: item 1.**
+**Status:** active. **Current focus: item 2.**
 
 This file is the single source of truth for what the study is doing next.
 It is read by `AGENTS.md` (agent context), by `graf status` output, and by
@@ -30,8 +30,8 @@ forecasting, label validity). The consensus ranking is in
 
 ### 1. Feature audit: is TTC in the input vector?
 
-status: todo
-evidence:
+status: done
+evidence: docs/audit/feature_label_circularity.md
 
 The label is "some frame in the window has TTC < 1.5 s". If the 42-dim
 feature vector contains TTC, relative speed, closing speed, or distance
