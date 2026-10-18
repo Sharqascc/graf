@@ -210,6 +210,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     validate.add_argument("recipe", help="Path to a recipe YAML")
 
+    run = subparsers.add_parser(
+        "run",
+        help="Run a numbered pipeline step (1=detect .. 8=audit)",
+    )
+    run.add_argument(
+        "target",
+        nargs="?",
+        default="all",
+        help="all, N, or from-N (e.g. all, 3, from-4)",
+    )
+    run.add_argument(
+        "--site",
+        default="default",
+        help="Site identifier (determines per-stage dirs and configs)",
+    )
+    run.add_argument(
+        "--list",
+        action="store_true",
+        dest="list_only",
+        help="List the 8 numbered steps and exit",
+    )
+    run.add_argument(
+        "--root",
+        default=None,
+        help="Repository root (defaults to the package repo root)",
+    )
     return parser
 
 
@@ -478,6 +504,64 @@ def run_train_conflict_pairs(
     return 0
 
 
+def run_pipeline(
+    target: str,
+    site: str,
+    list_only: bool,
+    root: str | None,
+) -> int:
+    """Run numbered pipeline steps. Dispatched by `graf run`."""
+    import time as _time
+
+    from graf.pipeline import Context, format_listing, select_steps
+
+    if list_only:
+        print(format_listing())
+        return 0
+
+    repo_root = Path(root).resolve() if root else _repo_root()
+    ctx = Context(site=site, video=None, root=repo_root)
+
+    try:
+        steps = select_steps(target)
+    except ValueError as exc:
+        logger.error("%s", exc)
+        return 1
+
+    for step in steps:
+        commands = step.build_commands(ctx)
+        print("[%d/8] %s ..." % (step.number, step.name))
+        t0 = _time.time()
+        for cmd in commands:
+            if cmd.script == "_audit_inline":
+                from graf.audit import audit_file, format_report
+                path = cmd.args[0]
+                try:
+                    checks, code = audit_file(path)
+                except FileNotFoundError as exc:
+                    logger.error("%s", exc)
+                    return 1
+                print(format_report(checks, path))
+                if code != 0:
+                    return code
+            else:
+                script_path = repo_root / "scripts" / cmd.script
+                if not script_path.exists():
+                    logger.error("script not found: %s", script_path)
+                    return 1
+                proc = subprocess.run(
+                    [sys.executable, str(script_path), *cmd.args]
+                )
+                if proc.returncode != 0:
+                    logger.error(
+                        "step %s failed with code %d",
+                        step.name, proc.returncode,
+                    )
+                    return proc.returncode
+        elapsed = _time.time() - t0
+        print("[%d/8] %s ok (%.1fs)" % (step.number, step.name, elapsed))
+    return 0
+
 def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
@@ -551,6 +635,13 @@ def main(argv: list[str] | None = None) -> int:
             seed=args.seed,
         )
 
+    if args.command == "run":
+        return run_pipeline(
+            target=args.target,
+            site=args.site,
+            list_only=args.list_only,
+            root=args.root,
+        )
     _print_welcome(parser)
     return 0
 
