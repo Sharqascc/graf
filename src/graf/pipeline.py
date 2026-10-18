@@ -322,8 +322,7 @@ def format_listing() -> str:
         "  --  ----------  " + "-" * 45,
     ]
     out.extend(
-        "  " + str(s.number) + "   " + s.name.ljust(11) + s.description
-        for s in STEPS
+        "  " + str(s.number) + "   " + s.name.ljust(11) + s.description for s in STEPS
     )
     out.append("")
     return chr(10).join(out)
