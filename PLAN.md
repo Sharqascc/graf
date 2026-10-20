@@ -1,6 +1,6 @@
 # Research plan
 
-**Status:** active. **Current focus: item 12.**
+**Status:** active. **Current focus: item 13.**
 
 This file is the single source of truth for what the study is doing next.
 It is read by `AGENTS.md` (agent context), by `graf status` output, and by
@@ -174,8 +174,8 @@ coverage track because it raises trust without changing any number.
 
 ### 12. GCN failure diagnosis: the `GCNConv` finding
 
-status: todo
-evidence:
+status: done
+evidence: docs/audit/gcn_diagnosis.md
 
 `src/graf/models/gcn_risk.py:96` uses `GCNConv`. That layer has no
 `edge_dim` parameter and structurally cannot accept edge features.
