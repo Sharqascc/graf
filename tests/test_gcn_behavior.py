@@ -45,9 +45,7 @@ def test_output_depends_on_edge_attr():
     """
     g_a = _small_graph(edge_attr_val=0.0)
     g_b = _small_graph(edge_attr_val=1.0)
-    model = build_model(
-        in_channels=NODE_DIM, hidden_channels=16, edge_dim=EDGE_DIM
-    )
+    model = build_model(in_channels=NODE_DIM, hidden_channels=16, edge_dim=EDGE_DIM)
     model.eval()
     with torch.no_grad():
         out_a = model(g_a)
