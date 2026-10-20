@@ -57,6 +57,7 @@ try:
     from torch import nn
     from torch_geometric.nn import (
         GCNConv,
+        GINEConv,
         global_add_pool,
         global_max_pool,
         global_mean_pool,
@@ -78,6 +79,7 @@ try:
             num_layers: int = 2,
             dropout: float = 0.0,
             pool: Literal["mean", "max", "add"] = "mean",
+            edge_dim: int | None = None,
         ) -> None:
             super().__init__()
 
@@ -91,11 +93,35 @@ try:
             self.num_layers = num_layers
             self.dropout = dropout
             self.pool = pool
+            self.edge_dim = edge_dim
 
             self.convs = nn.ModuleList()
-            self.convs.append(GCNConv(in_channels, hidden_channels))
-            for _ in range(num_layers - 1):
-                self.convs.append(GCNConv(hidden_channels, hidden_channels))
+            if edge_dim is not None:
+                self.convs.append(
+                    GINEConv(
+                        nn=nn.Sequential(
+                            nn.Linear(in_channels, hidden_channels),
+                            nn.ReLU(),
+                            nn.Linear(hidden_channels, hidden_channels),
+                        ),
+                        edge_dim=edge_dim,
+                    )
+                )
+                for _ in range(num_layers - 1):
+                    self.convs.append(
+                        GINEConv(
+                            nn=nn.Sequential(
+                                nn.Linear(hidden_channels, hidden_channels),
+                                nn.ReLU(),
+                                nn.Linear(hidden_channels, hidden_channels),
+                            ),
+                            edge_dim=edge_dim,
+                        )
+                    )
+            else:
+                self.convs.append(GCNConv(in_channels, hidden_channels))
+                for _ in range(num_layers - 1):
+                    self.convs.append(GCNConv(hidden_channels, hidden_channels))
 
             self.activation = nn.ReLU()
             self.dropout_layer = nn.Dropout(dropout)
@@ -104,13 +130,18 @@ try:
 
         def forward(self, data: Any) -> torch.Tensor:
             x, edge_index = data.x, data.edge_index
+            edge_attr = getattr(data, "edge_attr", None)
             batch = getattr(data, "batch", None)
 
             if batch is None:
                 batch = torch.zeros(x.size(0), dtype=torch.long, device=x.device)
 
+            use_edge_attr = self.edge_dim is not None and edge_attr is not None
             for conv in self.convs:
-                x = conv(x, edge_index)
+                if use_edge_attr:
+                    x = conv(x, edge_index, edge_attr)
+                else:
+                    x = conv(x, edge_index)
                 x = self.activation(x)
                 x = self.dropout_layer(x)
 
@@ -138,6 +169,7 @@ def build_model(
     num_layers: int = 2,
     dropout: float = 0.0,
     pool: str = "mean",
+    edge_dim: int | None = None,
 ) -> Any:
     if _RISK_MODEL_CLASS is None:
         return SimpleGCNRiskModel(
@@ -154,4 +186,5 @@ def build_model(
         num_layers=num_layers,
         dropout=dropout,
         pool=pool,  # type: ignore[arg-type]
+        edge_dim=edge_dim,
     )

@@ -2,13 +2,10 @@
 
 The current model in gcn_risk.py uses GCNConv, which accepts only
 scalar edge weights. The 15-dim edge_attr that carries TTC never
-reaches the model. Two of these tests are written to fail against
-current code, marked xfail(strict=True) so they do not block
-merges but turn green the moment item 13 lands the fix.
-
-When item 13 removes the xfail markers, both tests must pass.
-If they still fail, the fix did not actually make edge_attr
-reach the model.
+reaches the model. Item 13 landed the edge-aware fix (GINEConv, edge_dim=15,
+pool=max). The two tests that were xfail(strict=True) now run
+as normal assertions and must stay green. If they regress,
+edge features have stopped reaching the model.
 """
 
 from __future__ import annotations
@@ -39,10 +36,6 @@ def _small_graph(edge_attr_val: float = 1.0) -> Data:
 # ---------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="item 13: GCNConv ignores edge_attr; test turns green when fixed",
-)
 def test_output_depends_on_edge_attr():
     """Changing edge_attr must change the model output.
 
@@ -52,7 +45,7 @@ def test_output_depends_on_edge_attr():
     """
     g_a = _small_graph(edge_attr_val=0.0)
     g_b = _small_graph(edge_attr_val=1.0)
-    model = build_model(in_channels=NODE_DIM, hidden_channels=16)
+    model = build_model(in_channels=NODE_DIM, hidden_channels=16, edge_dim=EDGE_DIM)
     model.eval()
     with torch.no_grad():
         out_a = model(g_a)
@@ -60,10 +53,6 @@ def test_output_depends_on_edge_attr():
     assert not torch.allclose(out_a, out_b, atol=1e-6)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="item 13: build_model lacks edge_dim kwarg; test turns green when added",
-)
 def test_model_accepts_edge_dim_kwarg():
     """A model that uses edge features must accept edge_dim."""
     model = build_model(in_channels=NODE_DIM, hidden_channels=16, edge_dim=EDGE_DIM)
