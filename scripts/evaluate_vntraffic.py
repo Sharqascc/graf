@@ -363,7 +363,18 @@ def train_one_fold(
     np.random.seed(seed)
 
     first = window_ds[0]
-    model = build_model(in_channels=first.x.size(1), hidden_channels=32)
+    _first_ea = getattr(first, "edge_attr", None)
+    _edge_dim = (
+        int(_first_ea.size(1))
+        if _first_ea is not None and _first_ea.numel() > 0
+        else None
+    )
+    model = build_model(
+        in_channels=first.x.size(1),
+        hidden_channels=32,
+        edge_dim=_edge_dim,
+        pool="max",
+    )
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     if pos_weight is None:
         criterion = torch.nn.BCEWithLogitsLoss()
