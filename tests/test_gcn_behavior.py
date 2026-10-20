@@ -18,9 +18,9 @@ import pytest
 torch = pytest.importorskip("torch")
 pytest.importorskip("torch_geometric.data")
 
-from torch_geometric.data import Data  # noqa: E402
+from torch_geometric.data import Data
 
-from graf.models.gcn_risk import build_model  # noqa: E402
+from graf.models.gcn_risk import build_model
 
 
 NODE_DIM = 19
@@ -29,15 +29,9 @@ EDGE_DIM = 15
 
 def _small_graph(edge_attr_val: float = 1.0) -> Data:
     """Four nodes, three edges, deterministic features."""
-    x = torch.arange(4 * NODE_DIM, dtype=torch.float32).reshape(
-        4, NODE_DIM
-    )
-    edge_index = torch.tensor(
-        [[0, 1, 2], [1, 2, 3]], dtype=torch.long
-    )
-    edge_attr = torch.full(
-        (3, EDGE_DIM), edge_attr_val, dtype=torch.float32
-    )
+    x = torch.arange(4 * NODE_DIM, dtype=torch.float32).reshape(4, NODE_DIM)
+    edge_index = torch.tensor([[0, 1, 2], [1, 2, 3]], dtype=torch.long)
+    edge_attr = torch.full((3, EDGE_DIM), edge_attr_val, dtype=torch.float32)
     return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
 
 
@@ -73,9 +67,7 @@ def test_output_depends_on_edge_attr():
 )
 def test_model_accepts_edge_dim_kwarg():
     """A model that uses edge features must accept edge_dim."""
-    model = build_model(
-        in_channels=NODE_DIM, hidden_channels=16, edge_dim=EDGE_DIM
-    )
+    model = build_model(in_channels=NODE_DIM, hidden_channels=16, edge_dim=EDGE_DIM)
     assert model is not None
 
 
@@ -95,9 +87,7 @@ def test_output_shape_single_graph():
 
 def test_output_shape_batched_graph():
     x = torch.zeros((6, NODE_DIM), dtype=torch.float32)
-    edge_index = torch.tensor(
-        [[0, 1, 3, 4], [1, 2, 4, 5]], dtype=torch.long
-    )
+    edge_index = torch.tensor([[0, 1, 3, 4], [1, 2, 4, 5]], dtype=torch.long)
     batch = torch.tensor([0, 0, 0, 1, 1, 1], dtype=torch.long)
     graph = Data(x=x, edge_index=edge_index, batch=batch)
     model = build_model(in_channels=NODE_DIM, hidden_channels=16)
@@ -134,13 +124,9 @@ def test_gradients_reach_every_parameter():
 def test_pool_variants_produce_different_outputs():
     graph = _small_graph()
     torch.manual_seed(0)
-    m_mean = build_model(
-        in_channels=NODE_DIM, hidden_channels=16, pool="mean"
-    )
+    m_mean = build_model(in_channels=NODE_DIM, hidden_channels=16, pool="mean")
     torch.manual_seed(0)
-    m_max = build_model(
-        in_channels=NODE_DIM, hidden_channels=16, pool="max"
-    )
+    m_max = build_model(in_channels=NODE_DIM, hidden_channels=16, pool="max")
     m_mean.eval()
     m_max.eval()
     with torch.no_grad():
