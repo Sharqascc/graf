@@ -1,6 +1,6 @@
 # Research plan
 
-**Status:** active. **Current focus: item 2.**
+**Status:** active. **Current focus: item 12.**
 
 This file is the single source of truth for what the study is doing next.
 It is read by `AGENTS.md` (agent context), by `graf status` output, and by
@@ -23,10 +23,10 @@ forecasting, label validity). The consensus ranking is in
 3. **No thresholds swept to chase a number.** If a fix is disappointing,
    record it and move on.
 4. **Every change goes through a PR and CI.** No local-only runs.
-5. **Two tracks.** Items 1-8 are the science track. Items 9-11 are
-   the coverage track. Each track is one-at-a-time. The two tracks
-   may run in parallel because they do not interact: coverage work
-   does not change any number in the paper.
+5. **Two tracks.** Science items (1-8, 12-13) change what the paper
+   can claim. Coverage items (9-11, 14) raise trust without changing
+   any number. Each track is one-at-a-time. Tracks may run in
+   parallel because coverage work does not interact with science.
 
 ---
 
@@ -47,8 +47,8 @@ marks which are label-derived, and states the verdict.
 
 ### 2. Positive control: can any model recover the rule?
 
-status: todo
-evidence:
+status: done
+evidence: docs/audit/positive_control.md
 
 Train a decision tree on `min-TTC` alone. It should reach ~1.0 accuracy.
 If it does not, the pipeline cannot learn the trivial rule, and the GCN
@@ -165,3 +165,111 @@ environment has drifted from the CI runner's.
 Done when `docs/audit/docker_divergence.md` names the cause and
 records either the fix or a documented reason the failure is
 expected.
+
+## GCN diagnosis and fix
+
+Items 12 and 13 are part of the science track because they change
+what the paper's results section can claim. Item 14 is part of the
+coverage track because it raises trust without changing any number.
+
+### 12. GCN failure diagnosis: the `GCNConv` finding
+
+status: todo
+evidence:
+
+`src/graf/models/gcn_risk.py:96` uses `GCNConv`. That layer has no
+`edge_dim` parameter and structurally cannot accept edge features.
+The model reads `data.x` and `data.edge_index` (line 106) and never
+reads `data.edge_attr`. The 15 edge attributes -- `distance`,
+`relative_speed`, `closing_speed`, `ttc`, and 11 more -- do not reach
+the model. The GCN sees only the 19 node features, none of which is
+TTC.
+
+Its AUC of 0.590 is the ceiling of what those inputs can produce,
+not a finding about graph models. The positive control (item 2)
+already confirmed the pipeline can learn the rule perfectly -- a
+depth-1 tree on `n_critical` hits 1.0. The bottleneck is the model,
+not the pipeline.
+
+`tests/test_gcn_risk.py` has 6 tests, all passing, none asserting
+that edge features affect the output. Deleting `edge_attr` from
+every graph would leave all 6 green. This is the class of test that
+coverage does not catch: line coverage was 80 percent, behavior
+coverage of the actual failure mode was 0.
+
+Done when `docs/audit/gcn_diagnosis.md` records the code excerpt,
+the positive control result, the behavioral test that would have
+caught it (`test_output_depends_on_edge_attr`), and the list of the
+7 other GCN behavioral tests currently missing.
+
+### 13. Edge-aware GCN fix and re-run
+
+status: todo
+evidence:
+
+Replace `GCNConv` with an edge-aware layer: `GINEConv`,
+`TransformerConv`, `NNConv`, or `GATv2Conv`, all of which accept
+`edge_dim`. Add `edge_dim=15` to every conv. Change the default
+pool from `mean` to `max`: mean dilutes a single critical edge
+across ~20 vehicles; max preserves the "some pair is critical"
+signal that the label asks about.
+
+Add the 8 behavioral tests item 12 names. Re-run
+`scripts/compare_baselines.py`. Two outcomes:
+
+- **New GCN AUC >= 0.757** (matches or beats RF): the paper's claim
+  flips. The previous result was a bug, not a finding. Results
+  section needs a rewrite.
+- **New GCN AUC < 0.757**: the claim survives, but with a different
+  mechanism. Not "graph models cannot learn this" but "even with
+  edge features, message passing does not beat a single aggregated
+  scalar on a near-circular label."
+
+Done when `docs/audit/gcn_fix.md` records the new GCN row in
+`comparison.json` and `docs/paper/results.md` reflects the corrected
+number.
+
+### 14. Step behavioral verification: measure before fixing
+
+status: todo
+evidence:
+
+The eight `graf run` steps (`detect`, `track`, `trajectory`,
+`graph`, `window`, `train`, `compare`, `audit`) each have test
+files that mention their script names -- but referencing a script
+is not testing it. The GCN bug is the proof: 6 tests, 80 percent
+coverage, and the model was structurally unable to see its own
+label signal.
+
+This item is **one measurement, not eight PRs**. For each step,
+classify what its tests actually assert: (a) runs the CLI on a
+fixture, (b) asserts on the output, (c) only checks arguments or
+imports. The likely outcome is 2-3 real gaps, not eight.
+
+Acceptance criteria per step (from the three-reviewer consensus):
+
+  1. detect     -- valid detections, correct class mapping, bbox,
+                   confidence, frame indices
+  2. track      -- stable IDs, correct association, sensible on
+                   detection disappearance
+  3. trajectory -- correct ordering, coords, timestamps, missing-
+                   frame handling
+  4. graph      -- correct nodes, edges, features, loadable .pt
+  5. window     -- correct boundaries, stride, labels, sample
+                   counts
+  6. train      -- loss decreases, outputs finite, checkpoints
+                   loadable
+  7. compare    -- metrics calculated correctly from the intended
+                   predictions and labels
+  8. audit      -- detects known problems, produces meaningful
+                   report
+
+Detection specifically: inject a fake detector at the model
+boundary. Do not download real YOLO in CI -- it is a COCO model,
+not UVH-26, and adds network fragility to every run. Test the
+code we own: class mapping, bbox validity, JSONL writing, frame
+ordering. The real model is tested in the nightly job.
+
+Done when `docs/audit/step_verification.md` records the per-step
+classification and either "all eight pass" or a list of the N
+steps that need behavioral tests, with each closed as a sub-PR.
