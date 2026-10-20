@@ -22,7 +22,6 @@ from torch_geometric.data import Data
 
 from graf.models.gcn_risk import build_model
 
-
 NODE_DIM = 19
 EDGE_DIM = 15
 
