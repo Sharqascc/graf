@@ -59,6 +59,7 @@ def test_required_jobs_not_gated():
             f"{name} is a required check and must not be gated"
         )
 
+
 def test_paths_filter_covers_every_code_directory():
     """Every directory containing .py files must be in the filter.
 
@@ -67,8 +68,15 @@ def test_paths_filter_covers_every_code_directory():
     added without updating ci.yml, a future code PR could skip
     the heavy jobs by mistake. This test prevents that.
     """
-    SKIP = {"docs", "notebooks", "data", "outputs",
-            "__pycache__", ".pytest_cache", ".ruff_cache"}
+    SKIP = {
+        "docs",
+        "notebooks",
+        "data",
+        "outputs",
+        "__pycache__",
+        ".pytest_cache",
+        ".ruff_cache",
+    }
 
     code_dirs: set[str] = set()
     for entry in _REPO.iterdir():
