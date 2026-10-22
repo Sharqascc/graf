@@ -109,3 +109,59 @@ velocity exists to predict with.
 
 The original numbers and explanation above are kept as the record of
 what the first-pass run actually produced.
+
+## Addendum 2 — UVH-26 detector
+
+The first addendum addressed the tracker. This one addresses the
+detector, which the "Next steps for NSC" list above named as the
+follow-up: "Optionally fine-tune a detector on UVH-26 (IISc's Indian
+traffic dataset) to get auto-rickshaw / tempo-traveller classes."
+
+That step is done. Details are in `docs/paper/detection_mrc_uvh26.md`.
+
+**UVH-26-MV-YOLOv11-S** (IISc Bengaluru, arXiv:2511.02563) was run on
+the same MRC window (40–70s at 5 fps, 150 frames), at imgsz=1280 and
+confidence threshold 0.50.
+
+| metric | value |
+|---|---:|
+| mean detections / frame | 48.36 ± 3.96 |
+| min / max | 37 / 57 |
+| mean confidence | 0.781 |
+
+Class distribution at conf 0.50:
+
+| class | detections |
+|---|---:|
+| Two-wheeler | 3,163 |
+| Three-wheeler | 2,909 |
+| Hatchback | 449 |
+| Sedan | 302 |
+| Truck | 150 |
+| LCV | 139 |
+| Van | 92 |
+| bicycle | 25 |
+| MUV | 23 |
+| SUV | 1 |
+| Bus | 1 |
+
+84% of detections are Two-wheeler or Three-wheeler — consistent with
+the observed traffic mix, and using classes COCO does not have.
+
+### What changed vs the COCO baseline above
+
+The COCO section reports 961 detections over 25 frames
+(~38.4 / frame) at conf 0.25, using imgsz=1280. UVH-26 at conf 0.50 on
+150 frames gives 48.36 / frame. Same detector-accuracy class; the
+difference is taxonomy — COCO labels every three-wheeler as `car` or
+`truck`, UVH-26 labels them correctly.
+
+### Caveats
+
+- No ground truth on MRC; the visual sample is the evidence, not AP.
+- Occasional false positives on static infrastructure at low
+  confidence; do not survive 0.50 in the sampled frames.
+- One clip, one window.
+
+UVH-26 is now the project's default detector. The pipeline stages in
+`docs/pipeline.md` will reference it for future runs.

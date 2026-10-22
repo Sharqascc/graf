@@ -1,0 +1,169 @@
+{
+  "frames": 150,
+  "imgsz": 1280,
+  "uvh26": [
+    {
+      "threshold": 0.25,
+      "total": 9132,
+      "per_frame": 60.88,
+      "classes": {
+        "Three-wheeler": 3379,
+        "LCV": 150,
+        "Hatchback": 717,
+        "Two-wheeler": 4125,
+        "Truck": 173,
+        "Sedan": 365,
+        "Van": 95,
+        "bicycle": 40,
+        "Bus": 2,
+        "MUV": 85,
+        "SUV": 1
+      }
+    },
+    {
+      "threshold": 0.4,
+      "total": 7965,
+      "per_frame": 53.1,
+      "classes": {
+        "Three-wheeler": 3093,
+        "LCV": 143,
+        "Hatchback": 571,
+        "Two-wheeler": 3509,
+        "Truck": 150,
+        "Sedan": 327,
+        "Van": 93,
+        "MUV": 45,
+        "bicycle": 32,
+        "SUV": 1,
+        "Bus": 1
+      }
+    },
+    {
+      "threshold": 0.5,
+      "total": 7254,
+      "per_frame": 48.36,
+      "classes": {
+        "Three-wheeler": 2909,
+        "LCV": 139,
+        "Hatchback": 449,
+        "Two-wheeler": 3163,
+        "Truck": 150,
+        "Sedan": 302,
+        "Van": 92,
+        "bicycle": 25,
+        "SUV": 1,
+        "MUV": 23,
+        "Bus": 1
+      }
+    },
+    {
+      "threshold": 0.6,
+      "total": 6392,
+      "per_frame": 42.61333333333334,
+      "classes": {
+        "Three-wheeler": 2701,
+        "LCV": 136,
+        "Hatchback": 366,
+        "Two-wheeler": 2706,
+        "Truck": 150,
+        "Sedan": 240,
+        "Van": 67,
+        "bicycle": 20,
+        "MUV": 6
+      }
+    },
+    {
+      "threshold": 0.7,
+      "total": 5234,
+      "per_frame": 34.89333333333333,
+      "classes": {
+        "Three-wheeler": 2445,
+        "LCV": 131,
+        "Hatchback": 224,
+        "Two-wheeler": 2152,
+        "Truck": 129,
+        "Sedan": 135,
+        "bicycle": 15,
+        "MUV": 3
+      }
+    }
+  ],
+  "coco": [
+    {
+      "threshold": 0.25,
+      "total": 5845,
+      "per_frame": 38.96666666666667,
+      "classes": {
+        "car": 1625,
+        "truck": 1236,
+        "person": 2149,
+        "motorcycle": 606,
+        "sports ball": 64,
+        "bus": 121,
+        "bicycle": 30,
+        "boat": 1,
+        "airplane": 3,
+        "train": 5,
+        "bird": 2,
+        "frisbee": 1,
+        "skateboard": 1,
+        "kite": 1
+      }
+    },
+    {
+      "threshold": 0.4,
+      "total": 2698,
+      "per_frame": 17.986666666666668,
+      "classes": {
+        "car": 949,
+        "truck": 553,
+        "person": 818,
+        "motorcycle": 290,
+        "sports ball": 43,
+        "bicycle": 8,
+        "bus": 37
+      }
+    },
+    {
+      "threshold": 0.5,
+      "total": 1620,
+      "per_frame": 10.8,
+      "classes": {
+        "car": 711,
+        "truck": 340,
+        "person": 382,
+        "motorcycle": 156,
+        "sports ball": 19,
+        "bicycle": 4,
+        "bus": 8
+      }
+    },
+    {
+      "threshold": 0.6,
+      "total": 997,
+      "per_frame": 6.6466666666666665,
+      "classes": {
+        "car": 537,
+        "truck": 185,
+        "person": 178,
+        "motorcycle": 83,
+        "sports ball": 11,
+        "bus": 2,
+        "bicycle": 1
+      }
+    },
+    {
+      "threshold": 0.7,
+      "total": 543,
+      "per_frame": 3.62,
+      "classes": {
+        "car": 336,
+        "truck": 102,
+        "person": 83,
+        "motorcycle": 19,
+        "sports ball": 2,
+        "bus": 1
+      }
+    }
+  ]
+}
