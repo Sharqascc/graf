@@ -38,8 +38,11 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
+from datetime import UTC
+
 import numpy as np
 import yaml
+
 from graf.models.baselines import (
     GraphFeatureExtractor,
     LogisticRegressionBaseline,
@@ -696,11 +699,11 @@ def _git_provenance() -> dict:
     """
     import platform
     import subprocess
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     out: dict = {
         "python": platform.python_version(),
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "timestamp_utc": datetime.now(UTC).isoformat(),
     }
     try:
         sha = subprocess.run(
