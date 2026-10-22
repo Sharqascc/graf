@@ -15,6 +15,7 @@ import pytest
 _REPO = Path(__file__).resolve().parents[1]
 _WORKFLOW = _REPO / ".github" / "workflows" / "diagnose-sci.yml"
 
+
 # These tests inspect a CI workflow file. That file ships with the
 # repo but is deliberately excluded from the Docker build context
 # (see .dockerignore: the `.github` directory is not copied into

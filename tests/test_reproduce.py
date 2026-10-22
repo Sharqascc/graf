@@ -7,7 +7,16 @@ from pathlib import Path
 import pytest
 import yaml
 
-from graf.reproduce import load_recipe, run_recipe, validate_recipe
+from graf.reproduce import (
+    Recipe,
+    Step,
+    _select,
+    format_stages,
+    load_recipe,
+    parse_step_spec,
+    run_recipe,
+    validate_recipe,
+)
 
 
 def _write(tmp_path: Path, body: dict) -> Path:
@@ -311,3 +320,99 @@ def test_run_recipe_prints_description_and_produces(tmp_path: Path, capsys) -> N
     out = capsys.readouterr().out
     assert "a test recipe" in out
     assert "output.txt" in out
+
+
+# --- numbered-stage selection (--step) --------------------------------
+
+
+def test_parse_step_spec_single():
+    assert parse_step_spec("3", 5) == [2]
+
+
+def test_parse_step_spec_range():
+    assert parse_step_spec("2-4", 5) == [1, 2, 3]
+
+
+def test_parse_step_spec_list():
+    assert parse_step_spec("1,3,5", 5) == [0, 2, 4]
+
+
+def test_parse_step_spec_from():
+    assert parse_step_spec("from-3", 5) == [2, 3, 4]
+
+
+def test_parse_step_spec_all():
+    assert parse_step_spec("all", 3) == [0, 1, 2]
+
+
+def test_parse_step_spec_rejects_out_of_range():
+    with pytest.raises(ValueError):
+        parse_step_spec("99", 5)
+
+
+def test_parse_step_spec_rejects_backwards_range():
+    with pytest.raises(ValueError):
+        parse_step_spec("4-2", 5)
+
+
+def test_parse_step_spec_rejects_garbage():
+    with pytest.raises(ValueError):
+        parse_step_spec("foo", 5)
+
+
+def test_format_stages_numbers_each_step():
+    recipe = Recipe(
+        name="r",
+        description="",
+        path=Path("r.yaml"),
+        steps=[
+            Step(name="alpha", cmd=["x"], produces=None),
+            Step(name="beta", cmd=["y"], produces=None),
+        ],
+    )
+    out = format_stages(recipe)
+    assert "1. alpha" in out
+    assert "2. beta" in out
+
+
+def test_select_with_explicit_indices():
+    recipe = Recipe(
+        name="r",
+        description="",
+        path=Path("r.yaml"),
+        steps=[
+            Step(name="a", cmd=["x"], produces=None),
+            Step(name="b", cmd=["y"], produces=None),
+            Step(name="c", cmd=["z"], produces=None),
+        ],
+    )
+    selected = _select(recipe, None, None, [1])
+    assert [s.name for s in selected] == ["b"]
+
+
+def test_select_rejects_step_with_only():
+    recipe = Recipe(
+        name="r",
+        description="",
+        path=Path("r.yaml"),
+        steps=[Step(name="a", cmd=["x"], produces=None)],
+    )
+    with pytest.raises(ValueError):
+        _select(recipe, "a", None, [0])
+
+
+def test_run_recipe_dry_run_only_selected_step(capsys):
+    recipe = Recipe(
+        name="r",
+        description="",
+        path=Path("r.yaml"),
+        steps=[
+            Step(name="a", cmd=["echo", "a"], produces=None),
+            Step(name="b", cmd=["echo", "b"], produces=None),
+        ],
+    )
+    rc = run_recipe(recipe, dry_run=True, steps=[1])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "cmd: echo b" in out
+    assert "cmd: echo a" not in out

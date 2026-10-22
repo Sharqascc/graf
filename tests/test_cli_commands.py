@@ -187,7 +187,12 @@ def test_main_dispatch_reproduce(monkeypatch):
     captured = {}
 
     def fake_run_reproduce(
-        recipe_path, dry_run=False, only=None, from_step=None, allow_missing=False
+        recipe_path,
+        dry_run=False,
+        only=None,
+        from_step=None,
+        allow_missing=False,
+        step=None,
     ):
         captured["recipe_path"] = recipe_path
         captured["dry_run"] = dry_run
@@ -560,7 +565,12 @@ def test_main_dispatch_reproduce_allow_missing(monkeypatch):
     captured = {}
 
     def fake_run_reproduce(
-        recipe_path, dry_run=False, only=None, from_step=None, allow_missing=False
+        recipe_path,
+        dry_run=False,
+        only=None,
+        from_step=None,
+        allow_missing=False,
+        step=None,
     ):
         captured["allow_missing"] = allow_missing
         return 0
@@ -929,8 +939,42 @@ def test_print_welcome_output(capsys):
     assert "GRAF" in out
     assert "Get started" in out
     assert "graf doctor" in out
-    assert "graf recipes" in out
+    assert "graf stages" in out
     assert "graf reproduce" in out
     assert "Everything else" in out
     assert "graf --help" in out
     assert "graf --version" in out
+
+
+def test_main_dispatch_stages(monkeypatch):
+    monkeypatch.setattr("graf.cli.run_stages", lambda p: 7)
+    assert main(["stages", "r.yaml"]) == 7
+
+
+def test_main_dispatch_reproduce_step(monkeypatch):
+    captured = {}
+
+    def fake_run_reproduce(
+        recipe_path,
+        dry_run=False,
+        only=None,
+        from_step=None,
+        allow_missing=False,
+        step=None,
+    ):
+        captured["step"] = step
+        return 0
+
+    monkeypatch.setattr("graf.cli.run_reproduce", fake_run_reproduce)
+    assert main(["reproduce", "r.yaml", "--step", "2-3"]) == 0
+    assert captured["step"] == "2-3"
+
+
+def test_print_welcome_mentions_numbered_resume(capsys):
+    from graf.cli import _print_welcome, build_parser
+
+    _print_welcome(build_parser())
+    out = capsys.readouterr().out
+    assert "graf stages" in out
+    assert "--step 4" in out
+    assert "--step from-4" in out

@@ -7,7 +7,13 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from graf.doctor import run_checks as run_doctor_checks
-from graf.reproduce import load_recipe, run_recipe, validate_recipe
+from graf.reproduce import (
+    format_stages,
+    load_recipe,
+    parse_step_spec,
+    run_recipe,
+    validate_recipe,
+)
 from graf.training.conflict_pairs import run_cross_validation
 from graf.utils.export_graph_samples import export_graph_samples
 from graf.utils.logger import get_logger
@@ -157,10 +163,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Start from the step with this name (inclusive)",
     )
     reproduce.add_argument(
+        "--step",
+        default=None,
+        help=(
+            "Run only these stages (1-based): N, N-M, N,M,... 'all', or "
+            "from-N. Cannot be combined with --only or --from-step."
+        ),
+    )
+    reproduce.add_argument(
         "--allow-missing",
         action="store_true",
         help="Skip the preflight check for missing inputs",
     )
+
+    stages = subparsers.add_parser(
+        "stages",
+        help="Show the numbered stages in a recipe",
+    )
+    stages.add_argument("recipe", help="Path to a recipe YAML")
 
     doctor = subparsers.add_parser(
         "doctor",
@@ -393,19 +413,43 @@ def run_reproduce(
     only: str | None = None,
     from_step: str | None = None,
     allow_missing: bool = False,
+    step: str | None = None,
 ) -> int:
     try:
         recipe = load_recipe(recipe_path)
     except (FileNotFoundError, ValueError) as e:
         logger.error("Could not load recipe: %s", e)
         return 1
-    return run_recipe(
-        recipe,
-        dry_run=dry_run,
-        only=only,
-        from_step=from_step,
-        allow_missing=allow_missing,
-    )
+    step_indices = None
+    if step is not None:
+        try:
+            step_indices = parse_step_spec(step, len(recipe.steps))
+        except ValueError as e:
+            logger.error("%s", e)
+            return 1
+    try:
+        return run_recipe(
+            recipe,
+            dry_run=dry_run,
+            only=only,
+            from_step=from_step,
+            allow_missing=allow_missing,
+            steps=step_indices,
+        )
+    except ValueError as e:
+        logger.error("%s", e)
+        return 1
+
+
+def run_stages(recipe_path: str) -> int:
+    """Print the numbered stages in a recipe."""
+    try:
+        recipe = load_recipe(recipe_path)
+    except (FileNotFoundError, ValueError) as e:
+        logger.error("Could not load recipe: %s", e)
+        return 1
+    print(format_stages(recipe))
+    return 0
 
 
 def run_recipes() -> int:
@@ -613,6 +657,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_recipes()
     if args.command == "validate":
         return run_validate(args.recipe)
+    if args.command == "stages":
+        return run_stages(args.recipe)
     if args.command == "reproduce":
         return run_reproduce(
             recipe_path=args.recipe,
@@ -620,6 +666,7 @@ def main(argv: list[str] | None = None) -> int:
             only=args.only,
             from_step=args.from_step,
             allow_missing=args.allow_missing,
+            step=args.step,
         )
     if args.command == "train-conflict-pairs":
         return run_train_conflict_pairs(
@@ -653,8 +700,13 @@ def _print_welcome(parser: argparse.ArgumentParser) -> None:
     print()
     print("Get started:")
     print("  graf doctor                    check your environment")
-    print("  graf recipes                   list available recipes")
+    print("  graf stages <recipe>           show the numbered pipeline")
     print("  graf reproduce <recipe>        run a recipe")
+    print()
+    print("Resume or re-run selected stages:")
+    print("  graf reproduce <recipe> --step 4        only stage 4")
+    print("  graf reproduce <recipe> --step 1-3      stages 1 through 3")
+    print("  graf reproduce <recipe> --step from-4   stage 4 onward")
     print()
     print("Everything else:")
     print("  graf --help                    full command list")

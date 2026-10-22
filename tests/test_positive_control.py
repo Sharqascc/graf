@@ -4,11 +4,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 _REPO = Path(__file__).resolve().parents[1]
 _SCRIPT = _REPO / "scripts" / "positive_control.py"
 _WF = _REPO / ".github" / "workflows" / "positive-control.yml"
+
+pytestmark = pytest.mark.skipif(
+    not _WF.exists(),
+    reason="positive-control workflow file is not present in this "
+    "environment (running inside the Docker image)",
+)
 
 
 def test_script_exists():

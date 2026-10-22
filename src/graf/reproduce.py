@@ -97,25 +97,99 @@ def load_recipe(path: str | Path) -> Recipe:
     )
 
 
-def _select(recipe: Recipe, only: str | None, from_step: str | None) -> list[Step]:
-    steps = recipe.steps
+def _select(
+    recipe: Recipe,
+    only: str | None,
+    from_step: str | None,
+    steps: list[int] | None = None,
+) -> list[Step]:
+    if steps is not None:
+        if only or from_step:
+            raise ValueError("--step cannot be combined with --only or --from-step")
+        return [recipe.steps[i] for i in steps]
+    selected = recipe.steps
     if only:
-        steps = [s for s in steps if s.name == only]
-        if not steps:
+        selected = [s for s in selected if s.name == only]
+        if not selected:
             names = ", ".join(s.name for s in recipe.steps)
             raise ValueError(f"no step named {only!r}; available: {names}")
-        return steps
+        return selected
     if from_step:
         idx = None
-        for i, s in enumerate(steps):
+        for i, s in enumerate(selected):
             if s.name == from_step:
                 idx = i
                 break
         if idx is None:
             names = ", ".join(s.name for s in recipe.steps)
             raise ValueError(f"no step named {from_step!r}; available: {names}")
-        return steps[idx:]
-    return steps
+        return selected[idx:]
+    return selected
+
+
+def parse_step_spec(spec: str, n_stages: int) -> list[int]:
+    """Parse a step specification into 0-based indices.
+
+    Accepted forms (all 1-based on the command line):
+
+        3        -> [2]
+        1-3      -> [0, 1, 2]
+        1,3,5    -> [0, 2, 4]
+        from-3   -> [2, 3, ..., n-1]
+        all      -> [0, 1, ..., n-1]
+
+    Raises ValueError on malformed input or out-of-range numbers, with a
+    message that names the offending token and the valid range.
+    """
+    if not isinstance(spec, str):
+        raise ValueError(f"step spec must be a string, got {type(spec).__name__}")
+    s = spec.strip()
+    if s == "all":
+        return list(range(n_stages))
+    if s.startswith("from-"):
+        try:
+            start = int(s[5:])
+        except ValueError:
+            raise ValueError(f"invalid step spec: {spec!r}") from None
+        if not 1 <= start <= n_stages:
+            raise ValueError(f"step {start} out of range 1..{n_stages}")
+        return list(range(start - 1, n_stages))
+    if "," in s:
+        out: list[int] = []
+        for part in s.split(","):
+            part = part.strip()
+            try:
+                n = int(part)
+            except ValueError:
+                raise ValueError(f"invalid step number: {part!r}") from None
+            if not 1 <= n <= n_stages:
+                raise ValueError(f"step {n} out of range 1..{n_stages}")
+            out.append(n - 1)
+        return out
+    if "-" in s:
+        lo_s, hi_s = s.split("-", 1)
+        try:
+            lo, hi = int(lo_s), int(hi_s)
+        except ValueError:
+            raise ValueError(f"invalid step range: {spec!r}") from None
+        if not (1 <= lo <= hi <= n_stages):
+            raise ValueError(f"step range {lo}-{hi} out of bounds 1..{n_stages}")
+        return list(range(lo - 1, hi))
+    try:
+        n = int(s)
+    except ValueError:
+        raise ValueError(f"invalid step spec: {spec!r}") from None
+    if not 1 <= n <= n_stages:
+        raise ValueError(f"step {n} out of range 1..{n_stages}")
+    return [n - 1]
+
+
+def format_stages(recipe: Recipe) -> str:
+    """Return a numbered listing of the recipe's stages, one per line."""
+    lines = [f"{recipe.name}  ({len(recipe.steps)} stage(s))"]
+    for i, step in enumerate(recipe.steps, 1):
+        lines.append(f"  {i}. {step.name}")
+    return "\n".join(lines)
 
 
 def validate_recipe(
@@ -124,6 +198,7 @@ def validate_recipe(
     cwd: Path | None = None,
     only: str | None = None,
     from_step: str | None = None,
+    steps: list[int] | None = None,
 ) -> list[str]:
     """Return a list of human-readable problems; empty list means runnable.
 
@@ -132,11 +207,11 @@ def validate_recipe(
     check is order-sensitive: a step that produces a path satisfies the
     requires of every step after it, but not of any step before it.
     """
-    steps = _select(recipe, only, from_step)
+    selected = _select(recipe, only, from_step, steps)
     workdir = cwd or Path.cwd()
     problems: list[str] = []
     produced: set[str] = set()
-    for step in steps:
+    for step in selected:
         for req in step.requires:
             if (workdir / req).exists():
                 continue
@@ -156,22 +231,29 @@ def run_recipe(
     from_step: str | None = None,
     allow_missing: bool = False,
     cwd: Path | None = None,
+    steps: list[int] | None = None,
 ) -> int:
     """Run the selected steps. Returns 0 on success, 1 on first failure."""
-    steps = _select(recipe, only, from_step)
+    selected = _select(recipe, only, from_step, steps)
     workdir = cwd or Path.cwd()
 
     print(f"recipe: {recipe.name}")
     if recipe.description:
         print(f"  {recipe.description}")
-    print(f"  {len(steps)} step(s) selected")
+    print(f"  {len(selected)} step(s) selected")
     if dry_run:
         print("  (dry run - nothing will execute)")
     print()
 
     # Preflight: check every selected step's declared inputs.
     if not dry_run and not allow_missing:
-        problems = validate_recipe(recipe, cwd=workdir, only=only, from_step=from_step)
+        problems = validate_recipe(
+            recipe,
+            cwd=workdir,
+            only=only,
+            from_step=from_step,
+            steps=steps,
+        )
         if problems:
             print("preflight failed:", file=sys.stderr)
             for p in problems:
@@ -183,8 +265,8 @@ def run_recipe(
             return 1
 
     t_total = time.time()
-    for i, step in enumerate(steps, 1):
-        print(f"[{i}/{len(steps)}] {step.name}")
+    for i, step in enumerate(selected, 1):
+        print(f"[{i}/{len(selected)}] {step.name}")
         if step.produces is not None:
             print(f"    produces: {step.produces}")
         if dry_run:
