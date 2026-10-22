@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 import yaml
 from graf.reproduce import (
+    Recipe,
+    Step,
     _select,
     format_stages,
     load_recipe,

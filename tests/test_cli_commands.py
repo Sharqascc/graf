@@ -187,7 +187,12 @@ def test_main_dispatch_reproduce(monkeypatch):
     captured = {}
 
     def fake_run_reproduce(
-        recipe_path, dry_run=False, only=None, from_step=None, allow_missing=False
+        recipe_path,
+        dry_run=False,
+        only=None,
+        from_step=None,
+        allow_missing=False,
+        step=None,
     ):
         captured["recipe_path"] = recipe_path
         captured["dry_run"] = dry_run
@@ -560,7 +565,12 @@ def test_main_dispatch_reproduce_allow_missing(monkeypatch):
     captured = {}
 
     def fake_run_reproduce(
-        recipe_path, dry_run=False, only=None, from_step=None, allow_missing=False
+        recipe_path,
+        dry_run=False,
+        only=None,
+        from_step=None,
+        allow_missing=False,
+        step=None,
     ):
         captured["allow_missing"] = allow_missing
         return 0
@@ -929,7 +939,7 @@ def test_print_welcome_output(capsys):
     assert "GRAF" in out
     assert "Get started" in out
     assert "graf doctor" in out
-    assert "graf recipes" in out
+    assert "graf stages" in out
     assert "graf reproduce" in out
     assert "Everything else" in out
     assert "graf --help" in out
