@@ -494,6 +494,16 @@ Every model in the paper sees the same 42-column matrix produced by
 this extractor. The single-feature baseline (section 4.4) reads column
 23 of the same matrix.
 
+**Scope of the model comparison.** The graph neural network in this
+comparison uses `GCNConv`, which aggregates over graph topology but
+does not consume edge features (`edge_attr`). The single-feature
+baseline reads an edge-derived scalar directly. The comparison
+therefore asks whether a graph model that sees *which* vehicles are
+adjacent beats a scalar that sees *how much* edge signal is present.
+An edge-aware GNN, in which the model sees the same edge attributes
+the baseline is derived from, is a different and stronger comparison.
+It is not claimed here.
+
 The graph representation itself — nodes for actors, edges for pairs
 within a spatial radius — is used by the GCN path. The reported
 comparison uses the tabular extractor, because the finding concerns

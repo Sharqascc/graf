@@ -40,7 +40,6 @@ sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 import numpy as np
 import yaml
-
 from graf.models.baselines import (
     GraphFeatureExtractor,
     LogisticRegressionBaseline,
@@ -689,6 +688,45 @@ def _scale_homography_yaml(ppm: float, out_path: Path) -> Path:
     return out_path
 
 
+def _git_provenance() -> dict:
+    """Best-effort capture of git state for the setup block.
+
+    Never raises: if git is unavailable, only the timestamp and Python
+    version are recorded. The purpose is traceability, not enforcement.
+    """
+    import platform
+    import subprocess
+    from datetime import datetime, timezone
+
+    out: dict = {
+        "python": platform.python_version(),
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        sha = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if sha.returncode == 0:
+            out["git_sha"] = sha.stdout.strip()
+    except Exception:
+        pass
+    try:
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if dirty.returncode == 0:
+            out["git_dirty"] = bool(dirty.stdout.strip())
+    except Exception:
+        pass
+    return out
+
+
 def main(argv=None) -> int:
     args = parse_args(argv)
 
@@ -888,6 +926,8 @@ def main(argv=None) -> int:
             "lr": args.lr,
             "pos_weight": args.pos_weight,
             "seed": args.seed,
+            "models_requested": args.models,
+            "provenance": _git_provenance(),
         },
         "labels": {
             "num_windows": n,
