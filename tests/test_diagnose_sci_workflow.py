@@ -15,12 +15,6 @@ import pytest
 _REPO = Path(__file__).resolve().parents[1]
 _WORKFLOW = _REPO / ".github" / "workflows" / "diagnose-sci.yml"
 
-pytestmark = pytest.mark.skipif(
-    not _WORKFLOW.exists(),
-    reason="workflow YAML files are not present in this environment "
-    "(running inside the Docker image)",
-)
-
 
 # These tests inspect a CI workflow file. That file ships with the
 # repo but is deliberately excluded from the Docker build context
