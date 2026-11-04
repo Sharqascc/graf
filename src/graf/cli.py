@@ -256,6 +256,20 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Repository root (defaults to the package repo root)",
     )
+    run.add_argument(
+        "--pipeline",
+        choices=["science", "inspect"],
+        default="science",
+        help=(
+            "Which pipeline to run: 'science' (8 steps, paper) "
+            "or 'inspect' (6 steps, visual QA)"
+        ),
+    )
+    run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would run without executing",
+    )
     return parser
 
 
@@ -553,28 +567,57 @@ def run_pipeline(
     site: str,
     list_only: bool,
     root: str | None,
+    pipeline: str = "science",
+    dry_run: bool = False,
 ) -> int:
     """Run numbered pipeline steps. Dispatched by `graf run`."""
     import time as _time
 
-    from graf.pipeline import Context, format_listing, select_steps
+    from graf.pipeline import (
+        PIPELINES,
+        Context,
+        format_listing,
+        format_preflight,
+        preflight,
+        select_steps,
+    )
+
+    if pipeline not in PIPELINES:
+        logger.error("unknown pipeline: %s", pipeline)
+        return 1
 
     if list_only:
-        print(format_listing())
+        print(format_listing(pipeline=pipeline))
         return 0
 
     repo_root = Path(root).resolve() if root else _repo_root()
     ctx = Context(site=site, video=None, root=repo_root)
 
     try:
-        steps = select_steps(target)
+        steps = select_steps(target, pipeline=pipeline)
     except ValueError as exc:
         logger.error("%s", exc)
         return 1
 
+    if dry_run:
+        issues = preflight(steps, ctx)
+        print(format_preflight(issues, steps))
+        print("  dry run: no commands executed")
+        return 0
+
+    issues = preflight(steps, ctx)
+    if issues:
+        print(format_preflight(issues, steps))
+        logger.error(
+            "preflight failed: %d step(s) missing a required script",
+            len(set(i.step for i in issues)),
+        )
+        return 1
+
+    total = len(steps)
     for step in steps:
         commands = step.build_commands(ctx)
-        print(f"[{step.number}/8] {step.name} ...")
+        print(f"[{step.number}/{total}] {step.name} ...")
         t0 = _time.time()
         for cmd in commands:
             if cmd.script == "_audit_inline":
@@ -603,7 +646,7 @@ def run_pipeline(
                     )
                     return proc.returncode
         elapsed = _time.time() - t0
-        print(f"[{step.number}/8] {step.name} ok ({elapsed:.1f}s)")
+        print(f"[{step.number}/{total}] {step.name} ok ({elapsed:.1f}s)")
     return 0
 
 
@@ -689,6 +732,8 @@ def main(argv: list[str] | None = None) -> int:
             site=args.site,
             list_only=args.list_only,
             root=args.root,
+            pipeline=args.pipeline,
+            dry_run=args.dry_run,
         )
     _print_welcome(parser)
     return 0
