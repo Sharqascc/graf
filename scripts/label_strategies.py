@@ -51,6 +51,7 @@ def _frame_ttc_stats(
     ttc_threshold_seconds: float,
     distance_threshold: float,
     closing_rate_threshold: float,
+    dcpa_threshold: float = 1.5,
 ) -> pd.DataFrame:
     """Per-frame pair-level TTC summary.
 
@@ -81,6 +82,10 @@ def _frame_ttc_stats(
                 if rss <= 1e-9 or closing_rate <= closing_rate_threshold:
                     continue
                 ttc = closing_rate / rss
+                dcpa_vec = rel_pos + ttc * rel_vel
+                dcpa = float(np.linalg.norm(dcpa_vec))
+                if dcpa >= dcpa_threshold:
+                    continue
                 if np.isfinite(ttc) and 0 < ttc <= ttc_threshold_seconds:
                     n_critical += 1
                     if ttc < min_ttc:
@@ -102,6 +107,7 @@ def _frame_critical_pair_ids(
     ttc_threshold_seconds: float,
     distance_threshold: float,
     closing_rate_threshold: float,
+    dcpa_threshold: float = 1.5,
 ) -> dict[int, set[tuple[int, int]]]:
     """For each frame, the set of (track_a, track_b) critical pairs.
 
@@ -131,6 +137,10 @@ def _frame_critical_pair_ids(
                 if rss <= 1e-9 or closing_rate <= closing_rate_threshold:
                     continue
                 ttc = closing_rate / rss
+                dcpa_vec = rel_pos + ttc * rel_vel
+                dcpa = float(np.linalg.norm(dcpa_vec))
+                if dcpa >= dcpa_threshold:
+                    continue
                 if np.isfinite(ttc) and 0 < ttc <= ttc_threshold_seconds:
                     ta, tb = int(a["track_id"]), int(b["track_id"])
                     ids.add((min(ta, tb), max(ta, tb)))
@@ -145,6 +155,7 @@ def label_persistent_pair(
     ttc_threshold_seconds: float = 1.5,
     distance_threshold: float = 3.0,
     closing_rate_threshold: float = 0.5,
+    dcpa_threshold: float = 1.5,
     run_length: int = 3,
     **_: object,
 ) -> list[int]:
@@ -169,6 +180,7 @@ def label_persistent_pair(
         ttc_threshold_seconds=ttc_threshold_seconds,
         distance_threshold=distance_threshold,
         closing_rate_threshold=closing_rate_threshold,
+        dcpa_threshold=dcpa_threshold,
     )
 
     labels: list[int] = []
@@ -208,6 +220,7 @@ def label_any(
     ttc_threshold_seconds: float = 1.5,
     distance_threshold: float = 3.0,
     closing_rate_threshold: float = 0.5,
+    dcpa_threshold: float = 1.5,
     **_: object,
 ) -> list[int]:
     """Default: window positive if any frame has >=1 critical pair."""
@@ -216,6 +229,7 @@ def label_any(
         ttc_threshold_seconds=ttc_threshold_seconds,
         distance_threshold=distance_threshold,
         closing_rate_threshold=closing_rate_threshold,
+        dcpa_threshold=dcpa_threshold,
     )
     critical_frames = set(stats[stats["n_critical"] > 0].index.tolist())
     return [
@@ -231,6 +245,7 @@ def label_pair_fraction(
     ttc_threshold_seconds: float = 1.5,
     distance_threshold: float = 3.0,
     closing_rate_threshold: float = 0.5,
+    dcpa_threshold: float = 1.5,
     fraction_threshold: float = 0.2,
     **_: object,
 ) -> list[int]:
@@ -245,6 +260,7 @@ def label_pair_fraction(
         ttc_threshold_seconds=ttc_threshold_seconds,
         distance_threshold=distance_threshold,
         closing_rate_threshold=closing_rate_threshold,
+        dcpa_threshold=dcpa_threshold,
     )
     # Fraction is 0 whenever n_pairs==0 (avoid divide-by-zero)
     frac = np.where(
@@ -268,6 +284,7 @@ def label_sustained(
     ttc_threshold_seconds: float = 1.5,
     distance_threshold: float = 3.0,
     closing_rate_threshold: float = 0.5,
+    dcpa_threshold: float = 1.5,
     run_length: int = 3,
     **_: object,
 ) -> list[int]:
@@ -283,6 +300,7 @@ def label_sustained(
         ttc_threshold_seconds=ttc_threshold_seconds,
         distance_threshold=distance_threshold,
         closing_rate_threshold=closing_rate_threshold,
+        dcpa_threshold=dcpa_threshold,
     )
     critical_frames = set(stats[stats["n_critical"] > 0].index.tolist())
 
@@ -308,6 +326,7 @@ def label_min_ttc(
     ttc_threshold_seconds: float = 1.5,
     distance_threshold: float = 3.0,
     closing_rate_threshold: float = 0.5,
+    dcpa_threshold: float = 1.5,
     **_: object,
 ) -> list[int]:
     """Window positive only if the minimum TTC across all frames and
@@ -323,6 +342,7 @@ def label_min_ttc(
         ttc_threshold_seconds=ttc_threshold_seconds,
         distance_threshold=distance_threshold,
         closing_rate_threshold=closing_rate_threshold,
+        dcpa_threshold=dcpa_threshold,
     )
     frame_min = dict(zip(stats.index.tolist(), stats["min_ttc"].tolist(), strict=True))
 
@@ -352,6 +372,7 @@ def apply_strategy(
     ttc_threshold_seconds: float = 1.5,
     distance_threshold: float = 3.0,
     closing_rate_threshold: float = 0.5,
+    dcpa_threshold: float = 1.5,
     **strategy_kwargs: object,
 ) -> list[int]:
     """Dispatch to the named strategy, raising on unknown names."""
@@ -366,5 +387,6 @@ def apply_strategy(
         ttc_threshold_seconds=ttc_threshold_seconds,
         distance_threshold=distance_threshold,
         closing_rate_threshold=closing_rate_threshold,
+        dcpa_threshold=dcpa_threshold,
         **strategy_kwargs,
     )

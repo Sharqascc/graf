@@ -132,6 +132,7 @@ def build_ttc_positive_frames(
     ttc_threshold_seconds: float = 1.5,
     distance_threshold: float = 3.0,
     closing_rate_threshold: float = 0.5,
+    dcpa_threshold: float = 1.5,
 ):
     """Return the set of frames where any pair has a critical TTC.
 
@@ -160,6 +161,10 @@ def build_ttc_positive_frames(
                 if rel_speed_sq <= 1e-9 or closing_rate <= closing_rate_threshold:
                     continue
                 ttc = closing_rate / rel_speed_sq
+                dcpa_vec = rel_pos + ttc * rel_vel
+                dcpa = float(np.linalg.norm(dcpa_vec))
+                if dcpa >= dcpa_threshold:
+                    continue
                 if np.isfinite(ttc) and 0 < ttc <= ttc_threshold_seconds:
                     positive.add(int(frame_idx))
                     break
@@ -182,6 +187,7 @@ def build_labels(
     ttc_threshold_seconds: float = 1.5,
     ttc_distance_threshold: float = 3.0,
     ttc_closing_rate_threshold: float = 0.5,
+    dcpa_threshold: float = 1.5,
 ):
     with Path(homography_config).open() as f:
         H = np.array(yaml.safe_load(f)["H"], dtype=np.float64)
@@ -207,6 +213,7 @@ def build_labels(
             ttc_threshold_seconds=ttc_threshold_seconds,
             distance_threshold=ttc_distance_threshold,
             closing_rate_threshold=ttc_closing_rate_threshold,
+            dcpa_threshold=dcpa_threshold,
         )
     elif label_source == "proximity":
         conflict_frames: set = set()
@@ -445,6 +452,15 @@ def parse_args(argv=None):
         default=1.5,
     )
     p.add_argument(
+        "--ttc-dcpa-threshold",
+        type=float,
+        default=1.5,
+        help=(
+            "DCPA gate (B.1): critical only if closest-approach < this (m). "
+            "See docs/audit/ttc_formula_decision.md."
+        ),
+    )
+    p.add_argument(
         "--ttc-distance-threshold",
         type=float,
         default=3.0,
@@ -473,6 +489,7 @@ def main(argv=None):
         ttc_threshold_seconds=args.ttc_threshold_seconds,
         ttc_distance_threshold=args.ttc_distance_threshold,
         ttc_closing_rate_threshold=args.ttc_closing_rate_threshold,
+        dcpa_threshold=args.ttc_dcpa_threshold,
     )
     n = len(window_ds)
     if n == 0:
