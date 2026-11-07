@@ -11,7 +11,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from scripts import rerun_paper_results as rp
 
 REPO = Path(__file__).resolve().parents[1]
