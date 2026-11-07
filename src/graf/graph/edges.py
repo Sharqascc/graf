@@ -105,6 +105,16 @@ def compute_ttc_simple(
     rvx = vx2 - vx1
     rvy = vy2 - vy1
 
+    # Already inside the collision radius at t=0: TTC is 0. Without
+    # this check, the quadratic below returns the *exit* root when the
+    # pair is separating, which reads as collision-in-t-seconds to any
+    # downstream consumer. Mirrors the already_in_collision branch in
+    # graf.ssm.ttc.compute_ttc_constant_velocity.
+    _dist = math.hypot(rx, ry)
+    _tol = 1e-9 * max(1.0, _dist, collision_radius)
+    if _dist <= collision_radius + _tol:
+        return 0.0
+
     a = rvx * rvx + rvy * rvy
     if a < 1e-8:
         return max_ttc
