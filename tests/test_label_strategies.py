@@ -324,3 +324,52 @@ def test_apply_strategy_forwards_kwargs():
     )
     # Single-frame window, run_length=2 cannot be met
     assert labels == [0]
+
+# ------------------------------------------------------------------
+# B.1 DCPA gate
+# ------------------------------------------------------------------
+
+
+def test_dcpa_gate_counterexample_was_critical_now_not():
+    df = _df([(0, 1, 0.0, 0.0, 0.0, 0.0), (0, 2, 2.8, 0.0, -0.5, -2.0)])
+    stats = ls._frame_ttc_stats(df, ttc_threshold_seconds=1.5,
+                                distance_threshold=3.0,
+                                closing_rate_threshold=0.5,
+                                dcpa_threshold=1.5)
+    assert stats.loc[0, "n_pairs"] == 1
+    assert stats.loc[0, "n_critical"] == 0
+
+
+def test_dcpa_gate_head_on_still_critical():
+    df = _df([(0, 1, 0.0, 0.0, 1.0, 0.0), (0, 2, 2.0, 0.0, -1.0, 0.0)])
+    stats = ls._frame_ttc_stats(df, ttc_threshold_seconds=1.5,
+                                distance_threshold=3.0,
+                                closing_rate_threshold=0.5,
+                                dcpa_threshold=1.5)
+    assert stats.loc[0, "n_critical"] == 1
+
+
+def test_dcpa_gate_permissive_threshold_restores_counterexample():
+    df = _df([(0, 1, 0.0, 0.0, 0.0, 0.0), (0, 2, 2.8, 0.0, -0.5, -2.0)])
+    stats = ls._frame_ttc_stats(df, ttc_threshold_seconds=1.5,
+                                distance_threshold=3.0,
+                                closing_rate_threshold=0.5,
+                                dcpa_threshold=3.0)
+    assert stats.loc[0, "n_critical"] == 1
+
+
+def test_apply_strategy_forwards_dcpa_threshold():
+    df = _df([(0, 1, 0.0, 0.0, 0.0, 0.0), (0, 2, 2.8, 0.0, -0.5, -2.0)])
+    ds = _FakeDS([[0]])
+    strict = ls.apply_strategy("any", df, ds,
+                               ttc_threshold_seconds=1.5,
+                               distance_threshold=3.0,
+                               closing_rate_threshold=0.5,
+                               dcpa_threshold=1.5)
+    permissive = ls.apply_strategy("any", df, ds,
+                                   ttc_threshold_seconds=1.5,
+                                   distance_threshold=3.0,
+                                   closing_rate_threshold=0.5,
+                                   dcpa_threshold=3.0)
+    assert strict == [0]
+    assert permissive == [1]
