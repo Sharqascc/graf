@@ -11,7 +11,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from scripts import rerun_paper_results as rp
 
 REPO = Path(__file__).resolve().parents[1]
@@ -54,11 +53,13 @@ def test_every_setup_yields_dcpa_1_5(jf, setup):
 
 
 def test_setup_without_dcpa_gets_15():
-    args, _, _ = rp.build_args({
-        "tracks": "/tmp/x.jsonl",
-        "graphs_dir": "/tmp/g",
-        "pixels_per_meter": 100.0,
-    })
+    args, _, _ = rp.build_args(
+        {
+            "tracks": "/tmp/x.jsonl",
+            "graphs_dir": "/tmp/g",
+            "pixels_per_meter": 100.0,
+        }
+    )
     idx = args.index("--ttc-dcpa-threshold")
     assert args[idx + 1] == "1.5"
     assert args.count("--ttc-dcpa-threshold") == 1
@@ -77,29 +78,32 @@ def test_unknown_key_warns():
 
 
 def test_missing_homography_flagged():
-    _, _, missing = rp.build_args({
-        "tracks": "/tmp/x.jsonl",
-        "graphs_dir": "/tmp/g",
-    })
-    assert any("homography" in m or "pixels_per_meter" in m
-               for m in missing)
+    _, _, missing = rp.build_args(
+        {
+            "tracks": "/tmp/x.jsonl",
+            "graphs_dir": "/tmp/g",
+        }
+    )
+    assert any("homography" in m or "pixels_per_meter" in m for m in missing)
 
 
 def test_setup_with_pixels_per_meter_ok():
-    _, _, missing = rp.build_args({
-        "tracks": "/tmp/x.jsonl",
-        "graphs_dir": "/tmp/g",
-        "pixels_per_meter": 100.0,
-    })
-    assert not any("homography" in m or "pixels_per_meter" in m
-                   for m in missing)
+    _, _, missing = rp.build_args(
+        {
+            "tracks": "/tmp/x.jsonl",
+            "graphs_dir": "/tmp/g",
+            "pixels_per_meter": 100.0,
+        }
+    )
+    assert not any("homography" in m or "pixels_per_meter" in m for m in missing)
 
 
 def test_setup_with_homography_ok():
-    _, _, missing = rp.build_args({
-        "tracks": "/tmp/x.jsonl",
-        "graphs_dir": "/tmp/g",
-        "homography_config": "/tmp/h.yaml",
-    })
-    assert not any("homography" in m or "pixels_per_meter" in m
-                   for m in missing)
+    _, _, missing = rp.build_args(
+        {
+            "tracks": "/tmp/x.jsonl",
+            "graphs_dir": "/tmp/g",
+            "homography_config": "/tmp/h.yaml",
+        }
+    )
+    assert not any("homography" in m or "pixels_per_meter" in m for m in missing)

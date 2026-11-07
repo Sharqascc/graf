@@ -91,8 +91,10 @@ def build_args(setup: dict) -> tuple[list[str], list[str], list[str]]:
                 args.append(BOOL_KEY_TO_FLAG[key])
             continue
         if key in KEY_TO_FLAG:
-            if key == "tracks" and isinstance(val, str) and not val.endswith(
-                (".jsonl", ".json")
+            if (
+                key == "tracks"
+                and isinstance(val, str)
+                and not val.endswith((".jsonl", ".json"))
             ):
                 warnings.append(f"tracks is not a file path: {val!r}")
                 missing.append("--tracks")
@@ -126,17 +128,27 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Add --homography_config PATH to any command that lacks homography.",
     )
-    p.add_argument("--only", default=None,
-                   help="Only process artifacts whose stem contains this string.")
-    p.add_argument("--run", action="store_true",
-                   help="Execute the commands (default: print only).")
-    p.add_argument("--check", action="store_true",
-                   help="Exit nonzero if any command is incomplete.")
+    p.add_argument(
+        "--only",
+        default=None,
+        help="Only process artifacts whose stem contains this string.",
+    )
+    p.add_argument(
+        "--run", action="store_true", help="Execute the commands (default: print only)."
+    )
+    p.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit nonzero if any command is incomplete.",
+    )
     args = p.parse_args(argv)
 
     if args.with_pixels_per_meter is not None and args.with_homography is not None:
-        print("error: choose at most one of --with-pixels-per-meter, "
-              "--with-homography", file=sys.stderr)
+        print(
+            "error: choose at most one of --with-pixels-per-meter, "
+            "--with-homography",
+            file=sys.stderr,
+        )
         return 2
 
     docs = Path(args.docs_dir)
@@ -163,25 +175,33 @@ def main(argv: list[str] | None = None) -> int:
 
         cmd_args, warns, missing = build_args(setup)
 
-        has_h = ("--homography_config" in cmd_args
-                 or "--pixels_per_meter" in cmd_args)
+        has_h = "--homography_config" in cmd_args or "--pixels_per_meter" in cmd_args
         if not has_h and args.with_pixels_per_meter is not None:
-            cmd_args.extend(["--pixels_per_meter",
-                             str(args.with_pixels_per_meter)])
-            missing = [m for m in missing if "homography" not in m
-                       and "pixels_per_meter" not in m]
+            cmd_args.extend(["--pixels_per_meter", str(args.with_pixels_per_meter)])
+            missing = [
+                m
+                for m in missing
+                if "homography" not in m and "pixels_per_meter" not in m
+            ]
         elif not has_h and args.with_homography is not None:
             cmd_args.extend(["--homography_config", args.with_homography])
-            missing = [m for m in missing if "homography" not in m
-                       and "pixels_per_meter" not in m]
+            missing = [
+                m
+                for m in missing
+                if "homography" not in m and "pixels_per_meter" not in m
+            ]
 
-        cmd_args.extend([
-            "--output_dir",
-            str(REPO / "outputs" / "rerun_b1" / jf.stem),
-        ])
+        cmd_args.extend(
+            [
+                "--output_dir",
+                str(REPO / "outputs" / "rerun_b1" / jf.stem),
+            ]
+        )
 
-        cmd = [sys.executable,
-               str(REPO / "scripts" / "compare_baselines.py")] + cmd_args
+        cmd = [
+            sys.executable,
+            str(REPO / "scripts" / "compare_baselines.py"),
+        ] + cmd_args
 
         print(f"\n=== {jf.name} ===")
         print(shlex.join(cmd))
