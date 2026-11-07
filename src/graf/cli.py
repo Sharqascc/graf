@@ -610,7 +610,7 @@ def run_pipeline(
         print(format_preflight(issues, steps))
         logger.error(
             "preflight failed: %d step(s) missing a required script",
-            len(set(i.step for i in issues)),
+            len({i.step for i in issues}),
         )
         return 1
 

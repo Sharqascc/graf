@@ -444,9 +444,7 @@ def get_step(n: int, pipeline: str = "science") -> Step:
     for s in steps:
         if s.number == n:
             return s
-    raise ValueError(
-        "no step with number " + str(n) + " in pipeline " + repr(pipeline)
-    )
+    raise ValueError("no step with number " + str(n) + " in pipeline " + repr(pipeline))
 
 
 def select_steps(target: str, pipeline: str = "science") -> list[Step]:
@@ -522,9 +520,7 @@ def preflight(steps: list[Step], ctx: Context) -> list[PreflightIssue]:
     return issues
 
 
-def format_preflight(
-    issues: list[PreflightIssue], steps: list[Step]
-) -> str:
+def format_preflight(issues: list[PreflightIssue], steps: list[Step]) -> str:
     by_step: dict[int, list[str]] = {}
     for issue in issues:
         by_step.setdefault(issue.step, []).append(issue.detail)
@@ -540,10 +536,8 @@ def format_preflight(
             status = "NOT READY: " + "; ".join(details)
         else:
             status = "ready"
-        out.append(
-            "  " + str(step.number) + "   " + step.name.ljust(11) + status
-        )
-    ready = len(steps) - len(set(i.step for i in issues))
+        out.append("  " + str(step.number) + "   " + step.name.ljust(11) + status)
+    ready = len(steps) - len({i.step for i in issues})
     out.append("")
     out.append(f"  {ready} of {len(steps)} step(s) ready")
     out.append("")
