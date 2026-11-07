@@ -68,6 +68,12 @@ def pipeline_output(tmp_path_factory, fixture_paths):
         "1.5",
         "--ttc-distance-threshold",
         "3.0",
+        # Fixture is signal-free by design (see module docstring);
+        # this test wires the pipeline, not the B.1 DCPA gate. Pass a
+        # permissive threshold so the gate never fires and the old
+        # TCPA-only fixture keeps its intended positive rate.
+        "--ttc-dcpa-threshold",
+        "1000.0",
         "--calibrate-threshold",
         "--calibration-objective",
         "accuracy",

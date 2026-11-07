@@ -44,13 +44,19 @@ def _label_min_ttc(
     ttc_threshold_seconds=10.0,
     distance_threshold=100.0,
     closing_rate_threshold=0.0,
+    dcpa_threshold=float("inf"),
 ):
-    """The label pipeline's minimum TTC across critical pairs, or inf."""
+    """The label pipeline's minimum TTC across critical pairs, or inf.
+
+    `dcpa_threshold` defaults to infinity because every test in this
+    file is about the TCPA formula, not the B.1 DCPA gate.
+    """
     stats = ls._frame_ttc_stats(
         df,
         ttc_threshold_seconds=ttc_threshold_seconds,
         distance_threshold=distance_threshold,
         closing_rate_threshold=closing_rate_threshold,
+        dcpa_threshold=dcpa_threshold,
     )
     return float(stats["min_ttc"].min())
 

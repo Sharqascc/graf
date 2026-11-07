@@ -627,6 +627,15 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--ttc-threshold-seconds", type=float, default=1.5)
     p.add_argument("--ttc-distance-threshold", type=float, default=3.0)
     p.add_argument(
+        "--ttc-dcpa-threshold",
+        type=float,
+        default=1.5,
+        help=(
+            "DCPA gate (B.1): critical only if closest-approach < this (m). "
+            "See docs/audit/ttc_formula_decision.md."
+        ),
+    )
+    p.add_argument(
         "--label-strategy",
         choices=list(STRATEGIES),
         default="any",
@@ -763,6 +772,7 @@ def main(argv=None) -> int:
         label_source=args.label_source,
         ttc_threshold_seconds=args.ttc_threshold_seconds,
         ttc_distance_threshold=args.ttc_distance_threshold,
+        dcpa_threshold=args.ttc_dcpa_threshold,
     )
 
     # Non-default label strategies recompute labels from the raw tracks.
@@ -778,6 +788,7 @@ def main(argv=None) -> int:
             window_ds,
             ttc_threshold_seconds=args.ttc_threshold_seconds,
             distance_threshold=args.ttc_distance_threshold,
+            dcpa_threshold=args.ttc_dcpa_threshold,
             fraction_threshold=args.fraction_threshold,
             run_length=args.run_length,
         )
