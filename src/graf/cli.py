@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from datetime import UTC
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
@@ -578,7 +579,7 @@ def run_pipeline(
     run is written to ``outputs/run_log_<UTC-timestamp>.txt``.
     """
     import time as _time
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from graf.pipeline import (
         PIPELINES,
@@ -625,13 +626,12 @@ def run_pipeline(
 
     # Timestamped run log under outputs/. Written line-by-line via
     # _echo so stdout and the log stay identical.
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     log_dir = repo_root / "outputs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"run_log_{ts}.txt"
     log_path.write_text(
-        f"# graf run {pipeline} {target} --site {site}\n"
-        f"# started at {ts}Z\n\n",
+        f"# graf run {pipeline} {target} --site {site}\n# started at {ts}Z\n\n",
         encoding="utf-8",
     )
 
