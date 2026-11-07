@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from scripts import rerun_paper_results as rp
 
 REPO = Path(__file__).resolve().parents[1]
@@ -45,8 +46,7 @@ def test_at_least_one_artifact_has_setup():
 def test_every_setup_yields_dcpa_1_5(jf, setup):
     args, _, _ = rp.build_args(setup)
     assert "--ttc-dcpa-threshold" in args, (
-        f"{jf.name}: reconstructed command omits --ttc-dcpa-threshold "
-        "(B.1 regression)"
+        f"{jf.name}: reconstructed command omits --ttc-dcpa-threshold (B.1 regression)"
     )
     idx = args.index("--ttc-dcpa-threshold")
     assert args[idx + 1] == "1.5"

@@ -145,8 +145,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.with_pixels_per_meter is not None and args.with_homography is not None:
         print(
-            "error: choose at most one of --with-pixels-per-meter, "
-            "--with-homography",
+            "error: choose at most one of --with-pixels-per-meter, --with-homography",
             file=sys.stderr,
         )
         return 2
