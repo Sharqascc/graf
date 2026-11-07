@@ -341,3 +341,26 @@ It's honest but the physics remains wrong.
 - PR #148 — the already-in-collision fix referenced above
 - `docs/paper/results.md`, `docs/paper/conclusion.md` — the current
   claims that depend on which label definition is chosen
+
+---
+
+## Addendum - B.1 chosen and implemented (2026-11-07)
+
+Decision: B.1 (DCPA-gated TCPA). A pair is critical only if it also
+satisfies DCPA < dcpa_threshold (default 1.5 m). Pre-B.1 the label
+fired on any pair with closing_rate > 0.5 and TCPA < 1.5 s regardless
+of closest-approach distance.
+
+Files touched:
+- scripts/label_strategies.py: dcpa_threshold on _frame_ttc_stats,
+  _frame_critical_pair_ids, all five label_* functions, apply_strategy
+- scripts/evaluate_vntraffic.py: same parameter on
+  build_ttc_positive_frames and build_labels; CLI --ttc-dcpa-threshold
+- scripts/compare_baselines.py: --ttc-dcpa-threshold threaded through
+- tests/test_label_strategies.py: 4 tests covering the counterexample,
+  head-on, permissive-threshold restoration, and apply_strategy
+- docs/paper/SUPERSEDED.md: new; every pre-B.1 artifact listed
+
+Every number under docs/paper/ was generated under the old formula and
+is now stale. SUPERSEDED.md says so. Regeneration is a separate
+workflow dispatch.
