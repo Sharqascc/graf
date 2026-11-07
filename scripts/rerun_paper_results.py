@@ -200,7 +200,8 @@ def main(argv: list[str] | None = None) -> int:
         cmd = [
             sys.executable,
             str(REPO / "scripts" / "compare_baselines.py"),
-        ] + cmd_args
+            *cmd_args,
+        ]
 
         print(f"\n=== {jf.name} ===")
         print(shlex.join(cmd))
