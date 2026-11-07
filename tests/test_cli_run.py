@@ -124,3 +124,117 @@ def test_format_command_script():
 def test_format_command_inline():
     cmd = Command(script="_audit_inline", args=["out.json"])
     assert format_command(cmd) == "graf audit out.json"
+
+
+def test_run_pipeline_prints_preflight_table(tmp_path, monkeypatch, capsys):
+    """On a clean run, the preflight table is printed before work."""
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "run_detection.py").write_text("")
+
+    class _R:
+        returncode = 0
+
+    monkeypatch.setattr("graf.cli.subprocess.run", lambda *a, **kw: _R())
+
+    from graf.cli import run_pipeline
+
+    rc = run_pipeline("1", site="t", list_only=False, root=str(tmp_path))
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "step        status" in out
+    assert "1 of 1 step(s) ready" in out
+
+
+def test_run_pipeline_prints_argv_per_command(tmp_path, monkeypatch, capsys):
+    """The exact script and args are printed before the subprocess runs."""
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "run_detection.py").write_text("")
+
+    class _R:
+        returncode = 0
+
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        return _R()
+
+    monkeypatch.setattr("graf.cli.subprocess.run", fake_run)
+
+    from graf.cli import run_pipeline
+
+    run_pipeline("1", site="t", list_only=False, root=str(tmp_path))
+    out = capsys.readouterr().out
+
+    assert "python scripts/run_detection.py" in out
+    assert "--frames_dir" in out
+    assert "--config" in out
+    assert len(calls) == 1
+
+
+def test_run_pipeline_writes_run_log(tmp_path, monkeypatch):
+    """Every non-dry-run writes a timestamped log under outputs/."""
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "run_detection.py").write_text("")
+
+    class _R:
+        returncode = 0
+
+    monkeypatch.setattr("graf.cli.subprocess.run", lambda *a, **kw: _R())
+
+    from graf.cli import run_pipeline
+
+    run_pipeline("1", site="t", list_only=False, root=str(tmp_path))
+
+    logs = list((tmp_path / "outputs").glob("run_log_*.txt"))
+    assert len(logs) == 1
+    content = logs[0].read_text()
+    assert "detect" in content
+    assert "run_detection.py" in content
+    assert "1 of 1 steps passed" in content
+
+
+def test_run_pipeline_dry_run_does_not_execute(tmp_path, monkeypatch, capsys):
+    """--dry-run prints the table, returns 0, runs no subprocess."""
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "run_detection.py").write_text("")
+
+    called = []
+
+    def fake_run(cmd, **kw):
+        called.append(cmd)
+        return type("R", (), {"returncode": 0})()
+
+    monkeypatch.setattr("graf.cli.subprocess.run", fake_run)
+
+    from graf.cli import run_pipeline
+
+    rc = run_pipeline("1", site="t", list_only=False, root=str(tmp_path), dry_run=True)
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "dry run: no commands executed" in out
+    assert called == []
+    assert not (tmp_path / "outputs").exists()
+
+
+def test_run_pipeline_failure_stops_and_logs(tmp_path, monkeypatch):
+    """A non-zero subprocess return stops execution and is logged."""
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "run_detection.py").write_text("")
+
+    class _R:
+        returncode = 7
+
+    monkeypatch.setattr("graf.cli.subprocess.run", lambda *a, **kw: _R())
+
+    from graf.cli import run_pipeline
+
+    rc = run_pipeline("1", site="t", list_only=False, root=str(tmp_path))
+
+    assert rc == 7
+    logs = list((tmp_path / "outputs").glob("run_log_*.txt"))
+    assert len(logs) == 1
+    content = logs[0].read_text()
+    assert "failed with exit code 7" in content

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from datetime import UTC
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
@@ -570,12 +571,20 @@ def run_pipeline(
     pipeline: str = "science",
     dry_run: bool = False,
 ) -> int:
-    """Run numbered pipeline steps. Dispatched by `graf run`."""
+    """Run numbered pipeline steps. Dispatched by `graf run`.
+
+    Nothing is silent: the preflight table is printed on every run
+    (not only on failure), every command's exact argv is printed
+    before execution, per-command timing is reported, and the full
+    run is written to ``outputs/run_log_<UTC-timestamp>.txt``.
+    """
     import time as _time
+    from datetime import datetime
 
     from graf.pipeline import (
         PIPELINES,
         Context,
+        format_command,
         format_listing,
         format_preflight,
         preflight,
@@ -599,26 +608,45 @@ def run_pipeline(
         logger.error("%s", exc)
         return 1
 
+    # Preflight table always printed. On a clean run it shows N of N
+    # ready; on a broken one it names the missing scripts by step.
+    issues = preflight(steps, ctx)
+    print(format_preflight(issues, steps))
+
     if dry_run:
-        issues = preflight(steps, ctx)
-        print(format_preflight(issues, steps))
         print("  dry run: no commands executed")
         return 0
 
-    issues = preflight(steps, ctx)
     if issues:
-        print(format_preflight(issues, steps))
         logger.error(
             "preflight failed: %d step(s) missing a required script",
             len({i.step for i in issues}),
         )
         return 1
 
+    # Timestamped run log under outputs/. Written line-by-line via
+    # _echo so stdout and the log stay identical.
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    log_dir = repo_root / "outputs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / f"run_log_{ts}.txt"
+    log_path.write_text(
+        f"# graf run {pipeline} {target} --site {site}\n# started at {ts}Z\n\n",
+        encoding="utf-8",
+    )
+
+    def _echo(line: str = "") -> None:
+        print(line)
+        with log_path.open("a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+
     total = len(steps)
+    t_all = _time.time()
+    passed = 0
+
     for step in steps:
         commands = step.build_commands(ctx)
-        print(f"[{step.number}/{total}] {step.name} ...")
-        t0 = _time.time()
+        _echo(f"[{step.number}/{total}] {step.name}")
         for cmd in commands:
             if cmd.script == "_audit_inline":
                 from graf.audit import audit_file, format_report
@@ -628,25 +656,43 @@ def run_pipeline(
                     checks, code = audit_file(path)
                 except FileNotFoundError as exc:
                     logger.error("%s", exc)
+                    _echo(f"  step failed: {exc}")
                     return 1
-                print(format_report(checks, path))
+                report = format_report(checks, path)
+                print(report)
+                with log_path.open("a", encoding="utf-8") as fh:
+                    fh.write(report + "\n")
                 if code != 0:
+                    _echo(f"  step failed: audit exit {code}")
                     return code
             else:
                 script_path = repo_root / "scripts" / cmd.script
                 if not script_path.exists():
                     logger.error("script not found: %s", script_path)
+                    _echo(f"  step failed: script not found: {script_path}")
                     return 1
+                _echo("  " + format_command(cmd))
+                t_cmd = _time.time()
                 proc = subprocess.run([sys.executable, str(script_path), *cmd.args])
+                elapsed_cmd = _time.time() - t_cmd
                 if proc.returncode != 0:
                     logger.error(
                         "step %s failed with code %d",
                         step.name,
                         proc.returncode,
                     )
+                    _echo(
+                        f"  step failed with exit code {proc.returncode} "
+                        f"after {elapsed_cmd:.1f}s"
+                    )
                     return proc.returncode
-        elapsed = _time.time() - t0
-        print(f"[{step.number}/{total}] {step.name} ok ({elapsed:.1f}s)")
+                _echo(f"  ok ({elapsed_cmd:.1f}s)")
+        passed += 1
+
+    elapsed_all = _time.time() - t_all
+    _echo("")
+    _echo(f"{passed} of {total} steps passed · {elapsed_all:.1f}s total")
+    _echo(f"log: {log_path}")
     return 0
 
 
