@@ -115,15 +115,20 @@ def test_cli_runs_end_to_end_on_fixture(tmp_path, fixture_paths):
     tracks, graphs, homo = fixture_paths
     out_dir = tmp_path / "density_out"
     cmd = [
-        sys.executable, str(REPO / "scripts" / "density_diagnostic.py"),
-        "--tracks", str(tracks),
-        "--graphs_dir", str(graphs),
-        "--homography_config", str(homo),
-        "--label_strategy", "any",
-        "--output_dir", str(out_dir),
+        sys.executable,
+        str(REPO / "scripts" / "density_diagnostic.py"),
+        "--tracks",
+        str(tracks),
+        "--graphs_dir",
+        str(graphs),
+        "--homography_config",
+        str(homo),
+        "--label_strategy",
+        "any",
+        "--output_dir",
+        str(out_dir),
     ]
-    r = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True,
-                       timeout=300)
+    r = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=300)
     assert r.returncode == 0, (
         f"CLI failed rc={r.returncode}\n"
         f"stdout tail:\n{r.stdout[-1500:]}\n"
@@ -138,8 +143,7 @@ def test_cli_runs_end_to_end_on_fixture(tmp_path, fixture_paths):
     assert "overall" in payload
     assert "per_tercile" in payload
     overall = payload["overall"]
-    for key in ("n_windows", "n_positive", "positive_rate",
-                "density_q1", "density_q2"):
+    for key in ("n_windows", "n_positive", "positive_rate", "density_q1", "density_q2"):
         assert key in overall, f"missing overall.{key}"
     per = payload["per_tercile"]
     assert isinstance(per, list)
@@ -151,12 +155,15 @@ def test_cli_runs_end_to_end_on_fixture(tmp_path, fixture_paths):
 def test_cli_missing_homography_exits_nonzero(tmp_path, fixture_paths):
     tracks, graphs, _ = fixture_paths
     cmd = [
-        sys.executable, str(REPO / "scripts" / "density_diagnostic.py"),
-        "--tracks", str(tracks),
-        "--graphs_dir", str(graphs),
-        "--output_dir", str(tmp_path / "nope"),
+        sys.executable,
+        str(REPO / "scripts" / "density_diagnostic.py"),
+        "--tracks",
+        str(tracks),
+        "--graphs_dir",
+        str(graphs),
+        "--output_dir",
+        str(tmp_path / "nope"),
     ]
-    r = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True,
-                       timeout=60)
+    r = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=60)
     assert r.returncode != 0
     assert "homography" in (r.stderr + r.stdout).lower()

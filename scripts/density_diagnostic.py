@@ -64,18 +64,22 @@ def evaluate_bin(X, y, k, seed):
                 continue
             m = factory()
             m.fit(X[tr], y[tr])
-            p = (m.predict_proba(X[va])[:, 1]
-                 if hasattr(m, "predict_proba") else m.predict(X[va]))
+            p = (
+                m.predict_proba(X[va])[:, 1]
+                if hasattr(m, "predict_proba")
+                else m.predict(X[va])
+            )
             aucs.append(_auc(np.asarray(p), y[va]))
-        return {"mean_auc": float(np.mean(aucs)) if aucs else None,
-                "fold_aucs": aucs}
+        return {"mean_auc": float(np.mean(aucs)) if aucs else None, "fold_aucs": aucs}
 
     return {
-        "n": n, "n_pos": n_pos, "positive_rate": n_pos / n,
+        "n": n,
+        "n_pos": n_pos,
+        "positive_rate": n_pos / n,
         "rf": run(RandomForestBaseline),
         "single_feature": run(
-            lambda: SingleFeatureBaseline(
-                feature_name="edge_attr_nonzero_frac")),
+            lambda: SingleFeatureBaseline(feature_name="edge_attr_nonzero_frac")
+        ),
     }
 
 
@@ -98,19 +102,21 @@ def main(argv=None):
     tracks_df = filter_tracks(load_tracks(a.tracks))
     if a.homography_config:
         import yaml
-        with open(a.homography_config) as f:
+
+        with Path(a.homography_config).open() as f:
             H = np.array(yaml.safe_load(f)["H"], dtype=np.float64)
     elif a.pixels_per_meter:
         ppm = a.pixels_per_meter
-        H = np.array([[1/ppm, 0, 0], [0, 1/ppm, 0], [0, 0, 1]])
+        H = np.array([[1 / ppm, 0, 0], [0, 1 / ppm, 0], [0, 0, 1]])
     else:
         raise SystemExit("need --homography_config or --pixels_per_meter")
     tracks_df = add_world_coords(tracks_df, H, fps=30.0)
 
-    wds = SpatioTemporalWindowDataset(
-        graph_dir=a.graphs_dir, window_size=5, stride=2)
+    wds = SpatioTemporalWindowDataset(graph_dir=a.graphs_dir, window_size=5, stride=2)
     labels = apply_strategy(
-        a.label_strategy, tracks_df, wds,
+        a.label_strategy,
+        tracks_df,
+        wds,
         ttc_threshold_seconds=a.ttc_threshold_seconds,
         distance_threshold=a.ttc_distance_threshold,
         dcpa_threshold=a.ttc_dcpa_threshold,
@@ -119,11 +125,10 @@ def main(argv=None):
     y = np.asarray(labels, dtype=int)
 
     dens = per_window_density(tracks_df, wds)
-    q1, q2 = np.quantile(dens, [1/3, 2/3])
+    q1, q2 = np.quantile(dens, [1 / 3, 2 / 3])
     tercile = np.where(dens <= q1, 0, np.where(dens <= q2, 1, 2))
 
-    X = np.asarray(GraphFeatureExtractor().transform(
-        [wds[i] for i in range(len(wds))]))
+    X = np.asarray(GraphFeatureExtractor().transform([wds[i] for i in range(len(wds))]))
 
     results = []
     for t, name in enumerate(["low", "medium", "high"]):
@@ -134,13 +139,21 @@ def main(argv=None):
 
     out = Path(a.output_dir)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "density_results.json").write_text(json.dumps({
-        "overall": {"n_windows": len(y),
+    (out / "density_results.json").write_text(
+        json.dumps(
+            {
+                "overall": {
+                    "n_windows": len(y),
                     "n_positive": int(y.sum()),
                     "positive_rate": float(y.mean()),
                     "density_q1": float(q1),
-                    "density_q2": float(q2)},
-        "per_tercile": results}, indent=2))
+                    "density_q2": float(q2),
+                },
+                "per_tercile": results,
+            },
+            indent=2,
+        )
+    )
 
     md = [
         "# Density diagnostic\n",
@@ -153,11 +166,14 @@ def main(argv=None):
         if r.get("skipped"):
             md.append(f"| {r['tercile']} | {r['n']} | {r['n_pos']} | - | skip | skip |")
             continue
-        rf = r["rf"]["mean_auc"]; sf = r["single_feature"]["mean_auc"]
+        rf = r["rf"]["mean_auc"]
+        sf = r["single_feature"]["mean_auc"]
         rf_s = f"{rf:.3f}" if rf is not None else "n/a"
         sf_s = f"{sf:.3f}" if sf is not None else "n/a"
-        md.append(f"| {r['tercile']} | {r['n']} | {r['n_pos']} | "
-                  f"{r['positive_rate']:.3f} | {rf_s} | {sf_s} |")
+        md.append(
+            f"| {r['tercile']} | {r['n']} | {r['n_pos']} | "
+            f"{r['positive_rate']:.3f} | {rf_s} | {sf_s} |"
+        )
     (out / "density_results.md").write_text("\n".join(md))
     print("\n".join(md))
     return 0
