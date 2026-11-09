@@ -215,6 +215,92 @@ def blocked_cv_auc(X, y, n_folds=5, purge=75, seed=42):
     return float(np.mean(aucs)) if aucs else None
 
 
+def permute_tracks(df, rng):
+    """Circularly shift each track's frame_idx by an independent random offset.
+
+    Preserves track count, track durations, per-frame motion. Destroys
+    real spatial co-occurrence between tracks.
+    """
+    fmin = int(df["frame_idx"].min())
+    fmax = int(df["frame_idx"].max())
+    span = fmax - fmin + 1
+    out = []
+    for _, sub in df.groupby("track_id"):
+        offset = int(rng.integers(0, span))
+        shifted = sub.copy()
+        shifted["frame_idx"] = (
+            sub["frame_idx"].astype(int) - fmin + offset
+        ) % span + fmin
+        out.append(shifted)
+    return pd.concat(out, ignore_index=True)
+
+
+def frame_scan_cache(df, fmin, fmax):
+    """Per-frame scan cache: fid -> (crit_pairs, best_ttc, n_pairs)."""
+    cache = {}
+    for fid in range(fmin, fmax + 1):
+        sub = df[df["frame_idx"] == fid]
+        cache[fid] = scan_frame(sub, 1.5, 3.0, 0.5, 1.5)
+    return cache
+
+
+def label_rates_from_cache(cache, fmin, fmax, win_frames, stride):
+    """All 8 label variant rates from a per-frame scan cache."""
+    starts = list(range(fmin, fmax - win_frames + 1, stride))
+    accum = {}
+    for w in starts:
+        fids = list(range(w, w + win_frames))
+        pf = {fid: cache[fid] for fid in fids if fid in cache}
+        if not pf:
+            continue
+        for name, val in label_variants(pf).items():
+            accum.setdefault(name, []).append(val)
+    return {k: float(np.mean(v)) for k, v in accum.items()}
+
+
+def run_permutation_test(df, fmin, fmax, win_frames, stride, n_trials, seed):
+    """Compare real label rates to null distribution from time-shuffled tracks."""
+    print(f"\n=== permutation test ({n_trials} trials) ===")
+    print("computing real rates...")
+    real_cache = frame_scan_cache(df, fmin, fmax)
+    real_rates = label_rates_from_cache(real_cache, fmin, fmax, win_frames, stride)
+
+    null_samples = {name: [] for name in real_rates}
+    rng = np.random.default_rng(seed)
+    for trial in range(n_trials):
+        permuted = permute_tracks(df, rng)
+        trial_cache = frame_scan_cache(permuted, fmin, fmax)
+        trial_rates = label_rates_from_cache(
+            trial_cache, fmin, fmax, win_frames, stride
+        )
+        for name, rate in trial_rates.items():
+            if name in null_samples:
+                null_samples[name].append(rate)
+        if (trial + 1) % 5 == 0 or trial == n_trials - 1:
+            print(f"  trial {trial + 1}/{n_trials}")
+
+    print(
+        f"\n{'variant':<20} {'real':>8} {'null_mean':>10} "
+        f"{'null_std':>9} {'null_min':>9} {'null_max':>9} {'delta':>8}"
+    )
+    print("-" * 80)
+    for name in sorted(real_rates):
+        vals = null_samples.get(name, [])
+        if not vals:
+            continue
+        nm = float(np.mean(vals))
+        ns = float(np.std(vals))
+        nmin = float(np.min(vals))
+        nmax = float(np.max(vals))
+        d = real_rates[name] - nm
+        print(
+            f"{name:<20} {real_rates[name]:>8.3f} {nm:>10.3f} "
+            f"{ns:>9.3f} {nmin:>9.3f} {nmax:>9.3f} {d:>+8.3f}"
+        )
+
+    return real_rates, null_samples
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--tracks", required=True)
@@ -223,6 +309,8 @@ def main(argv=None):
     ap.add_argument("--win_frames", type=int, default=WIN_FRAMES)
     ap.add_argument("--stride_frames", type=int, default=STRIDE_FRAMES)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--permutation-trials", type=int, default=0)
+    ap.add_argument("--permutation-seed", type=int, default=42)
     a = ap.parse_args(argv)
 
     df = load_tracks(a.tracks)
@@ -312,6 +400,19 @@ def main(argv=None):
         avg_s = f"{np.mean(within):.3f}" if within else "n/a"
         dd_s = f"{dens:.3f}" if dens is not None else "n/a"
         print(f"  {c}: within={avg_s}, density-only={dd_s}")
+
+    if a.permutation_trials > 0:
+        fmin_i = int(df["frame_idx"].min())
+        fmax_i = int(df["frame_idx"].max())
+        run_permutation_test(
+            df,
+            fmin_i,
+            fmax_i,
+            a.win_frames,
+            a.stride_frames,
+            a.permutation_trials,
+            a.permutation_seed,
+        )
 
     return 0
 
