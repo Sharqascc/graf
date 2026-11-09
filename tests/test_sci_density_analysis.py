@@ -41,10 +41,10 @@ def _row(fid, tid, cls, x1, y1, x2, y2):
 
 
 def test_estimate_pixels_per_meter_recovers_scale(tmp_path):
-    # make bboxes 200 px wide for cars (prior width 2.0 m -> 100 px/m)
+    # bbox 200 wide x 450 tall matches car prior (2.0 m, 4.5 m) at 100 px/m
     p = tmp_path / "t.jsonl"
     rows = [
-        _row(fid, tid, "car", 100, 100, 300, 250)
+        _row(fid, tid, "car", 100, 100, 300, 550)
         for fid in range(5)
         for tid in range(20)
     ]
@@ -73,7 +73,7 @@ def test_scan_frame_returns_critical_for_closing_pair():
             {
                 "frame_idx": 0,
                 "track_id": 2,
-                "x_m": 2.0,
+                "x_m": 1.0,
                 "y_m": 0.0,
                 "vx": -1.0,
                 "vy": 0.0,
