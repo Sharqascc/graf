@@ -7,13 +7,17 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from scripts.sci_density_analysis import (
     blocked_cv_auc,
     estimate_pixels_per_meter,
+    frame_scan_cache,
+    label_rates_from_cache,
     label_variants,
     load_tracks,
+    permute_tracks,
     scan_frame,
 )
 
@@ -40,8 +44,36 @@ def _row(fid, tid, cls, x1, y1, x2, y2):
     }
 
 
+def _tiny_df():
+    rows = [
+        {
+            "frame_idx": fid,
+            "track_id": 1,
+            "x_m": 0.0,
+            "y_m": 0.0,
+            "vx": 0.0,
+            "vy": 0.0,
+            "class_name": "car",
+            "speed": 0.0,
+        }
+        for fid in range(10)
+    ] + [
+        {
+            "frame_idx": fid,
+            "track_id": 2,
+            "x_m": 1.5 - 0.1 * fid,
+            "y_m": 0.0,
+            "vx": -3.0,
+            "vy": 0.0,
+            "class_name": "car",
+            "speed": 3.0,
+        }
+        for fid in range(10)
+    ]
+    return pd.DataFrame(rows)
+
+
 def test_estimate_pixels_per_meter_recovers_scale(tmp_path):
-    # bbox 200 wide x 450 tall matches car prior (2.0 m, 4.5 m) at 100 px/m
     p = tmp_path / "t.jsonl"
     rows = [
         _row(fid, tid, "car", 100, 100, 300, 550)
@@ -51,14 +83,10 @@ def test_estimate_pixels_per_meter_recovers_scale(tmp_path):
     _tracks_jsonl(p, rows)
     df = load_tracks(p)
     ppm = estimate_pixels_per_meter(df)
-    assert (
-        80 < ppm < 120
-    )  # bbox width 200 px, prior 2m -> 100 px/m; height has variance
+    assert 80 < ppm < 120
 
 
 def test_scan_frame_returns_critical_for_closing_pair():
-    import pandas as pd
-
     df = pd.DataFrame(
         [
             {
@@ -88,8 +116,6 @@ def test_scan_frame_returns_critical_for_closing_pair():
 
 
 def test_scan_frame_rejects_far_pairs():
-    import pandas as pd
-
     df = pd.DataFrame(
         [
             {
@@ -118,7 +144,6 @@ def test_scan_frame_rejects_far_pairs():
 
 
 def test_label_variants_degenerate_when_nothing_critical():
-    # every frame has zero critical pairs
     pf = {i: ([], float("inf"), 1) for i in range(100)}
     labels = label_variants(pf)
     assert labels["any_1.5"] == 0
@@ -127,7 +152,6 @@ def test_label_variants_degenerate_when_nothing_critical():
 
 
 def test_label_variants_fires_on_persistent_collision():
-    # frame 50-54 all have the same pair critical
     pf = {}
     for i in range(100):
         if 50 <= i <= 54:
@@ -165,7 +189,6 @@ def test_blocked_cv_auc_returns_none_for_degenerate_labels():
 
 
 def test_cli_runs_on_synthetic_tracks(tmp_path):
-    # 60-frame synthetic: car stationary + car crossing head-on
     rows = []
     for fid in range(60):
         t = fid / 30.0
@@ -196,13 +219,9 @@ def test_cli_runs_on_synthetic_tracks(tmp_path):
         "5",
     ]
     r = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=180)
-    assert r.returncode == 0, (
-        f"stdout tail: {r.stdout[-800:]}\nstderr: {r.stderr[-800:]}"
-    )
+    assert r.returncode == 0, f"stdout: {r.stdout[-800:]}\nstderr: {r.stderr[-800:]}"
     csv = out / "window_features.csv"
     assert csv.exists()
-    import pandas as pd
-
     W = pd.read_csv(csv)
     assert len(W) == 6
     for col in (
@@ -218,3 +237,93 @@ def test_cli_runs_on_synthetic_tracks(tmp_path):
         assert col in W.columns
     assert (W["any_1.5"] == 1).all()
     assert (W["sustained_r30"] == 0).all()
+
+
+# ------------------------------------------------------------------
+# Permutation test
+# ------------------------------------------------------------------
+
+
+def test_permute_tracks_preserves_durations():
+    df = _tiny_df()
+    before = df.groupby("track_id").size().to_dict()
+    rng = np.random.default_rng(42)
+    permuted = permute_tracks(df, rng)
+    after = permuted.groupby("track_id").size().to_dict()
+    assert before == after
+
+
+def test_permute_tracks_keeps_frames_in_clip():
+    df = _tiny_df()
+    rng = np.random.default_rng(42)
+    permuted = permute_tracks(df, rng)
+    assert permuted["frame_idx"].min() >= df["frame_idx"].min()
+    assert permuted["frame_idx"].max() <= df["frame_idx"].max()
+
+
+def test_permute_tracks_deterministic_for_seed():
+    df = _tiny_df()
+    a = permute_tracks(df, np.random.default_rng(42))
+    b = permute_tracks(df, np.random.default_rng(42))
+    a_sorted = a.sort_values(["track_id", "frame_idx"]).reset_index(drop=True)
+    b_sorted = b.sort_values(["track_id", "frame_idx"]).reset_index(drop=True)
+    assert a_sorted.equals(b_sorted)
+
+
+def test_permute_tracks_changes_frame_positions():
+    """Circular shift preserves the SET of frame indices, so compare
+    unsorted sequences (a nonzero offset rotates the sequence)."""
+    df = _tiny_df()
+    rng = np.random.default_rng(42)
+    permuted = permute_tracks(df, rng)
+    orig_by_tid = (
+        df.groupby("track_id")["frame_idx"].apply(lambda s: tuple(s.tolist())).to_dict()
+    )
+    perm_by_tid = (
+        permuted.groupby("track_id")["frame_idx"]
+        .apply(lambda s: tuple(s.tolist()))
+        .to_dict()
+    )
+    n_shifted = sum(1 for tid in orig_by_tid if orig_by_tid[tid] != perm_by_tid[tid])
+    assert n_shifted >= 1
+
+
+def test_permutation_on_sparse_scene_stays_zero():
+    """20 stationary, well-separated actors: no collisions real or null."""
+    fmin, fmax = 0, 99
+    rows = [
+        {
+            "frame_idx": fid,
+            "track_id": tid,
+            "x_m": 50.0 + tid * 10.0,
+            "y_m": 50.0,
+            "vx": 0.0,
+            "vy": 0.0,
+            "class_name": "car",
+            "speed": 0.0,
+        }
+        for tid in range(20)
+        for fid in range(fmin, fmax + 1)
+    ]
+    df = pd.DataFrame(rows)
+    real_cache = frame_scan_cache(df, fmin, fmax)
+    real_rates = label_rates_from_cache(real_cache, fmin, fmax, 30, 10)
+    assert real_rates["any_1.5"] == 0.0
+    for seed in (1, 2, 3):
+        rng = np.random.default_rng(seed)
+        permuted = permute_tracks(df, rng)
+        cache = frame_scan_cache(permuted, fmin, fmax)
+        rates = label_rates_from_cache(cache, fmin, fmax, 30, 10)
+        assert rates["any_1.5"] == 0.0
+
+
+def test_permutation_rates_bounded():
+    df = _tiny_df()
+    rng = np.random.default_rng(42)
+    permuted = permute_tracks(df, rng)
+    fmin = int(df["frame_idx"].min())
+    fmax = int(df["frame_idx"].max())
+    cache = frame_scan_cache(permuted, fmin, fmax)
+    rates = label_rates_from_cache(cache, fmin, fmax, 10, 5)
+    for rate in rates.values():
+        assert 0.0 <= rate <= 1.0
