@@ -72,7 +72,9 @@ def test_evaluate_bin_skipped_when_too_small():
 def test_evaluate_bin_runs_on_balanced_binary():
     rng = np.random.RandomState(42)
     n = 200
-    X = rng.randn(n, 4)
+    # 50 columns so SingleFeatureBaseline can index column 23 (its
+    # feature lookup) without going out of bounds.
+    X = rng.randn(n, 50)
     # signal: y depends on X[:, 0]
     y = (X[:, 0] + 0.3 * rng.randn(n) > 0).astype(int)
     out = evaluate_bin(X, y, k=5, seed=42)
@@ -88,7 +90,7 @@ def test_evaluate_bin_runs_on_balanced_binary():
 def test_evaluate_bin_rf_auc_bounded():
     rng = np.random.RandomState(7)
     n = 100
-    X = rng.randn(n, 3)
+    X = rng.randn(n, 50)
     y = rng.randint(0, 2, n)
     out = evaluate_bin(X, y, k=5, seed=42)
     if not out["skipped"] and out["rf"]["mean_auc"] is not None:
