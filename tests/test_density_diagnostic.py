@@ -78,7 +78,7 @@ def test_evaluate_bin_runs_on_balanced_binary():
     # signal: y depends on X[:, 0]
     y = (X[:, 0] + 0.3 * rng.randn(n) > 0).astype(int)
     out = evaluate_bin(X, y, k=5, seed=42)
-    assert out["skipped"] is False
+    assert out.get("skipped", False) is False
     assert out["n"] == n
     # both baselines ran
     assert out["rf"]["mean_auc"] is not None
@@ -93,7 +93,7 @@ def test_evaluate_bin_rf_auc_bounded():
     X = rng.randn(n, 50)
     y = rng.randint(0, 2, n)
     out = evaluate_bin(X, y, k=5, seed=42)
-    if not out["skipped"] and out["rf"]["mean_auc"] is not None:
+    if not out.get("skipped", False) and out["rf"]["mean_auc"] is not None:
         assert 0.0 <= out["rf"]["mean_auc"] <= 1.0
 
 

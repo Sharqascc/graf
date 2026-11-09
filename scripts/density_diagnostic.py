@@ -76,6 +76,7 @@ def evaluate_bin(X, y, k, seed):
         "n": n,
         "n_pos": n_pos,
         "positive_rate": n_pos / n,
+        "skipped": False,
         "rf": run(RandomForestBaseline),
         "single_feature": run(
             lambda: SingleFeatureBaseline(feature_name="edge_attr_nonzero_frac")
